@@ -11,9 +11,9 @@ interface MetricCardProps {
 }
 
 const trendColor: Record<NonNullable<MetricCardProps["trend"]>, string> = {
-  up: "text-[var(--color-success)]",
-  down: "text-[var(--color-danger)]",
-  neutral: "text-[var(--color-text-secondary)]",
+  up: "text-[color:var(--color-success)]",
+  down: "text-[color:var(--color-danger)]",
+  neutral: "text-[color:var(--color-text-secondary)]",
 };
 
 export function MetricCard({
@@ -42,14 +42,14 @@ export function MetricCard({
       ) : (
         <>
           <div className="flex w-full items-center justify-between">
-            <span className="text-[var(--text-sm)] text-[var(--color-text-secondary)]">
+            <span className="text-[length:var(--text-sm)] text-[color:var(--color-text-secondary)]">
               {label}
             </span>
             {trend !== "neutral" && (
               <TrendIcon width={16} height={16} className={trendColor[trend]} />
             )}
           </div>
-          <span className="font-heading text-[var(--text-2xl)] font-bold text-[var(--color-text-primary)]">
+          <span className="font-heading text-[length:var(--text-2xl)] font-bold text-[color:var(--color-text-primary)]">
             {value}
           </span>
           {delta && (

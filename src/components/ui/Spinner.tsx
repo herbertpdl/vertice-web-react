@@ -16,7 +16,7 @@ const sizeClasses: Record<SpinnerSize, string> = {
 export function Spinner({ size = "md", className = "" }: SpinnerProps) {
   return (
     <LoaderCircle
-      className={`animate-spin text-[var(--color-primary)] ${sizeClasses[size]} ${className}`}
+      className={`animate-spin text-[color:var(--color-primary)] ${sizeClasses[size]} ${className}`}
     />
   );
 }

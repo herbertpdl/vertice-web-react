@@ -32,7 +32,7 @@ function MenuRow({
       type="button"
       onClick={onClick}
       className={`flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-[10px] py-[9px] text-left text-[13px] transition-colors hover:bg-[var(--color-surface-hover)] ${
-        danger ? "text-[var(--color-danger)]" : "text-[var(--color-text-primary)]"
+        danger ? "text-[color:var(--color-danger)]" : "text-[color:var(--color-text-primary)]"
       }`}
     >
       <Icon
@@ -40,8 +40,8 @@ function MenuRow({
         height={15}
         className={
           danger
-            ? "text-[var(--color-danger)]"
-            : "text-[var(--color-text-secondary)]"
+            ? "text-[color:var(--color-danger)]"
+            : "text-[color:var(--color-text-secondary)]"
         }
       />
       {label}
@@ -61,10 +61,10 @@ export function ProfileMenu({
       className={`font-base flex w-[220px] flex-col rounded-[var(--radius-md)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-[6px] ${className}`}
     >
       <div className="flex flex-col gap-[2px] px-[10px] pt-[10px] pb-[12px]">
-        <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+        <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
           {name}
         </span>
-        <span className="text-[11px] text-[var(--color-text-tertiary)]">
+        <span className="text-[11px] text-[color:var(--color-text-tertiary)]">
           {email}
         </span>
       </div>
