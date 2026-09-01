@@ -17,7 +17,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
         {label && (
           <label
             htmlFor={fieldId}
-            className="text-[var(--text-xs)] font-semibold text-[var(--color-text-secondary)]"
+            className="text-[length:var(--text-xs)] font-semibold text-[color:var(--color-text-secondary)]"
           >
             {label}
           </label>
@@ -32,7 +32,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           <input
             ref={ref}
             id={fieldId}
-            className="w-full bg-transparent text-[var(--text-base)] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+            className="w-full bg-transparent text-[length:var(--text-base)] text-[color:var(--color-text-primary)] outline-none placeholder:text-[color:var(--color-text-tertiary)]"
             {...props}
           />
         </div>
@@ -40,8 +40,8 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           <span
             className={`text-[11px] ${
               error
-                ? "text-[var(--color-danger)]"
-                : "text-[var(--color-text-tertiary)]"
+                ? "text-[color:var(--color-danger)]"
+                : "text-[color:var(--color-text-tertiary)]"
             }`}
           >
             {error || helpText}

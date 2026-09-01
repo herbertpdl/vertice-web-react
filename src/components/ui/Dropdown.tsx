@@ -47,7 +47,7 @@ export function Dropdown({
       {label && (
         <label
           htmlFor={id}
-          className="text-[var(--text-xs)] font-semibold text-[var(--color-text-secondary)]"
+          className="text-[length:var(--text-xs)] font-semibold text-[color:var(--color-text-secondary)]"
         >
           {label}
         </label>
@@ -59,7 +59,7 @@ export function Dropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className={`flex w-full items-center justify-between gap-2 border bg-[var(--color-surface)] px-[14px] py-[10px] text-[var(--text-base)] transition-colors ${
+        className={`flex w-full items-center justify-between gap-2 border bg-[var(--color-surface)] px-[14px] py-[10px] text-[length:var(--text-base)] transition-colors ${
           open
             ? "rounded-t-[var(--radius-md)] border-[var(--color-primary)]"
             : "rounded-[var(--radius-md)] border-[var(--color-border)]"
@@ -68,8 +68,8 @@ export function Dropdown({
         <span
           className={
             selected
-              ? "text-[var(--color-text-primary)]"
-              : "text-[var(--color-text-tertiary)]"
+              ? "text-[color:var(--color-text-primary)]"
+              : "text-[color:var(--color-text-tertiary)]"
           }
         >
           {selected ? selected.label : placeholder}
@@ -77,7 +77,7 @@ export function Dropdown({
         <ChevronDown
           width={16}
           height={16}
-          className={`text-[var(--color-text-secondary)] transition-transform ${
+          className={`text-[color:var(--color-text-secondary)] transition-transform ${
             open ? "rotate-180" : ""
           }`}
         />
@@ -99,10 +99,10 @@ export function Dropdown({
                     onChange?.(option.value);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-[10px] py-[9px] text-left text-[var(--text-base)] hover:bg-[var(--color-surface-hover)] ${
+                  className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-[10px] py-[9px] text-left text-[length:var(--text-base)] hover:bg-[var(--color-surface-hover)] ${
                     isSelected
-                      ? "bg-[var(--color-surface-hover)] text-[var(--color-primary)]"
-                      : "text-[var(--color-text-primary)]"
+                      ? "bg-[var(--color-surface-hover)] text-[color:var(--color-primary)]"
+                      : "text-[color:var(--color-text-primary)]"
                   }`}
                 >
                   {option.label}

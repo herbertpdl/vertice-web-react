@@ -34,16 +34,16 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             <Check
               width={13}
               height={13}
-              className="text-[var(--color-primary-text)]"
+              className="text-[color:var(--color-primary-text)]"
             />
           )}
         </span>
         {label && (
           <span
-            className={`text-[var(--text-base)] ${
+            className={`text-[length:var(--text-base)] ${
               checked
-                ? "text-[var(--color-text-primary)]"
-                : "text-[var(--color-text-secondary)]"
+                ? "text-[color:var(--color-text-primary)]"
+                : "text-[color:var(--color-text-secondary)]"
             }`}
           >
             {label}

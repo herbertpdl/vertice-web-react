@@ -7,10 +7,10 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  primary: "bg-[#00e5ff26] text-[var(--color-primary)]",
-  success: "bg-[#2ed57326] text-[var(--color-success)]",
-  danger: "bg-[#ff5c5c26] text-[var(--color-danger)]",
-  neutral: "bg-[var(--color-surface-hover)] text-[var(--color-text-secondary)]",
+  primary: "bg-[#00e5ff26] text-[color:var(--color-primary)]",
+  success: "bg-[#2ed57326] text-[color:var(--color-success)]",
+  danger: "bg-[#ff5c5c26] text-[color:var(--color-danger)]",
+  neutral: "bg-[var(--color-surface-hover)] text-[color:var(--color-text-secondary)]",
 };
 
 export function Badge({

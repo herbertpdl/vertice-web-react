@@ -15,7 +15,7 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
         } ${className}`}
       >
         {label && (
-          <span className="text-[var(--text-base)] text-[var(--color-text-primary)]">
+          <span className="text-[length:var(--text-base)] text-[color:var(--color-text-primary)]">
             {label}
           </span>
         )}
