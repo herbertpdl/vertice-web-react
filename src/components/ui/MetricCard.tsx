@@ -1,10 +1,12 @@
 import { TrendingDown, TrendingUp } from "lucide-react";
+import { SkeletonCircle, SkeletonLine } from "./Skeleton";
 
 interface MetricCardProps {
   label: string;
   value: string;
   delta?: string;
   trend?: "up" | "down" | "neutral";
+  loading?: boolean;
   className?: string;
 }
 
@@ -19,6 +21,7 @@ export function MetricCard({
   value,
   delta,
   trend = "up",
+  loading = false,
   className = "",
 }: MetricCardProps) {
   const TrendIcon = trend === "down" ? TrendingDown : TrendingUp;
@@ -27,19 +30,32 @@ export function MetricCard({
     <div
       className={`font-base flex w-[280px] flex-col gap-[var(--space-3)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-[var(--space-5)] ${className}`}
     >
-      <div className="flex w-full items-center justify-between">
-        <span className="text-[var(--text-sm)] text-[var(--color-text-secondary)]">
-          {label}
-        </span>
-        {trend !== "neutral" && (
-          <TrendIcon width={16} height={16} className={trendColor[trend]} />
-        )}
-      </div>
-      <span className="font-heading text-[var(--text-2xl)] font-bold text-[var(--color-text-primary)]">
-        {value}
-      </span>
-      {delta && (
-        <span className={`text-[12px] ${trendColor[trend]}`}>{delta}</span>
+      {loading ? (
+        <>
+          <div className="flex w-full items-center justify-between">
+            <SkeletonLine width={90} height={10} />
+            <SkeletonCircle size={16} />
+          </div>
+          <SkeletonLine width={100} height={24} />
+          <SkeletonLine width={150} height={10} />
+        </>
+      ) : (
+        <>
+          <div className="flex w-full items-center justify-between">
+            <span className="text-[var(--text-sm)] text-[var(--color-text-secondary)]">
+              {label}
+            </span>
+            {trend !== "neutral" && (
+              <TrendIcon width={16} height={16} className={trendColor[trend]} />
+            )}
+          </div>
+          <span className="font-heading text-[var(--text-2xl)] font-bold text-[var(--color-text-primary)]">
+            {value}
+          </span>
+          {delta && (
+            <span className={`text-[12px] ${trendColor[trend]}`}>{delta}</span>
+          )}
+        </>
       )}
     </div>
   );
