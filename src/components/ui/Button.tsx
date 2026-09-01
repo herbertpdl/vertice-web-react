@@ -1,4 +1,5 @@
 import { ButtonHTMLAttributes, forwardRef } from "react";
+import { Spinner } from "./Spinner";
 
 export type ButtonVariant =
   | "primary"
@@ -11,6 +12,7 @@ export type ButtonSize = "sm" | "md" | "lg";
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  loading?: boolean;
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -32,14 +34,29 @@ const sizeClasses: Record<ButtonSize, string> = {
   lg: "py-[14px] px-[28px] text-[var(--text-md)]",
 };
 
+const loadingSpinnerClasses: Record<ButtonVariant, string> = {
+  primary: "text-[var(--color-primary-text)]",
+  secondary: "text-[var(--color-text-primary)]",
+  outline: "text-[var(--color-text-primary)]",
+  ghost: "text-[var(--color-text-secondary)]",
+  danger: "text-[var(--color-bg)]",
+};
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "primary", size = "md", className = "", ...props }, ref) => {
+  (
+    { variant = "primary", size = "md", loading = false, className = "", children, ...props },
+    ref,
+  ) => {
     return (
       <button
         ref={ref}
-        className={`font-base inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] font-semibold transition-colors disabled:opacity-35 disabled:pointer-events-none ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+        aria-busy={loading}
+        className={`font-base inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] font-semibold transition-colors disabled:opacity-35 disabled:pointer-events-none ${variantClasses[variant]} ${sizeClasses[size]} ${loading ? "opacity-85 pointer-events-none" : ""} ${className}`}
         {...props}
-      />
+      >
+        {loading && <Spinner size="sm" className={loadingSpinnerClasses[variant]} />}
+        {children}
+      </button>
     );
   },
 );
