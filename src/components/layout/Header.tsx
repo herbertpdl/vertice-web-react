@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { ProfileMenu, type ProfileMenuItem } from "@/components/ui/ProfileMenu";
 
@@ -41,25 +43,25 @@ export function Header({
     >
       <div className="flex items-center gap-[var(--space-8)]">
         <div className="flex items-center gap-2">
-          <div className="h-[28px] w-[28px] rounded-[8px] bg-[var(--color-primary)]" />
-          <span className="font-heading text-[var(--text-lg)] font-semibold text-[var(--color-text-primary)]">
+          <Image src="/logo-mark.png" alt="" width={28} height={28} priority />
+          <span className="font-heading text-[length:var(--text-lg)] font-semibold text-[color:var(--color-text-primary)]">
             {logoText}
           </span>
         </div>
         <nav className="flex items-center gap-[var(--space-6)]">
           {navItems.map((item) => (
-            <a
+            <Link
               key={item.label}
               href={item.href ?? "#"}
               onClick={item.onClick}
-              className={`text-[var(--text-base)] ${
+              className={`text-[length:var(--text-base)] ${
                 item.active
-                  ? "font-semibold text-[var(--color-primary)]"
-                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                  ? "font-semibold text-[color:var(--color-primary)]"
+                  : "text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]"
               }`}
             >
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
       </div>
@@ -82,17 +84,17 @@ export function Header({
         >
           <span className="h-[30px] w-[30px] rounded-full bg-[var(--color-secondary)]" />
           <span className="flex flex-col items-start">
-            <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+            <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
               {user.name}
             </span>
-            <span className="text-[11px] text-[var(--color-text-tertiary)]">
+            <span className="text-[11px] text-[color:var(--color-text-tertiary)]">
               {user.role}
             </span>
           </span>
           <ChevronDown
             width={16}
             height={16}
-            className={`text-[var(--color-text-secondary)] transition-transform ${
+            className={`text-[color:var(--color-text-secondary)] transition-transform ${
               menuOpen ? "rotate-180" : ""
             }`}
           />
