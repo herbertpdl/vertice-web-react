@@ -54,7 +54,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={`font-base inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] font-semibold transition-colors disabled:opacity-35 disabled:pointer-events-none ${variantClasses[variant]} ${sizeClasses[size]} ${loading ? "opacity-85 pointer-events-none" : ""} ${className}`}
         {...props}
       >
-        {loading && <Spinner size="sm" className={loadingSpinnerClasses[variant]} />}
+        {loading && (
+          <Spinner size="sm" className={`!w-[16px] !h-[16px] ${loadingSpinnerClasses[variant]}`} />
+        )}
         {children}
       </button>
     );
