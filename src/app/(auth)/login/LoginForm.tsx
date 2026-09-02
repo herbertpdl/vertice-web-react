@@ -13,6 +13,7 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [formError, setFormError] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const {
     register,
@@ -31,6 +32,7 @@ export function LoginForm() {
     setFormError(null);
     try {
       await login(data);
+      setIsRedirecting(true);
       const redirect = searchParams.get("redirect") || "/dashboard";
       router.push(redirect);
       router.refresh();
@@ -91,7 +93,11 @@ export function LoginForm() {
         </span>
       </div>
 
-      <Button type="submit" loading={isSubmitting} className="w-full justify-center">
+      <Button
+        type="submit"
+        loading={isSubmitting || isRedirecting}
+        className="w-full justify-center"
+      >
         Entrar
       </Button>
 
