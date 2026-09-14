@@ -8,6 +8,8 @@ export interface DropdownOption {
   label: string;
 }
 
+export type DropdownSize = "md" | "compact";
+
 interface DropdownProps {
   label?: string;
   placeholder?: string;
@@ -15,8 +17,40 @@ interface DropdownProps {
   value?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
+  size?: DropdownSize;
   className?: string;
 }
+
+const sizeStyles: Record<
+  DropdownSize,
+  {
+    trigger: string;
+    triggerRadius: string;
+    triggerRadiusOpen: string;
+    menuRadiusBottom: string;
+    menuBg: string;
+    chevronSize: number;
+  }
+> = {
+  md: {
+    trigger:
+      "px-[14px] py-[10px] text-[length:var(--text-base)] bg-[var(--color-surface)]",
+    triggerRadius: "rounded-[var(--radius-md)]",
+    triggerRadiusOpen: "rounded-t-[var(--radius-md)]",
+    menuRadiusBottom: "rounded-b-[var(--radius-md)]",
+    menuBg: "bg-[var(--color-surface)]",
+    chevronSize: 16,
+  },
+  compact: {
+    trigger:
+      "px-[10px] py-[7px] text-[length:var(--text-xs)] bg-[var(--color-bg)]",
+    triggerRadius: "rounded-[var(--radius-sm)]",
+    triggerRadiusOpen: "rounded-t-[var(--radius-sm)]",
+    menuRadiusBottom: "rounded-b-[var(--radius-sm)]",
+    menuBg: "bg-[var(--color-bg)]",
+    chevronSize: 14,
+  },
+};
 
 export function Dropdown({
   label,
@@ -25,12 +59,14 @@ export function Dropdown({
   value,
   onChange,
   disabled,
+  size = "md",
   className = "",
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value);
+  const styles = sizeStyles[size];
 
   return (
     <div
@@ -59,10 +95,10 @@ export function Dropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className={`flex w-full items-center justify-between gap-2 border bg-[var(--color-surface)] px-[14px] py-[10px] text-[length:var(--text-base)] transition-colors ${
+        className={`flex w-full items-center justify-between gap-2 border ${styles.trigger} transition-colors ${
           open
-            ? "rounded-t-[var(--radius-md)] border-[var(--color-primary)]"
-            : "rounded-[var(--radius-md)] border-[var(--color-border)]"
+            ? `${styles.triggerRadiusOpen} border-[var(--color-primary)]`
+            : `${styles.triggerRadius} border-[var(--color-border)]`
         }`}
       >
         <span
@@ -75,8 +111,8 @@ export function Dropdown({
           {selected ? selected.label : placeholder}
         </span>
         <ChevronDown
-          width={16}
-          height={16}
+          width={styles.chevronSize}
+          height={styles.chevronSize}
           className={`text-[color:var(--color-text-secondary)] transition-transform ${
             open ? "rotate-180" : ""
           }`}
@@ -85,7 +121,7 @@ export function Dropdown({
       {open && (
         <ul
           role="listbox"
-          className="absolute top-full left-0 z-10 flex w-full flex-col gap-0 rounded-b-[var(--radius-md)] border border-t-0 border-[var(--color-border)] bg-[var(--color-surface)] p-[6px]"
+          className={`absolute top-full left-0 z-10 flex w-full flex-col gap-0 ${styles.menuRadiusBottom} border border-t-0 border-[var(--color-border)] ${styles.menuBg} p-[6px]`}
         >
           {options.map((option) => {
             const isSelected = option.value === value;
