@@ -1,5 +1,9 @@
 import type { ApiErrorBody } from "./types";
 
+// Guards against every in-flight request independently kicking off its own
+// logout+redirect when a 401 arrives (e.g. auth/me and dashboard failing together).
+let loggingOut = false;
+
 export class ApiError extends Error {
   code: string;
   details?: unknown;
@@ -43,11 +47,17 @@ async function request<T>(
       body?.error ?? { code: "UNKNOWN_ERROR", message: "Something went wrong" },
       res.status,
     );
-    if (res.status === 401 && typeof window !== "undefined") {
+    if (res.status === 401 && typeof window !== "undefined" && !loggingOut) {
+      loggingOut = true;
       // Plain module-level function, not a component - no router available.
       // A hard navigation also guarantees the query cache is dropped.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = "/login";
+      // The session cookie is httpOnly, so it must be cleared server-side before navigating -
+      // otherwise proxy.ts still sees it as present and immediately bounces /login back here,
+      // causing an infinite redirect loop.
+      fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.href = "/login";
+      });
     }
     throw error;
   }

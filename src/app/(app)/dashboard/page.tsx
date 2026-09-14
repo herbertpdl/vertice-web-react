@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, CircleCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -8,11 +9,20 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { fetchDashboard } from "@/lib/api/dashboard";
 import { formatRelativeTime, daysLeftLabel } from "@/lib/format";
 
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
-  return "Boa noite";
+// Read the clock only after mount: server (often UTC) and browser (local) time zones can
+// disagree on which greeting bucket applies, causing a hydration mismatch if read during render.
+function useGreeting() {
+  const [greeting, setGreeting] = useState("Olá");
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only value (time zone), can't be known during SSR
+    if (hour < 12) setGreeting("Bom dia");
+    else if (hour < 18) setGreeting("Boa tarde");
+    else setGreeting("Boa noite");
+  }, []);
+
+  return greeting;
 }
 
 function SectionCard({
@@ -47,6 +57,7 @@ export default function DashboardPage() {
     queryKey: ["dashboard"],
     queryFn: fetchDashboard,
   });
+  const greeting = useGreeting();
 
   const firstName = user?.name?.split(" ")[0];
 
@@ -55,7 +66,7 @@ export default function DashboardPage() {
       <div className="flex w-full items-center justify-between gap-[var(--space-6)]">
         <div className="flex flex-col gap-[6px]">
           <h1 className="font-heading text-[length:var(--text-3xl)] font-bold text-[color:var(--color-text-primary)]">
-            {greeting()}
+            {greeting}
             {firstName ? `, ${firstName}` : ""}
           </h1>
           {data && (
