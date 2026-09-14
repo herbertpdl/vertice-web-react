@@ -11,11 +11,15 @@ Vertice Web (React) is a from-scratch replacement for the previous Vue-based `ve
 ## Commands
 
 ```bash
-npm run dev      # start the dev server (http://localhost:3000)
+npm run dev      # start the dev server (http://localhost:5173)
 npm run build    # production build
 npm run start    # run the production build
 npm run lint     # ESLint (flat config, eslint-config-next core-web-vitals + typescript)
 ```
+
+The dev server is pinned to port `5173` (not Next's usual `3000`) via `-p 5173` in the `dev`
+script, since `3000` is `vertice-bff`'s default port and `vertice-bff`'s `CORS_ORIGIN` already
+defaults to `http://localhost:5173`. Override with `npm run dev -- -p <port>` if needed.
 
 There is no test suite configured in this repository yet.
 
@@ -30,7 +34,8 @@ There is no test suite configured in this repository yet.
 - **Fonts**: Inter (`font-base`) and Space Grotesk (`font-heading`) are loaded via `next/font/google` in `layout.tsx` and exposed as CSS variables consumed by the `.font-base`/`.font-heading` utility classes in `globals.css`.
 - Layout-level components (e.g. `Header`) live in `src/components/layout/`, separate from the reusable `src/components/ui/` kit.
 
-## Docker
+## Running
 
-`Dockerfile` builds a dev-mode image (`node:22-alpine`, `npm ci`, runs `npm run dev`) — there is no production/multi-stage build defined yet.
-Match Node 22 locally if not using Docker — there's no `engines` field in `package.json` to enforce it.
+This app runs natively only — there is no `Dockerfile` — since it's the piece of the stack most
+affected by slow Docker image rebuilds/caching. Match Node 22 locally; there's no `engines` field
+in `package.json` to enforce it.
