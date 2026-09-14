@@ -51,6 +51,7 @@ export function SetRow({ set, onUpdate, onDelete }: SetRowProps) {
         {set.setNumber}
       </span>
       <Dropdown
+        size="compact"
         options={strategyOptions}
         value={set.strategy}
         onChange={(value) => onUpdate({ strategy: value as SetStrategyFormInput })}
