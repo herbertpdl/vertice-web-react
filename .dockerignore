@@ -1,8 +1,0 @@
-node_modules
-.next
-coverage
-.git
-.vscode
-.idea
-*.log
-.env
