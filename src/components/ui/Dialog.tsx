@@ -25,7 +25,8 @@ export function Dialog({ title, onClose, width = 440, children, className = "" }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        onClose();
+        // A nested popover (e.g. an open Dropdown) claims Escape via preventDefault.
+        if (!event.defaultPrevented) onClose();
         return;
       }
       if (event.key !== "Tab" || !panel) return;
