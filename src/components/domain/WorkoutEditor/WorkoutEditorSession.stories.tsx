@@ -1,7 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, waitFor, within } from "storybook/test";
 import { WorkoutEditorSession, type WorkoutEditorSessionProps } from "./WorkoutEditor";
-import { agachamentoCard, catalog, fakeTransport, puxadaCard, recentWorkouts, supinoCard } from "../storyFixtures";
+import {
+  agachamentoCard,
+  catalog,
+  fakeTransport,
+  puxadaCard,
+  recentWorkouts,
+  supinoCard,
+  treinoAFull,
+} from "../storyFixtures";
 import { withSeededQueries } from "../storyQuery";
 import { emptyWorkout } from "@/lib/workoutEditor/model";
 
@@ -18,7 +26,11 @@ const meta = {
     delayMs: 300,
   },
   decorators: [
-    withSeededQueries({ '["exercises"]': catalog, '["recentWorkouts"]': recentWorkouts }),
+    withSeededQueries({
+      '["exercises"]': catalog,
+      '["recentWorkouts"]': recentWorkouts,
+      '["workout",42,"full"]': treinoAFull,
+    }),
     (Story) => (
       <div style={{ width: 1600, margin: -24 }}>
         <Story />
@@ -54,6 +66,25 @@ export const FirstExerciseCreatesIt: Story = {
     await expect(canvas.getByText("Salvando…")).toBeVisible();
     await waitFor(() => expect(canvas.getByText("Salvo")).toBeVisible(), { timeout: 3000 });
     await expect(canvas.getByText("Novo treino")).toBeVisible();
+  },
+};
+
+/** "Usar treino existente como base": the pick seeds name, weekday and tree, then the first save creates the workout (R25, R3). */
+export const CloneFromExisting: Story = {
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getAllByRole("button", { name: "Usar treino existente como base" })[0]);
+    const dialog = canvas.getByRole("dialog");
+    await userEvent.click(within(dialog).getByText("Treino A — Peito e Costas"));
+    await waitFor(() => expect(canvas.queryByRole("dialog")).not.toBeInTheDocument());
+    await expect(canvas.getByLabelText("Nome do treino")).toHaveValue("Treino A — Peito e Costas");
+    await expect(canvas.getAllByRole("group")).toHaveLength(3);
+    await expect(
+      within(canvas.getByRole("group", { name: "Exercício 1: Supino Reto com Barra" })).getAllByRole("row"),
+    ).toHaveLength(4);
+    await expect(
+      canvas.queryByRole("button", { name: "Usar treino existente como base" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(canvas.getByText("Salvo")).toBeVisible(), { timeout: 5000 });
   },
 };
 

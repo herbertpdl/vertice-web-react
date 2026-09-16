@@ -84,6 +84,35 @@ export const puxadaCard: EditorExercise = exercise(puxada, {
 
 export const agachamentoCard: EditorExercise = exercise(agachamento, { id: 12, order: 3, restSecondsBetweenSets: 60 });
 
+/** What `GET /workouts/42/full` answers — the tree "usar treino existente como base" seeds the editor with (R25). */
+export const treinoAFull: FullWorkout = {
+  id: 42,
+  name: "Treino A — Peito e Costas",
+  trainingPlanId: 7,
+  dayOfWeek: "MONDAY",
+  exercises: [supinoCard, puxadaCard, agachamentoCard].map((we, i) => ({
+    id: we.id!,
+    workoutId: 42,
+    exerciseId: we.exercise.id,
+    order: i + 1,
+    restSecondsBetweenSets: we.restSecondsBetweenSets,
+    notes: we.notes,
+    exercise: we.exercise,
+    sets: we.sets.map((s, j) => ({
+      id: s.id!,
+      workoutExerciseId: we.id!,
+      setNumber: j + 1,
+      reps: s.reps,
+      durationSeconds: s.durationSeconds,
+      weight: s.weight,
+      loadPercentage: s.loadPercentage,
+      strategy: s.strategy,
+      restSeconds: s.restSeconds,
+      notes: s.notes,
+    })),
+  })),
+};
+
 export const recentWorkouts: RecentWorkoutSummary[] = [
   { id: 42, name: "Treino A — Peito e Costas", trainingPlanId: 7, dayOfWeek: "MONDAY", studentName: "Maria Silva", planName: "Hipertrofia — Fase 1", exerciseCount: 3 },
   { id: 41, name: "Treino B — Pernas", trainingPlanId: 7, dayOfWeek: "WEDNESDAY", studentName: "Maria Silva", planName: "Hipertrofia — Fase 1", exerciseCount: 5 },

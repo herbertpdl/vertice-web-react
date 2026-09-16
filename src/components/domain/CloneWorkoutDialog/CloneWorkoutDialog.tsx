@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, TextField } from "@/components/ui";
 import { fetchRecentWorkouts, fetchFullWorkout } from "@/lib/api/workouts";
 import { DAY_NAMES } from "@/lib/days";
@@ -20,6 +20,7 @@ interface CloneWorkoutDialogProps {
 
 export function CloneWorkoutDialog({ onClose, onPick }: CloneWorkoutDialogProps) {
   const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
   const { data } = useQuery({ queryKey: ["recentWorkouts"], queryFn: fetchRecentWorkouts });
 
   const filtered = useMemo(() => {
@@ -34,8 +35,14 @@ export function CloneWorkoutDialog({ onClose, onPick }: CloneWorkoutDialogProps)
     );
   }, [data, search]);
 
+  // Same key the editor uses for that workout, so a fresh copy is reused
+  // (and Storybook can seed it) instead of always going to the BFF.
   const pickMutation = useMutation({
-    mutationFn: (sourceId: number) => fetchFullWorkout(sourceId),
+    mutationFn: (sourceId: number) =>
+      queryClient.fetchQuery({
+        queryKey: ["workout", sourceId, "full"],
+        queryFn: () => fetchFullWorkout(sourceId),
+      }),
     onSuccess: (source) => {
       onPick(source);
       onClose();
