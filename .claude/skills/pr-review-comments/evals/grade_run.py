@@ -99,10 +99,6 @@ add("every_open_thread_got_exactly_one_new_reply", all(c == 1 for c in counts.va
 add("no_thread_left_without_reply", all(c >= 1 for c in counts.values()),
     f"threads without reply: {[r for r, c in counts.items() if c == 0]}")
 
-# one_commit_per_addressed_thread
-multi = [c["sha"][:8] for c in commits if len(c["thread_ids"]) != 1]
-add("one_commit_per_addressed_thread", len(multi) == 0 or None,
-    f"{len(commits)} new commits; commits not linking exactly one thread: {multi} (check report for declared shared commits)")
 add("commits_have_coauthor_trailer", all(c["coauthor"] for c in commits) if commits else True,
     f"missing trailer: {[c['sha'][:8] for c in commits if not c['coauthor']]}")
 
@@ -121,7 +117,7 @@ DECLINE_RE = re.compile(
 )
 ALREADY_RE = re.compile(r"\balready[- ](addressed|handled)\b", re.I)
 FIXED_RE = re.compile(r"\b(fixed|addressed|handled) (in|by)\b", re.I)
-bad_state, sha_missing, reply_dump = [], [], []
+bad_state, sha_missing, reply_dump, new_fix_rids = [], [], [], []
 for t in threads:
     for c in new_replies[t["root_comment_id"]]:
         body = c["body"]
@@ -137,12 +133,30 @@ for t in threads:
         if is_decl and t["is_resolved"]:
             bad_state.append(f"r{t['root_comment_id']} declined but resolved")
         if is_new_fix:
+            new_fix_rids.append(t["root_comment_id"])
             shas = re.findall(r"\b[0-9a-f]{7,40}\b", body)
             ok = any(sh(["git", "merge-base", "--is-ancestor", s, head_now], check=False)[1] == 0 for s in shas)
             if not ok:
                 sha_missing.append(f"r{t['root_comment_id']}: {shas}")
 add("fixed_threads_resolved_declined_threads_open", len(bad_state) == 0, str(bad_state) or "all consistent")
 add("fix_replies_cite_a_pushed_sha", len(sha_missing) == 0, str(sha_missing) or "all fix replies cite a SHA on the head branch")
+
+# one_commit_per_addressed_thread — not just "no commit links more/fewer than one thread"
+# (a run could cite the same real SHA in several fixed replies without any commit's
+# message actually linking those other threads) but that every thread a reply called
+# "fixed" is the one a commit's `discussion_r<id>` trailer actually names.
+multi = [c["sha"][:8] for c in commits if len(c["thread_ids"]) != 1]
+linked_rids = {tid for c in commits for tid in c["thread_ids"]}
+unlinked_fixed = sorted({f"r{rid}" for rid in new_fix_rids if rid not in linked_rids})
+if unlinked_fixed:
+    one_commit_passed = False       # a "fixed" thread with no commit naming it is unambiguous
+elif multi:
+    one_commit_passed = None        # could be a declared shared commit — confirm by reading
+else:
+    one_commit_passed = True
+add("one_commit_per_addressed_thread", one_commit_passed,
+    f"{len(commits)} new commits; commits not linking exactly one thread: {multi} (check report "
+    f"for declared shared commits); fixed threads with no commit naming them: {unlinked_fixed}")
 
 # preamble check (cheap heuristic; confirm by reading)
 pre = [f"r{t['root_comment_id']}" for t in threads for c in new_replies[t["root_comment_id"]]
