@@ -1,6 +1,6 @@
 # Spec: Create Workout With Exercises (Web) — autosave workout editor
 
-Status: Implemented
+Status: Draft — implementation follows in a separate PR (this document is the contract it is built against)
 Owner: hebertpdl@gmail.com
 Related: [docs/prds/create-workout-with-exercises/prd.md](../../prds/create-workout-with-exercises/prd.md)
 (product rules R1–R29, edge cases E1–E20, decisions §7 — this document does not restate them),
