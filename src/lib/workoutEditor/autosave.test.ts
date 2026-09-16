@@ -201,6 +201,49 @@ describe("new workout", () => {
     expect(state.refusal?.body).toContain("one or more referenced exercises do not exist");
     expect(state.status).toBe("idle");
   });
+
+  it("re-arms the save for the name/weekday kept after a rejected create (E9)", async () => {
+    const transport = makeTransport();
+    let rejectTree = true;
+    transport.create = vi.fn(async (planId, input) => {
+      if (rejectTree && (input.exercises?.length ?? 0) > 0) throw apiError("VALIDATION_ERROR", 400, "exercise_id: one or more referenced exercises do not exist");
+      return fullFromEntries(42, input.name, input.exercises ?? []);
+    });
+    const engine = createAutosaveEngine({ planId: 7, workoutId: null, initial: emptyWorkout("MONDAY"), transport, delayMs: 100 });
+    engine.dispatch({ type: "setName", name: "Treino A" });
+    engine.dispatch({ type: "addExercise", exercise: supino });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+
+    // The tree is undone, the name kept, and a save is pending again.
+    expect(transport.create).toHaveBeenCalledTimes(1);
+    expect(engine.getState().draft).toMatchObject({ name: "Treino A", exercises: [] });
+    expect(engine.getState().refusal?.kind).toBe("generic");
+    expect(engine.getState().status).toBe("saving");
+
+    rejectTree = false;
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(transport.create).toHaveBeenLastCalledWith(7, { name: "Treino A", dayOfWeek: "MONDAY", exercises: [] });
+    expect(engine.getState().status).toBe("saved");
+    expect(engine.getState().workoutId).toBe(42);
+  });
+
+  it("reports a rejected header-only create as an error instead of retrying it forever", async () => {
+    const transport = makeTransport();
+    transport.create = vi.fn(async () => { throw apiError("VALIDATION_ERROR", 400, "day_of_week: invalid"); });
+    const engine = createAutosaveEngine({ planId: 7, workoutId: null, initial: emptyWorkout("MONDAY"), transport, delayMs: 100 });
+    engine.dispatch({ type: "setName", name: "Treino A" });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+    expect(engine.getState().status).toBe("error");
+    expect(engine.getState().errorMessage).toBe("day_of_week: invalid");
+    expect(engine.getState().refusal).toBeNull();
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle();
+    expect(transport.create).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("existing workout", () => {

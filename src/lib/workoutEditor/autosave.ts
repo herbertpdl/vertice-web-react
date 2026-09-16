@@ -274,7 +274,13 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
     try {
       if (state.workoutId === null) await runCreate(sent);
       else await runUpdate(sent, state.workoutId);
-      setState({ status: isDirty(state.draft) ? "saving" : restStatus() });
+      if (!isDirty(state.draft)) setState({ status: restStatus() });
+      else if (timer === null && !queuedFlush) {
+        // Still dirty with nothing scheduled: the engine itself changed the
+        // draft (a rejected tree reverted under a kept name/weekday, E9), so
+        // no dispatch armed a timer. Re-arm, or "Salvando…" would stick.
+        schedule();
+      } else setState({ status: "saving" });
     } catch (error) {
       setState({ status: "error", errorMessage: errorMessage(error) });
     } finally {
@@ -291,7 +297,10 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
         exercises: toEntries(sent.exercises),
       });
     } catch (error) {
-      if (isValidationError(error)) {
+      // A rejected tree is undone and the header retried on its own (E9);
+      // a rejected header-only payload has nothing to undo — surface it as
+      // the error state instead of reverting and re-arming forever.
+      if (isValidationError(error) && sent.exercises.length > 0) {
         revertTree(error);
         return;
       }
