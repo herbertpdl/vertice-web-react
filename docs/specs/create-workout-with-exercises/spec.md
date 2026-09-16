@@ -64,20 +64,32 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     §7 "refused whole-list save" row and §10.1 item 4 describe what the trainer sees, and that is
     unchanged); it only decides whether a flush is one `PUT` or a sequence of per-item calls.
     In that mode a removal of a non-recorded item
-    succeeds (E14) and a removal of a recorded item fails upstream (FK `set_logs → exercise_sets`,
-    surfaced by the BFF as a non-2xx error). **That failed delete is the refused change:** the
+    succeeds (E14) and a removal of a recorded item fails upstream (FK `set_logs → exercise_sets`;
+    `DeleteExerciseSet`/`DeleteWorkoutExercise` have no explicit check, so the
+    `DataIntegrityViolationException` is unmapped in `GrpcExceptionAdvice` and reaches the BFF as
+    a generic gRPC status, which `mapGrpcError` renders as **502 `UPSTREAM_ERROR`**).
+    **That failed delete is the refused change:** the
     engine restores the item into the draft at its snapshot position, marks it (danger outline +
     "Remoção desfeita — desempenho registrado por um aluno" tag, per the design) and shows the
     "Remoção não aplicada" banner naming the exercise (and set number) from local state; every
     other operation in the same flush still runs and the status ends in "Salvo" (R27, E13). The
     banner is dismissed with "Fechar" (R28). No 409 banner is shown when the refused replace
     carried no removal (there is nothing to undo — the per-item resync just saves it).
-    *Consequence recorded as a follow-up for `vertice-api`:* `DeleteExerciseSet` /
-    `DeleteWorkoutExercise` have no explicit recorded-data check (the FK violation is what
-    stops them), so the web cannot distinguish "recorded data" from another server failure on a
-    per-item delete; any non-network failure of a delete in `per-item` mode is treated as a
-    refusal. The mode is per editor session (not persisted): after a reload the first tree
-    change tries `replace` again, gets the 409 and switches, at the cost of one extra request.
+    *Which delete failures count as a refusal.* Only the codes a recorded-data delete actually
+    produces: `PRECONDITION_FAILED` (409 — what `vertice-api` will return once the §6 follow-up
+    lands) and `UPSTREAM_ERROR` (502 — the FK violation today). A `NOT_FOUND` delete counts as
+    done (§3). Everything else — network failure, `UPSTREAM_UNAVAILABLE` (503), 401/403, 400,
+    unknown codes — is **not** a refusal: the per-item run stops there, the draft is kept and the
+    footer goes to "Erro ao salvar — Tentar novamente" exactly as for any other failure (next
+    bullet); because the snapshot is advanced op by op (§3), the retry resumes from the failed
+    op. Mapping every non-2xx to the refusal path would show "desempenho registrado" for a
+    server outage and then report "Salvo" for a change that never reached the server.
+    *Known limitation, recorded as a follow-up for `vertice-api` (§6):* until the delete RPCs
+    return `FAILED_PRECONDITION` themselves, a genuine upstream 502 on a delete is
+    indistinguishable from the FK refusal and is reported as one; the trainer's remedy is to
+    remove the item again. The mode is per editor session (not persisted): after a reload the
+    first tree change tries `replace` again, gets the 409 and switches, at the cost of one extra
+    request.
 - **400 `VALIDATION_ERROR` on a replace/create reverts the whole pending batch (E9).** A refused
     create/replace changed nothing upstream (all-or-nothing), so the draft tree is reset to the
     snapshot (empty list for a not-yet-created workout) and the banner shows the platform's
@@ -197,8 +209,10 @@ timer ──▶ flush():
                     tree changed & mode=per-item → diff(snapshot, sent) as DELETE/POST/PATCH
    errors: 409 on PUT → mode = per-item, pendingFlush = true (re-sync same diff)
            400 on POST/PUT → draft tree = snapshot tree, banner(generic message)
-           failed DELETE in per-item → restore item, banner(named), continue
-           anything else → status = error (draft kept)
+           DELETE in per-item → 404: done; 409 PRECONDITION_FAILED / 502 UPSTREAM_ERROR:
+                                restore item, banner(named), continue
+           anything else → status = error (draft kept; per-item snapshot already advanced
+                           for the ops that succeeded)
    done: pendingFlush ? flush() : status = saved
 ```
 
@@ -257,8 +271,10 @@ inside the app should complete.
 - `src/lib/workoutEditor/autosave.test.ts` (vitest, node): debounce collapses a burst into one
   request; edits during an in-flight save produce exactly one follow-up save; first save of a new
   workout is a nested `POST` with "Novo treino" when unnamed and ids come back by position; an
-  existing workout uses `PATCH` + `PUT`; 409 flips to per-item and re-syncs; a failed per-item
-  delete restores the item and raises the named banner while other ops still run; 400 reverts to
+  existing workout uses `PATCH` + `PUT`; 409 flips to per-item and re-syncs; a per-item delete
+  answered 409/502 restores the item and raises the named banner while other ops still run, one
+  answered 503 (or a network failure) stops the run in `error` without a banner and `retry()`
+  resumes from that op; 400 reverts to
   the snapshot; network failure → `error` and `retry()` re-sends the current draft; `finish()`
   waits for the pending save.
 - Storybook stories (browser tests) for `WorkoutExerciseCard` (default, no sets, dragging,
