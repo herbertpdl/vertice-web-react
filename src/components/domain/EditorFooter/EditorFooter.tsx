@@ -57,7 +57,9 @@ export function EditorFooter({ status, errorMessage, finishing, onRetry, onFinis
         )}
       </div>
       <Button
-        onClick={onFinish}
+        // `loading` only blocks pointer events; Enter/Space on the focused
+        // button would otherwise start a second finish flow.
+        onClick={finishing ? undefined : onFinish}
         loading={finishing}
         className={status === "saving" && !finishing ? "opacity-60" : ""}
       >
