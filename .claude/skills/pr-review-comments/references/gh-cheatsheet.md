@@ -22,10 +22,10 @@ gh api repos/OWNER/REPO/pulls/42/comments --paginate
 gh api repos/OWNER/REPO/pulls/comments/4026445316
 
 # Reviews (the summary bodies, APPROVED / CHANGES_REQUESTED / COMMENTED)
-gh api repos/OWNER/REPO/pulls/42/reviews
+gh api repos/OWNER/REPO/pulls/42/reviews --paginate
 
 # Top-level (issue) comments
-gh api repos/OWNER/REPO/issues/42/comments
+gh api repos/OWNER/REPO/issues/42/comments --paginate
 
 # Threads with resolved / outdated state — only via GraphQL. This is the FIRST PAGE only:
 # both connections stop at 100. Re-run with `-f cursor=<endCursor>` while `hasNextPage`
