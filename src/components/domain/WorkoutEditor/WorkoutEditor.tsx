@@ -29,6 +29,9 @@ import type { DayOfWeek } from "@/lib/api/types";
 
 const dayOptions = DAY_ORDER.map((day) => ({ value: day, label: DAY_NAMES_LONG[day] }));
 
+const LEAVE_WITH_ERROR_MESSAGE =
+  "A última alteração não foi salva. Sair mesmo assim? Ela será perdida.";
+
 function ordinal(position: number) {
   return `${position}º`;
 }
@@ -157,7 +160,9 @@ export function WorkoutEditorSession({
   const [exerciseOverIndex, setExerciseOverIndex] = useState<number | null>(null);
   const [draggingSet, setDraggingSet] = useState<{ exerciseKey: string; setKey: string } | null>(null);
 
-  // Leaving warns only while something could still be lost (R12).
+  // Leaving warns only while something could still be lost (R12). A hard
+  // unload (reload, tab close) kills a pending save, so `beforeunload` covers
+  // both "saving" and "error".
   const warnOnLeave = status === "saving" || status === "error";
   useEffect(() => {
     if (!warnOnLeave) return;
@@ -167,6 +172,27 @@ export function WorkoutEditorSession({
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [warnOnLeave]);
+
+  // In-app navigation cannot lose a pending save (the engine outlives the
+  // editor and completes it) but it does abandon a failed one, and the App
+  // Router has no route-change event to veto — so while the last save failed,
+  // clicks on in-app links are intercepted here (capture phase, before
+  // `Link`, which skips its navigation once the default is prevented).
+  const guardLinks = status === "error";
+  useEffect(() => {
+    if (!guardLinks) return;
+    const handler = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element | null)?.closest?.("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement) || anchor.target === "_blank") return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+      if (!window.confirm(LEAVE_WITH_ERROR_MESSAGE)) event.preventDefault();
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, [guardLinks]);
 
   const atCap = draft.exercises.length >= MAX_EXERCISES;
   const offerClone = state.offersClone;
