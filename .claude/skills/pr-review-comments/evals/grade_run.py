@@ -18,17 +18,18 @@ SKILL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 meta = json.load(open(os.path.join(os.path.dirname(run_dir.rstrip("/")), "eval_metadata.json")))
 
 
-def sh(cmd, cwd=checkout, check=True):
-    p = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True)
+def sh(argv, cwd=checkout, check=True):
+    # argv list, no shell: branch names and paths come from the PR under test.
+    p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True)
     if check and p.returncode != 0:
-        raise RuntimeError(f"{cmd}\n{p.stderr}")
+        raise RuntimeError(f"{' '.join(argv)}\n{p.stderr}")
     return p.stdout.strip(), p.returncode
 
 
-data = json.loads(sh(f"python3 {SKILL}/scripts/pr_comments.py fetch {pr}")[0])
+data = json.loads(sh(["python3", os.path.join(SKILL, "scripts", "pr_comments.py"), "fetch", pr])[0])
 head_ref = data["pr"]["head_ref"]
-sh("git fetch origin --quiet")
-head_now = sh(f"git rev-parse origin/{head_ref}")[0]
+sh(["git", "fetch", "origin", "--quiet"])
+head_now = sh(["git", "rev-parse", f"origin/{head_ref}"])[0]
 
 # Threads that were open at run start = those with a root comment before `started`
 # and not resolved before (we can't see resolution time, so: threads with root before start).
@@ -39,7 +40,7 @@ new_replies = {
 }
 
 # New commits on the head branch since `before`
-log = sh(f"git log --format='%H%x1f%B%x1e' {before}..{head_now}")[0]
+log = sh(["git", "log", "--format=%H%x1f%B%x1e", f"{before}..{head_now}"])[0]
 commits = []
 for chunk in log.split("\x1e"):
     if not chunk.strip():
@@ -86,7 +87,7 @@ for t in threads:
             bad_state.append(f"r{t['root_comment_id']} declined but resolved")
         if is_fix:
             shas = re.findall(r"\b[0-9a-f]{7,40}\b", body)
-            ok = any(sh(f"git merge-base --is-ancestor {s} {head_now}", check=False)[1] == 0 for s in shas)
+            ok = any(sh(["git", "merge-base", "--is-ancestor", s, head_now], check=False)[1] == 0 for s in shas)
             if not ok:
                 sha_missing.append(f"r{t['root_comment_id']}: {shas}")
 add("fixed_threads_resolved_declined_threads_open", len(bad_state) == 0, str(bad_state) or "all consistent")
@@ -98,14 +99,16 @@ pre = [f"r{t['root_comment_id']}" for t in threads for c in new_replies[t["root_
 add("replies_have_no_preamble", len(pre) == 0, f"replies opening with filler: {pre}" if pre else "none open with filler")
 
 # checks at pushed head (the checkout is expected to be on the head branch)
-cur = sh("git rev-parse HEAD")[0]
-status = sh("git status --porcelain --untracked-files=no")[0]
+cur = sh(["git", "rev-parse", "HEAD"])[0]
+status = sh(["git", "status", "--porcelain", "--untracked-files=no"])[0]
 add("working_tree_clean_and_on_pr_branch", cur == head_now and status == "",
     f"HEAD={cur[:8]} origin/{head_ref}={head_now[:8]} dirty={bool(status)}")
 checks = {}
-changed = sh(f"git diff --name-only {before}..{head_now} -- '*.ts' '*.tsx' '*.js' '*.mjs'")[0].split()
-lint_cmd = "npx eslint " + " ".join(changed) if changed else "true"   # lint only what the run touched: the repo may carry pre-existing lint errors
-for name, cmd in [("lint(changed files)", lint_cmd), ("tsc", "npx tsc --noEmit"), ("unit", "npx vitest run --project unit")]:
+changed = sh(["git", "diff", "--name-only", "-z", f"{before}..{head_now}", "--",
+              "*.ts", "*.tsx", "*.js", "*.mjs"])[0].split("\0")
+changed = [f for f in changed if f]
+lint_cmd = ["npx", "eslint", *changed] if changed else ["true"]   # lint only what the run touched: the repo may carry pre-existing lint errors
+for name, cmd in [("lint(changed files)", lint_cmd), ("tsc", ["npx", "tsc", "--noEmit"]), ("unit", ["npx", "vitest", "run", "--project", "unit"])]:
     out, rc = sh(cmd, check=False)
     checks[name] = rc
 add("checks_pass_at_pushed_head", all(rc == 0 for rc in checks.values()), f"exit codes: {checks}")
