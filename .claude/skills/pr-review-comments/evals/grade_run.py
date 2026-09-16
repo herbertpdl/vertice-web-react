@@ -58,8 +58,9 @@ for chunk in log.split("\x1e"):
         continue
     sha, body = chunk.strip("\n").split("\x1f", 1)
     urls = re.findall(r"discussion_r(\d+)", body)
+    last_line = body.rstrip().splitlines()[-1] if body.strip() else ""
     commits.append({"sha": sha, "body": body, "thread_ids": [int(u) for u in urls],
-                    "coauthor": "Co-Authored-By: Claude" in body})
+                    "coauthor": last_line.startswith("Co-Authored-By: Claude")})
 
 exp = []
 
