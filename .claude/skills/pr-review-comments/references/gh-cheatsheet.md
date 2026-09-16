@@ -27,14 +27,23 @@ gh api repos/OWNER/REPO/pulls/42/reviews
 # Top-level (issue) comments
 gh api repos/OWNER/REPO/issues/42/comments
 
-# Threads with resolved / outdated state — only via GraphQL
+# Threads with resolved / outdated state — only via GraphQL. This is the FIRST PAGE only:
+# both connections stop at 100. Re-run with `-f cursor=<endCursor>` while `hasNextPage`
+# is true (and page a long thread's `comments` the same way, via `node(id:PRRT_...)`),
+# or just use `scripts/pr_comments.py fetch`, which does all of that.
 gh api graphql -F owner=OWNER -F repo=REPO -F pr=42 -f query='
-query($owner:String!,$repo:String!,$pr:Int!){
+query($owner:String!,$repo:String!,$pr:Int!,$cursor:String){
   repository(owner:$owner,name:$repo){ pullRequest(number:$pr){
-    reviewThreads(first:100){ nodes{
-      id isResolved isOutdated path line originalLine
-      comments(first:100){ nodes{ databaseId author{login} body url diffHunk } }
-    }}
+    reviewThreads(first:100,after:$cursor){
+      pageInfo{ hasNextPage endCursor }
+      nodes{
+        id isResolved isOutdated path line originalLine
+        comments(first:100){
+          pageInfo{ hasNextPage endCursor }
+          nodes{ databaseId author{login} body url diffHunk }
+        }
+      }
+    }
   }}
 }'
 ```
