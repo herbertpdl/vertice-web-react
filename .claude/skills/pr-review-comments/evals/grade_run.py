@@ -24,12 +24,14 @@ SKILL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 meta = json.load(open(os.path.join(os.path.dirname(run_dir.rstrip("/")), "eval_metadata.json")))
 
 
-def sh(argv, cwd=checkout, check=True):
+def sh(argv, cwd=checkout, check=True, raw=False):
     # argv list, no shell: branch names and paths come from the PR under test.
     p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True)
     if check and p.returncode != 0:
         raise RuntimeError(f"{' '.join(argv)}\n{p.stderr}")
-    return p.stdout.strip(), p.returncode
+    # raw=True keeps stdout exactly as printed — needed for NUL-delimited output, where
+    # stripping could eat leading/trailing whitespace that is part of the first/last path.
+    return (p.stdout if raw else p.stdout.strip()), p.returncode
 
 
 data = json.loads(sh(["python3", os.path.join(SKILL, "scripts", "pr_comments.py"), "fetch", pr])[0])
@@ -135,16 +137,19 @@ status = sh(["git", "status", "--porcelain"])[0]   # untracked files count: the 
 add("working_tree_clean_and_on_pr_branch", cur == head_now and status == "",
     f"HEAD={cur[:8]} PR head={head_now[:8]} dirty={bool(status)}")
 checks = {}
-changed = sh(["git", "diff", "--name-only", "-z", f"{before}..{head_now}", "--",
-              "*.ts", "*.tsx", "*.js", "*.mjs"])[0].split("\0")
-changed = [f for f in changed if f]
+changed_raw = sh(["git", "diff", "--name-only", "-z", "--diff-filter=d", f"{before}..{head_now}", "--",
+                  "*.ts", "*.tsx", "*.js", "*.mjs"], raw=True)[0]
+changed = [f for f in changed_raw.rstrip("\0").split("\0") if f]
 lint_cmd = ["npx", "eslint", *changed] if changed else ["true"]   # lint only what the run touched: the repo may carry pre-existing lint errors
 check_cmds = [("lint(changed files)", lint_cmd), ("tsc", ["npx", "tsc", "--noEmit"])]
-# The `unit` vitest project only exists on branches that add src/lib tests; `--project`
-# on a missing name exits 1, so only run it where vitest.config.ts defines it.
+# Run every vitest project the head branch actually defines (`storybook` always,
+# `unit` only on branches that add src/lib tests) rather than hardcoding one name —
+# SKILL.md requires "the relevant tests", and skipping `storybook` here let a broken
+# story pass unnoticed.
 vitest_config = os.path.join(checkout, "vitest.config.ts")
-if os.path.exists(vitest_config) and re.search(r"name:\s*['\"]unit['\"]", open(vitest_config).read()):
-    check_cmds.append(("unit", ["npx", "vitest", "run", "--project", "unit"]))
+if os.path.exists(vitest_config):
+    for name in re.findall(r"name:\s*['\"]([\w-]+)['\"]", open(vitest_config).read()):
+        check_cmds.append((f"vitest:{name}", ["npx", "vitest", "run", "--project", name]))
 for name, cmd in check_cmds:
     out, rc = sh(cmd, check=False)
     checks[name] = rc
