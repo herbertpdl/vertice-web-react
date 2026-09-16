@@ -107,6 +107,23 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     "Erro ao salvar — Tentar novamente" and arms `beforeunload` (R9, R10, R12, E16).** "Tentar
     novamente" calls `flush()` again with the *current* draft (R10). No automatic retry: the
     trainer decides.
+- **A failed create is reconciled before it is retried, so a lost response cannot create the
+    workout twice.** Neither the BFF nor `vertice-api` has an idempotency key on
+    `POST /training-plans/:planId/workouts`, and a network failure or gateway 5xx can arrive
+    after upstream committed the insert — the workout exists, but `workoutId` is still `null`
+    on the web. If `retry()` simply re-ran the `POST`, the plan would end up with two "Treino A"
+    (or two "Novo treino"). So the engine records `knownWorkoutIds` — the ids of the plan's
+    workouts at mount (`GET /training-plans/:planId/workouts`, one call; the editor is opened
+    from the plan page, so it is usually cached) — and, when a create failed with anything other
+    than a 4xx (a 4xx means nothing was created), `retry()` first lists the plan's workouts
+    again: a workout whose id is not in `knownWorkoutIds` and whose `name`/`dayOfWeek` equal
+    what was sent is the one that got created. The engine adopts it (`GET /workouts/:id/full`
+    for the ids, then `adoptIds`, snapshot, `replaceState` to the workout URL, all exactly as
+    after a successful create) and continues in the existing-workout path (`PATCH`/`PUT`) with
+    the *current* draft; if none matches, the create is re-sent. Two extra reads on a rare path;
+    the false-match case (another tab of the same trainer created an identically named workout
+    on the same weekday in the same plan in between) is same-owner and last-write-wins by E19.
+    An idempotency key on the BFF/API would make this lookup unnecessary; noted in §6.
 - **Footer status is derived from the engine, nowhere else (R9, R13).** `idle` (never saved,
     nothing pending — "As alterações são salvas automaticamente" with the info icon, as in the
     empty-workout frame), `saving` (from the moment a change is made, through the debounce window
@@ -215,7 +232,10 @@ timer ──▶ flush():
    else           → PATCH name/day if changed
                     tree changed & mode=replace → PUT replace   → ids by position → snapshot
                     tree changed & mode=per-item → diff(snapshot, sent) as DELETE/POST/PATCH
-   errors: 409 on PUT → mode = per-item, pendingFlush = true (re-sync same diff)
+   errors: create failed with a non-4xx → status = error; retry() lists the plan's workouts,
+                                        adopts a new one matching name/day (ids from
+                                        /full) or re-sends the create
+           409 on PUT → mode = per-item, pendingFlush = true (re-sync same diff)
            400 on POST/PUT → draft tree = reduce(snapshot tree, sinceSent), banner(generic
                              message); dirty if anything survived
            DELETE in per-item → 404: done; 409 PRECONDITION_FAILED / 502 UPSTREAM_ERROR:
@@ -285,7 +305,10 @@ inside the app should complete.
   answered 503 (or a network failure) stops the run in `error` without a banner and `retry()`
   resumes from that op; 400 reverts to
   the snapshot and an edit made while that request was in flight survives the revert and is
-  sent by the follow-up save; network failure → `error` and `retry()` re-sends the current draft; `finish()`
+  sent by the follow-up save; network failure → `error` and `retry()` re-sends the current draft;
+  a create that failed after upstream committed is adopted on `retry()` (the plan now lists a
+  new workout with the sent name/day) instead of being re-sent, and a create that failed
+  before upstream committed is re-sent; `finish()`
   waits for the pending save.
 - Storybook stories (browser tests) for `WorkoutExerciseCard` (default, no sets, dragging,
   set-dragging, not-allowed, cap reached, refused), `SetRow`, `EditorFooter` (idle/saving/saved/
@@ -297,5 +320,8 @@ inside the app should complete.
 - `vertice-api`: return `FAILED_PRECONDITION` from `DeleteExerciseSet`/`DeleteWorkoutExercise`
   when the item has recorded data, and expose `hasRecordedData` on the workout so the web can
   start in per-item mode without a probing 409.
+- `vertice-bff`/`vertice-api`: an idempotency key on `POST /training-plans/:planId/workouts`
+  (client-generated, echoed back) would replace the reconciliation lookup in §0 with a plain
+  retry.
 - Touch/mobile drag and drop; keyboard reordering.
 - Conflict detection between concurrent editors (E19).
