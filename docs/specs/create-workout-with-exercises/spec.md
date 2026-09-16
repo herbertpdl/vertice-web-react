@@ -90,11 +90,19 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     remove the item again. The mode is per editor session (not persisted): after a reload the
     first tree change tries `replace` again, gets the 409 and switches, at the cost of one extra
     request.
-- **400 `VALIDATION_ERROR` on a replace/create reverts the whole pending batch (E9).** A refused
-    create/replace changed nothing upstream (all-or-nothing), so the draft tree is reset to the
-    snapshot (empty list for a not-yet-created workout) and the banner shows the platform's
-    generic message. Reverting only "the offending entry" is impossible because upstream's
-    message does not identify it (api spec §0, F10). Name/weekday are kept.
+- **400 `VALIDATION_ERROR` on a replace/create reverts the rejected batch, not the edits made
+    since (E9, R8).** A refused create/replace changed nothing upstream (all-or-nothing), so the
+    tree is reset to the snapshot (empty list for a not-yet-created workout) and the banner shows
+    the platform's generic message. Reverting only "the offending entry" is impossible because
+    upstream's message does not identify it (api spec §0, F10). Name/weekday are kept. Edits the
+    trainer made while the rejected request was in flight are *not* part of the rejected batch
+    and must not be lost (R8, E15): the engine keeps the list of actions dispatched since `sent`
+    (`sinceSent`, cleared on every flush start) and, after the reset, replays them through the
+    reducer on top of the snapshot. Actions whose target key no longer exists (an edit to a set of
+    an exercise that was in the rejected batch) are dropped by the reducer; whatever survives
+    leaves the draft dirty and goes out with the chained flush (`pendingFlush`). A plain
+    `draft tree = snapshot tree` would have thrown those edits away and then reported "Salvo"
+    because the chained flush saw a clean draft.
 - **Any other failure (network, 5xx, 503) leaves the draft on screen, sets the footer to
     "Erro ao salvar — Tentar novamente" and arms `beforeunload` (R9, R10, R12, E16).** "Tentar
     novamente" calls `flush()` again with the *current* draft (R10). No automatic retry: the
@@ -202,13 +210,14 @@ edit ──▶ draft' ──▶ status = saving, arm timer (800 ms)
 timer ──▶ flush():
    in flight?  → pendingFlush = true, return
    clean?      → status = saved | idle, return
-   sent = draft
+   sent = draft; sinceSent = []   (every edit while in flight is appended)
    workoutId null → POST create(nested)        → ids by position → snapshot
    else           → PATCH name/day if changed
                     tree changed & mode=replace → PUT replace   → ids by position → snapshot
                     tree changed & mode=per-item → diff(snapshot, sent) as DELETE/POST/PATCH
    errors: 409 on PUT → mode = per-item, pendingFlush = true (re-sync same diff)
-           400 on POST/PUT → draft tree = snapshot tree, banner(generic message)
+           400 on POST/PUT → draft tree = reduce(snapshot tree, sinceSent), banner(generic
+                             message); dirty if anything survived
            DELETE in per-item → 404: done; 409 PRECONDITION_FAILED / 502 UPSTREAM_ERROR:
                                 restore item, banner(named), continue
            anything else → status = error (draft kept; per-item snapshot already advanced
@@ -275,7 +284,8 @@ inside the app should complete.
   answered 409/502 restores the item and raises the named banner while other ops still run, one
   answered 503 (or a network failure) stops the run in `error` without a banner and `retry()`
   resumes from that op; 400 reverts to
-  the snapshot; network failure → `error` and `retry()` re-sends the current draft; `finish()`
+  the snapshot and an edit made while that request was in flight survives the revert and is
+  sent by the follow-up save; network failure → `error` and `retry()` re-sends the current draft; `finish()`
   waits for the pending save.
 - Storybook stories (browser tests) for `WorkoutExerciseCard` (default, no sets, dragging,
   set-dragging, not-allowed, cap reached, refused), `SetRow`, `EditorFooter` (idle/saving/saved/
