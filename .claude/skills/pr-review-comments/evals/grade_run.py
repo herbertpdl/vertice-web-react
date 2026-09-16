@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Programmatic grading for a pr-review-comments eval run.
 
-usage: grade_run.py <run_dir> <pr_number> <checkout_dir> <head_before_sha> <started_at_iso> <author_login>
+usage: grade_run.py <run_dir> <pr_number> <checkout_dir> <head_before_sha> <started_at_iso> <author_login> [baseline_json]
+
+`baseline_json` is a `pr_comments.py fetch <pr>` dump taken BEFORE the agent ran; it is the
+authoritative list of which threads were unresolved (and waiting on the author) at run start.
+Without it the grader falls back to inferring that from the final state, which cannot see a
+thread the run resolved without replying to — the harness should always capture one.
 
 Writes <run_dir>/grading.json with expectations [{text, passed, evidence}] for the assertions that
 can be checked mechanically, and prints the replies / report so the judgement-based ones can be
@@ -14,6 +19,7 @@ import subprocess
 import sys
 
 run_dir, pr, checkout, before, started, author = sys.argv[1:7]
+baseline_path = sys.argv[7] if len(sys.argv) > 7 else None
 SKILL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 meta = json.load(open(os.path.join(os.path.dirname(run_dir.rstrip("/")), "eval_metadata.json")))
 
@@ -33,20 +39,31 @@ head_now = data["pr"]["head_sha"]
 sh(["git", "fetch", "origin", "--quiet", f"refs/pull/{pr}/head"])
 sh(["git", "cat-file", "-e", f"{head_now}^{{commit}}"])
 
-# Threads the run was expected to answer: a root comment before `started`, and at that
-# point the ball was in the author's court (last pre-start comment not the author's —
-# SKILL.md Step 1 skips threads waiting on the reviewer). GitHub exposes no resolution
-# timestamp, so a thread that is resolved now AND has no author activity since `started`
-# is taken as resolved before the run and left out; one the run resolved carries a reply.
+# Threads the run was expected to answer: unresolved at run start with the ball in the
+# author's court (last comment not the author's — SKILL.md Step 1 skips threads waiting on
+# the reviewer). With a baseline that is read directly from the pre-run snapshot.
 def author_replies(t):
     return [c for c in t["comments"] if c["author"] == author and c["created_at"] >= started]
 
 
-def in_scope(t):
-    before_start = [c for c in t["comments"] if c["created_at"] < started]
-    if not before_start or before_start[-1]["author"] == author:
-        return False
-    return not (t["is_resolved"] and not author_replies(t))
+if baseline_path:
+    baseline = {t["thread_id"]: t for t in json.load(open(baseline_path))["threads"]}
+
+    def in_scope(t):
+        b = baseline.get(t["thread_id"])
+        return bool(b) and not b["is_resolved"] and b["comments"][-1]["author"] != author
+else:
+    # Fallback: GitHub exposes no resolution timestamp, so a thread that is resolved now
+    # and has no author activity since `started` is assumed resolved before the run. This
+    # cannot tell that apart from a thread the run resolved silently — pass a baseline.
+    print("WARNING: no baseline snapshot; inferring run-start thread state from the final state",
+          file=sys.stderr)
+
+    def in_scope(t):
+        before_start = [c for c in t["comments"] if c["created_at"] < started]
+        if not before_start or before_start[-1]["author"] == author:
+            return False
+        return not (t["is_resolved"] and not author_replies(t))
 
 
 threads = [t for t in data["threads"] if in_scope(t)]
