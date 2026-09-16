@@ -134,9 +134,21 @@ add("checks_pass_at_pushed_head", all(rc == 0 for rc in checks.values()), f"exit
 # report
 report_path = os.path.join(run_dir, "outputs", "report.md")
 report = open(report_path).read() if os.path.exists(report_path) else ""
-missing_in_report = [t["path"] for t in threads if os.path.basename(t["path"]) not in report]
-add("report_has_per_thread_table", bool(report) and not missing_in_report,
-    f"report exists={bool(report)}; threads not mentioned: {missing_in_report}")
+
+
+def mentioned(t):
+    # A thread is identified by path:line (either the current or the original line) or by
+    # its root comment id, so one mention can't cover two threads in the same file.
+    base = os.path.basename(t["path"])
+    keys = [f"{base}:{n}" for n in (t["line"], t["original_line"]) if n] + [f"r{t['root_comment_id']}"]
+    return any(k in report for k in keys)
+
+
+missing_in_report = [f"{t['path']}:{t['line'] or t['original_line']}" for t in threads if not mentioned(t)]
+verdicts = re.findall(r"\b(fix-differently|fix|decline[d]?|out-of-scope|already-addressed)\b", report, re.I)
+add("report_has_per_thread_table", bool(report) and not missing_in_report and len(verdicts) >= len(threads),
+    f"report exists={bool(report)}; threads not mentioned by path:line or r<id>: {missing_in_report}; "
+    f"{len(verdicts)} verdict words for {len(threads)} threads (SHA/reason per row: confirm by reading)")
 
 # judgement-based assertions: leave for the reader
 for a in meta["assertions"]:
