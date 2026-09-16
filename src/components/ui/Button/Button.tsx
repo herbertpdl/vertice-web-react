@@ -1,5 +1,5 @@
 import { ButtonHTMLAttributes, forwardRef } from "react";
-import { Spinner } from "./Spinner";
+import { Spinner } from "../Spinner";
 
 export type ButtonVariant =
   | "primary"
