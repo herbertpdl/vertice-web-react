@@ -108,7 +108,13 @@ changed = sh(["git", "diff", "--name-only", "-z", f"{before}..{head_now}", "--",
               "*.ts", "*.tsx", "*.js", "*.mjs"])[0].split("\0")
 changed = [f for f in changed if f]
 lint_cmd = ["npx", "eslint", *changed] if changed else ["true"]   # lint only what the run touched: the repo may carry pre-existing lint errors
-for name, cmd in [("lint(changed files)", lint_cmd), ("tsc", ["npx", "tsc", "--noEmit"]), ("unit", ["npx", "vitest", "run", "--project", "unit"])]:
+check_cmds = [("lint(changed files)", lint_cmd), ("tsc", ["npx", "tsc", "--noEmit"])]
+# The `unit` vitest project only exists on branches that add src/lib tests; `--project`
+# on a missing name exits 1, so only run it where vitest.config.ts defines it.
+vitest_config = os.path.join(checkout, "vitest.config.ts")
+if os.path.exists(vitest_config) and re.search(r"name:\s*['\"]unit['\"]", open(vitest_config).read()):
+    check_cmds.append(("unit", ["npx", "vitest", "run", "--project", "unit"]))
+for name, cmd in check_cmds:
     out, rc = sh(cmd, check=False)
     checks[name] = rc
 add("checks_pass_at_pushed_head", all(rc == 0 for rc in checks.values()), f"exit codes: {checks}")

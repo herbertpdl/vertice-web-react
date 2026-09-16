@@ -134,8 +134,10 @@ Order: nits and doc fixes first (fast, low risk), then the substantive ones. For
   commit may address both; say so in both replies.
 - Run the repo's checks for what you touched before committing — lint, type-check,
   and the relevant tests (see the repo's CLAUDE.md for the exact commands; here that is
-  `npm run lint`, `npx tsc --noEmit`, `npx vitest --project unit`, and the Storybook
-  story tests when you touched a component or story). Don't commit red.
+  `npm run lint`, `npx tsc --noEmit`, and `npx vitest run --project <name>` for each
+  project `vitest.config.ts` defines on the branch — `storybook` on `main`, plus `unit`
+  on branches that add `src/lib` tests — when you touched something it covers). Don't
+  commit red.
 - Commit in the repo's message convention (conventional commits here), with a body
   that links the thread so the history explains itself:
 
