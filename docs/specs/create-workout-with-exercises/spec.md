@@ -174,12 +174,16 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
 - **Duplicate-set action.** The design's set row carries a "copy" icon; it is implemented as
     `duplicateSet` (insert a copy right below, subject to the 10-set cap). It is a local edit
     like any other (R7, R22) and needs no new endpoint.
-- **Weekday labels** follow the design ("Segunda-feira" …) via a new `DAY_NAMES_LONG` map; the
-    plan page keeps its short names.
-- **Retired code paths.** "Criar treino", the per-item `useMutation`s in `WorkoutExerciseCard`
-    /`AddExerciseDialog`, the "Descartar" footer action and the immediate `PATCH` on blur are
-    removed. `src/lib/api/workoutExercises.ts` / `exerciseSets.ts` keep their per-item wrappers
-    because the `per-item` sync mode uses them.
+- **Weekday labels** follow the design ("Segunda-feira" …) via a new `DAY_NAMES_LONG` map in
+    `src/lib/days.ts` (§1); the plan page keeps its short names.
+- **Retired code paths.** "Criar treino", the per-item *workout-exercise/set* `useMutation`s in
+    `WorkoutExerciseCard`/`AddExerciseDialog` (`addWorkoutExercise`, the set create/update/delete
+    calls), the "Descartar" footer action and the immediate `PATCH` on blur are removed.
+    `AddExerciseDialog`'s `createExercise` mutation (the catalog create, R23) stays: it still
+    `POST /exercises`, and the created catalog exercise is then handed to `onPick(exercise)`
+    like any picked one, so the workout-side add goes through the draft. `src/lib/api/
+    workoutExercises.ts` / `exerciseSets.ts` keep their per-item wrappers because the `per-item`
+    sync mode uses them.
 - **No UI-kit component is edited.** Everything new is composed in `src/components/domain`
     from `Button`, `TextField`, `Dropdown`, `Dialog`, `Spinner` and Tailwind token classes.
 
@@ -194,6 +198,7 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
 | `src/lib/workoutEditor/useWorkoutAutosave.ts` | `useSyncExternalStore` hook creating one engine per editor session |
 | `src/lib/api/workouts.ts` | `createWorkout` now takes `WorkoutCreateInput` (nested `exercises?`) and returns `FullWorkout`; new `replaceWorkoutExercises`; `cloneWorkout` removed |
 | `src/lib/api/types.ts` | `WorkoutExerciseEntry`, `ExerciseSetEntry` |
+| `src/lib/days.ts` | New `DAY_NAMES_LONG` map ("Segunda-feira" …) next to the existing `DAY_NAMES`/`DAY_ABBR` |
 | `src/components/domain/WorkoutEditor.tsx` | Loads plan/student/workout, then renders `WorkoutEditorSession` (draft, header, list, DnD, footer, banners) |
 | `src/components/domain/WorkoutExerciseCard.tsx` | Presentational card: handle, order badge, rest, notes, sets table, drag/refusal/cap states |
 | `src/components/domain/SetRow.tsx` | Presentational row with per-field commit + drag handle + duplicate/remove |
