@@ -41,7 +41,11 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     (R5/E3).
   - *Existing workout, name/weekday* → `PATCH /workouts/:id` `{name, dayOfWeek}`, debounced
     together with everything else and sent first in the same flush. A blank name is never sent
-    (the BFF requires `min(1)`); the snapshot's name stands until the trainer types one.
+    (the BFF requires `min(1)`): when the flush runs and the draft's name is blank, the engine
+    puts the snapshot's name back into the draft (the field snaps back to the saved name) before
+    comparing, so screen and server never disagree, "Salvo" is honest and `finish()` cannot
+    leave with a blank field. Clearing the name is therefore not a way to rename; the trainer
+    types the new name over it (mirrors R4 for a new workout, where blank → "Novo treino").
   - *Existing workout, exercise/set tree* → **`PUT /workouts/:id/exercises`** with the whole draft
     (`replace` mode, the default). One request covers adds, edits, removals and reorders; the
     response's all-new ids are written back by position (BFF spec §2.2).
