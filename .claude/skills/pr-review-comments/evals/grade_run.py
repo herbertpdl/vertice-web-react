@@ -161,10 +161,10 @@ report = open(report_path).read() if os.path.exists(report_path) else ""
 
 
 def mentioned(t):
-    # A thread is identified by path:line (either the current or the original line) or by
-    # its root comment id, so one mention can't cover two threads in the same file.
-    base = os.path.basename(t["path"])
-    keys = [f"{base}:{n}" for n in (t["line"], t["original_line"]) if n] + [f"r{t['root_comment_id']}"]
+    # A thread is identified by full path:line (either the current or the original line)
+    # or by its root comment id — the basename alone collides between e.g. src/a/index.ts
+    # and src/b/index.ts, letting one mention cover two threads.
+    keys = [f"{t['path']}:{n}" for n in (t["line"], t["original_line"]) if n] + [f"r{t['root_comment_id']}"]
     return any(k in report for k in keys)
 
 
