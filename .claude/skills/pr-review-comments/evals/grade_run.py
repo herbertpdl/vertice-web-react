@@ -27,9 +27,11 @@ def sh(argv, cwd=checkout, check=True):
 
 
 data = json.loads(sh(["python3", os.path.join(SKILL, "scripts", "pr_comments.py"), "fetch", pr])[0])
-head_ref = data["pr"]["head_ref"]
-sh(["git", "fetch", "origin", "--quiet"])
-head_now = sh(["git", "rev-parse", f"origin/{head_ref}"])[0]
+# The PR's head commit comes from the API and is fetched via refs/pull/<n>/head, which
+# exists for fork PRs too (origin/<head_ref> would not).
+head_now = data["pr"]["head_sha"]
+sh(["git", "fetch", "origin", "--quiet", f"refs/pull/{pr}/head"])
+sh(["git", "cat-file", "-e", f"{head_now}^{{commit}}"])
 
 # Threads the run was expected to answer: a root comment before `started`, and at that
 # point the ball was in the author's court (last pre-start comment not the author's —
@@ -114,7 +116,7 @@ add("replies_have_no_preamble", len(pre) == 0, f"replies opening with filler: {p
 cur = sh(["git", "rev-parse", "HEAD"])[0]
 status = sh(["git", "status", "--porcelain"])[0]   # untracked files count: the run must not leave stray files behind
 add("working_tree_clean_and_on_pr_branch", cur == head_now and status == "",
-    f"HEAD={cur[:8]} origin/{head_ref}={head_now[:8]} dirty={bool(status)}")
+    f"HEAD={cur[:8]} PR head={head_now[:8]} dirty={bool(status)}")
 checks = {}
 changed = sh(["git", "diff", "--name-only", "-z", f"{before}..{head_now}", "--",
               "*.ts", "*.tsx", "*.js", "*.mjs"])[0].split("\0")
