@@ -32,11 +32,16 @@ cases the script does not cover.
   stash, discard or commit their uncommitted work to make room. This applies whether or
   not you are already on the right branch: a `git pull` on a dirty tree can fail halfway,
   and a per-comment commit made on top of stray changes would sweep them in.
-- Fixes are committed to the PR's **head** branch. Check `git branch --show-current`
-  against the PR's `head_ref`; if they differ, switch with `gh pr checkout <n>`.
-- Pull (`git pull --ff-only`) so you are on the same commit the reviewer saw, and note
-  the PR's `base_ref`. Stacked PRs (base is another feature branch, not `main`) are
-  normal in this workflow; that just means the diff you care about is `base..head`.
+- Fixes are committed to the PR's **head** branch. A matching branch name is not
+  enough — a local branch can share the name and track something else. Check
+  `git branch --show-current` against the PR's `head_ref` *and* that the branch tracks
+  the PR's head repo (`git rev-parse --abbrev-ref @{upstream}` is `origin/<head_ref>`
+  for a same-repo PR; a fork PR needs the fork remote). If either fails, switch with
+  `gh pr checkout <n>`, which sets the right upstream.
+- Pull (`git pull --ff-only`) so you are on the same commit the reviewer saw, and confirm
+  `git rev-parse HEAD` equals the PR's `head_sha` before changing anything. Note the
+  PR's `base_ref`. Stacked PRs (base is another feature branch, not `main`) are normal
+  in this workflow; that just means the diff you care about is `base..head`.
 - Skim the PR description and the diff (`gh pr diff <n>`) once before reading comments,
   so you judge each comment against what the PR is actually trying to do.
 
