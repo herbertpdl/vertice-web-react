@@ -31,13 +31,24 @@ head_ref = data["pr"]["head_ref"]
 sh(["git", "fetch", "origin", "--quiet"])
 head_now = sh(["git", "rev-parse", f"origin/{head_ref}"])[0]
 
-# Threads that were open at run start = those with a root comment before `started`
-# and not resolved before (we can't see resolution time, so: threads with root before start).
-threads = [t for t in data["threads"] if t["comments"][0]["created_at"] < started]
-new_replies = {
-    t["root_comment_id"]: [c for c in t["comments"] if c["author"] == author and c["created_at"] >= started]
-    for t in threads
-}
+# Threads the run was expected to answer: a root comment before `started`, and at that
+# point the ball was in the author's court (last pre-start comment not the author's —
+# SKILL.md Step 1 skips threads waiting on the reviewer). GitHub exposes no resolution
+# timestamp, so a thread that is resolved now AND has no author activity since `started`
+# is taken as resolved before the run and left out; one the run resolved carries a reply.
+def author_replies(t):
+    return [c for c in t["comments"] if c["author"] == author and c["created_at"] >= started]
+
+
+def in_scope(t):
+    before_start = [c for c in t["comments"] if c["created_at"] < started]
+    if not before_start or before_start[-1]["author"] == author:
+        return False
+    return not (t["is_resolved"] and not author_replies(t))
+
+
+threads = [t for t in data["threads"] if in_scope(t)]
+new_replies = {t["root_comment_id"]: author_replies(t) for t in threads}
 
 # New commits on the head branch since `before`
 log = sh(["git", "log", "--format=%H%x1f%B%x1e", f"{before}..{head_now}"])[0]

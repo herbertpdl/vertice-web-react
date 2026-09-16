@@ -8,8 +8,8 @@
       "expected_output": "Every open Copilot thread on #22 gets exactly one reply. Real findings (e.g. undefinedIfZero erasing explicit 0, stale CLAUDE.md path) are fixed as one commit each on feat/create-workout-with-exercises with the thread URL in the commit body, checks pass, branch pushed, those threads resolved. Findings that don't hold are declined with evidence pointing at code/tests/spec, threads left open. Terminal report table.",
       "files": [],
       "assertions": [
-        "every_open_thread_got_exactly_one_new_reply: each thread that was unresolved at run start has exactly one new reply authored by the PR author's account after run start",
-        "no_thread_left_without_reply: no unresolved-at-start thread is missing a reply",
+        "every_open_thread_got_exactly_one_new_reply: each thread that was unresolved at run start and whose last comment was the reviewer's (not the PR author's) has exactly one new reply authored by the PR author's account after run start",
+        "no_thread_left_without_reply: no unresolved-at-start thread that was waiting on the author is missing a reply",
         "one_commit_per_addressed_thread: every new commit on the head branch links exactly one thread URL ('Addresses review comment: ...discussion_r<id>') unless the report explicitly says one commit covers two duplicate threads",
         "commits_have_coauthor_trailer: every new commit message ends with the Co-Authored-By line",
         "fixed_threads_resolved_declined_threads_open: threads whose reply says fixed/already-addressed are resolved on GitHub; threads whose reply declines are NOT resolved",
@@ -32,8 +32,8 @@
       "expected_output": "Cross-repo claims are verified against the actual vertice-bff/vertice-api source via gh (not just their docs). Doc fixes (typo 'addresses'\u2192'addressed', stale 'Spec: not yet written', Status line) committed one per thread and pushed; contract claims answered with what the real code says; threads resolved/left open accordingly.",
       "files": [],
       "assertions": [
-        "every_open_thread_got_exactly_one_new_reply: each thread that was unresolved at run start has exactly one new reply authored by the PR author's account after run start",
-        "no_thread_left_without_reply: no unresolved-at-start thread is missing a reply",
+        "every_open_thread_got_exactly_one_new_reply: each thread that was unresolved at run start and whose last comment was the reviewer's (not the PR author's) has exactly one new reply authored by the PR author's account after run start",
+        "no_thread_left_without_reply: no unresolved-at-start thread that was waiting on the author is missing a reply",
         "one_commit_per_addressed_thread: every new commit on the head branch links exactly one thread URL ('Addresses review comment: ...discussion_r<id>') unless the report explicitly says one commit covers two duplicate threads",
         "commits_have_coauthor_trailer: every new commit message ends with the Co-Authored-By line",
         "fixed_threads_resolved_declined_threads_open: threads whose reply says fixed/already-addressed are resolved on GitHub; threads whose reply declines are NOT resolved",
@@ -56,8 +56,8 @@
       "expected_output": "Finds PR #23 from the current branch (feat/workout-editor-stories), handles the single Copilot thread about the missing PRECONDITION_FAILED / 409 story coverage \u2014 either adds the story/test and resolves, or declines with a specific reason \u2014 and reports.",
       "files": [],
       "assertions": [
-        "every_open_thread_got_exactly_one_new_reply: each thread that was unresolved at run start has exactly one new reply authored by the PR author's account after run start",
-        "no_thread_left_without_reply: no unresolved-at-start thread is missing a reply",
+        "every_open_thread_got_exactly_one_new_reply: each thread that was unresolved at run start and whose last comment was the reviewer's (not the PR author's) has exactly one new reply authored by the PR author's account after run start",
+        "no_thread_left_without_reply: no unresolved-at-start thread that was waiting on the author is missing a reply",
         "one_commit_per_addressed_thread: every new commit on the head branch links exactly one thread URL ('Addresses review comment: ...discussion_r<id>') unless the report explicitly says one commit covers two duplicate threads",
         "commits_have_coauthor_trailer: every new commit message ends with the Co-Authored-By line",
         "fixed_threads_resolved_declined_threads_open: threads whose reply says fixed/already-addressed are resolved on GitHub; threads whose reply declines are NOT resolved",
