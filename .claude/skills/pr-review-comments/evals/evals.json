@@ -1,0 +1,75 @@
+{
+  "skill_name": "pr-review-comments",
+  "evals": [
+    {
+      "id": 0,
+      "name": "code-pr-mixed-verdicts",
+      "prompt": "Copilot left a bunch of comments on PR #22 (the autosave workout editor). Go through all of them \u2014 fix the ones that make sense and push back on the ones that don't. Work in the checkout at <WORKTREE_22>.",
+      "expected_output": "Every open Copilot thread on #22 gets exactly one reply. Real findings (e.g. undefinedIfZero erasing explicit 0, stale CLAUDE.md path) are fixed as one commit each on feat/create-workout-with-exercises with the thread URL in the commit body, checks pass, branch pushed, those threads resolved. Findings that don't hold are declined with evidence pointing at code/tests/spec, threads left open. Terminal report table.",
+      "files": [],
+      "assertions": [
+        "every_open_thread_got_exactly_one_new_reply: each thread that was unresolved at run start has exactly one new reply authored by the PR author's account after run start",
+        "no_thread_left_without_reply: no unresolved-at-start thread is missing a reply",
+        "one_commit_per_addressed_thread: every new commit on the head branch links exactly one thread URL ('Addresses review comment: ...discussion_r<id>') unless the report explicitly says one commit covers two duplicate threads",
+        "commits_have_coauthor_trailer: every new commit message ends with the Co-Authored-By line",
+        "fixed_threads_resolved_declined_threads_open: threads whose reply says fixed/already-addressed are resolved on GitHub; threads whose reply declines are NOT resolved",
+        "fix_replies_cite_a_pushed_sha: every 'fixed' reply contains a commit SHA that exists on the pushed head branch",
+        "decline_replies_cite_concrete_evidence: every decline reply points at a file:line, function/test name, spec/PRD section, or other-repo source \u2014 not just an opinion",
+        "replies_have_no_preamble: no reply starts with thanks/acknowledgement filler or restates the reviewer's comment",
+        "checks_pass_at_pushed_head: npm run lint, npx tsc --noEmit and npx vitest --project unit pass at the pushed head commit",
+        "report_has_per_thread_table: report.md lists every thread with a verdict and a SHA or a one-line reason",
+        "working_tree_clean_and_on_pr_branch: after the run, the checkout is on the PR head branch with no uncommitted changes",
+        "stale_claude_md_path_fixed: CLAUDE.md on the pushed head references src/components/domain/WorkoutEditor/WorkoutEditor.tsx (the folder path), not src/components/domain/WorkoutEditor.tsx",
+        "duplicate_drag_handle_threads_get_same_verdict: the SetRow and WorkoutExerciseCard drag-handle threads received the same verdict",
+        "not_all_agree_not_all_decline: verdicts include at least one fix and at least one decline/out-of-scope (discriminating judgement)",
+        "behaviour_fixes_come_with_tests: each fix that changes runtime behaviour in src/lib/** adds or extends a test"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "docs-pr-cross-repo-claims",
+      "prompt": "there's review feedback on the docs PR #21 (PRD + spec for the workout editor). handle it \u2014 several of the comments claim things about the vertice-bff / vertice-api contracts so check those before agreeing. checkout is at <WORKTREE_21>.",
+      "expected_output": "Cross-repo claims are verified against the actual vertice-bff/vertice-api source via gh (not just their docs). Doc fixes (typo 'addresses'\u2192'addressed', stale 'Spec: not yet written', Status line) committed one per thread and pushed; contract claims answered with what the real code says; threads resolved/left open accordingly.",
+      "files": [],
+      "assertions": [
+        "every_open_thread_got_exactly_one_new_reply: each thread that was unresolved at run start has exactly one new reply authored by the PR author's account after run start",
+        "no_thread_left_without_reply: no unresolved-at-start thread is missing a reply",
+        "one_commit_per_addressed_thread: every new commit on the head branch links exactly one thread URL ('Addresses review comment: ...discussion_r<id>') unless the report explicitly says one commit covers two duplicate threads",
+        "commits_have_coauthor_trailer: every new commit message ends with the Co-Authored-By line",
+        "fixed_threads_resolved_declined_threads_open: threads whose reply says fixed/already-addressed are resolved on GitHub; threads whose reply declines are NOT resolved",
+        "fix_replies_cite_a_pushed_sha: every 'fixed' reply contains a commit SHA that exists on the pushed head branch",
+        "decline_replies_cite_concrete_evidence: every decline reply points at a file:line, function/test name, spec/PRD section, or other-repo source \u2014 not just an opinion",
+        "replies_have_no_preamble: no reply starts with thanks/acknowledgement filler or restates the reviewer's comment",
+        "checks_pass_at_pushed_head: npm run lint, npx tsc --noEmit and npx vitest --project unit pass at the pushed head commit",
+        "report_has_per_thread_table: report.md lists every thread with a verdict and a SHA or a one-line reason",
+        "working_tree_clean_and_on_pr_branch: after the run, the checkout is on the PR head branch with no uncommitted changes",
+        "cross_repo_claims_verified_against_source: triage.md shows the vertice-bff / vertice-api claims were checked against actual route/handler/spec source (gh api contents, search/code, or a local checkout), not only the linked markdown docs",
+        "prd_spec_pointer_updated: the PRD's 'Spec: not yet written' line is updated on the pushed head",
+        "addresses_typo_fixed: prd.md no longer contains the 'addresses' typo the reviewer flagged (both occurrences)",
+        "not_all_agree_not_all_decline: verdicts include at least one fix and at least one decline/out-of-scope"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "current-branch-single-thread",
+      "prompt": "address the review on this branch's PR",
+      "expected_output": "Finds PR #23 from the current branch (feat/workout-editor-stories), handles the single Copilot thread about the missing PRECONDITION_FAILED / 409 story coverage \u2014 either adds the story/test and resolves, or declines with a specific reason \u2014 and reports.",
+      "files": [],
+      "assertions": [
+        "every_open_thread_got_exactly_one_new_reply: each thread that was unresolved at run start has exactly one new reply authored by the PR author's account after run start",
+        "no_thread_left_without_reply: no unresolved-at-start thread is missing a reply",
+        "one_commit_per_addressed_thread: every new commit on the head branch links exactly one thread URL ('Addresses review comment: ...discussion_r<id>') unless the report explicitly says one commit covers two duplicate threads",
+        "commits_have_coauthor_trailer: every new commit message ends with the Co-Authored-By line",
+        "fixed_threads_resolved_declined_threads_open: threads whose reply says fixed/already-addressed are resolved on GitHub; threads whose reply declines are NOT resolved",
+        "fix_replies_cite_a_pushed_sha: every 'fixed' reply contains a commit SHA that exists on the pushed head branch",
+        "decline_replies_cite_concrete_evidence: every decline reply points at a file:line, function/test name, spec/PRD section, or other-repo source \u2014 not just an opinion",
+        "replies_have_no_preamble: no reply starts with thanks/acknowledgement filler or restates the reviewer's comment",
+        "checks_pass_at_pushed_head: npm run lint, npx tsc --noEmit and npx vitest --project unit pass at the pushed head commit",
+        "report_has_per_thread_table: report.md lists every thread with a verdict and a SHA or a one-line reason",
+        "working_tree_clean_and_on_pr_branch: after the run, the checkout is on the PR head branch with no uncommitted changes",
+        "pr_discovered_from_branch: the run identified PR #23 without being told the number",
+        "single_thread_handled_with_concrete_action: the storyFixtures 409/PRECONDITION_FAILED thread is either fixed (story/test added, thread resolved) or declined with a specific reason (thread left open)"
+      ]
+    }
+  ]
+}

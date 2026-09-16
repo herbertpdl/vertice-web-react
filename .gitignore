@@ -43,6 +43,8 @@ next-env.d.ts
 
 # Claude Code local settings
 .claude/settings.local.json
+# skill-creator eval runs (outputs, grading, viewer) — the skills themselves stay tracked
+.claude/skills/*-workspace/
 
 *storybook.log
 storybook-static
