@@ -160,19 +160,48 @@ report_path = os.path.join(run_dir, "outputs", "report.md")
 report = open(report_path).read() if os.path.exists(report_path) else ""
 
 
-def mentioned(t):
-    # A thread is identified by full path:line (either the current or the original line)
-    # or by its root comment id — the basename alone collides between e.g. src/a/index.ts
-    # and src/b/index.ts, letting one mention cover two threads.
-    keys = [f"{t['path']}:{n}" for n in (t["line"], t["original_line"]) if n] + [f"r{t['root_comment_id']}"]
-    return any(k in report for k in keys)
+VERDICT_RE = re.compile(r"\b(fix-differently|already-addressed|out-of-scope|declined?|fixed|fix)\b", re.I)
+SHA_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
+report_lines = report.splitlines()
 
 
-missing_in_report = [f"{t['path']}:{t['line'] or t['original_line']}" for t in threads if not mentioned(t)]
-verdicts = re.findall(r"\b(fix-differently|fix|decline[d]?|out-of-scope|already-addressed)\b", report, re.I)
-add("report_has_per_thread_table", bool(report) and not missing_in_report and len(verdicts) >= len(threads),
-    f"report exists={bool(report)}; threads not mentioned by path:line or r<id>: {missing_in_report}; "
-    f"{len(verdicts)} verdict words for {len(threads)} threads (SHA/reason per row: confirm by reading)")
+# A short `basename:line` mention is only safe to accept when no two graded threads
+# collide on it — that collision (src/a/index.ts:10 vs src/b/index.ts:10) is exactly
+# what let one mention satisfy two threads before.
+basename_counts = {}
+for t in threads:
+    for n in (t["line"], t["original_line"]):
+        if n:
+            basename_counts[f"{os.path.basename(t['path'])}:{n}"] = basename_counts.get(f"{os.path.basename(t['path'])}:{n}", 0) + 1
+
+
+def row_for(t):
+    # A thread's row is identified by full path:line (current or original), an unambiguous
+    # basename:line, or its root comment id; the row itself (a small window around the
+    # match, since the report may wrap a thread over more than one line) must also carry a
+    # verdict word and, for a fix/fix-differently/already-addressed row, a SHA or reason.
+    keys = [f"{t['path']}:{n}" for n in (t["line"], t["original_line"]) if n]
+    keys += [f"{os.path.basename(t['path'])}:{n}" for n in (t["line"], t["original_line"])
+             if n and basename_counts[f"{os.path.basename(t['path'])}:{n}"] == 1]
+    keys += [f"r{t['root_comment_id']}"]
+    for i, line in enumerate(report_lines):
+        if any(k in line for k in keys):
+            return "\n".join(report_lines[i:i + 3])
+    return None
+
+
+rows = {t["root_comment_id"]: row_for(t) for t in threads}
+missing_in_report = [f"{t['path']}:{t['line'] or t['original_line']}" for t in threads if rows[t["root_comment_id"]] is None]
+no_verdict = [f"r{rid}" for rid, row in rows.items() if row and not VERDICT_RE.search(row)]
+no_sha_or_reason = [
+    f"r{rid}" for rid, row in rows.items()
+    if row and VERDICT_RE.search(row) and not SHA_RE.search(row) and len(row.strip()) < 40
+]
+add("report_has_per_thread_table",
+    bool(report) and not missing_in_report and not no_verdict,
+    f"report exists={bool(report)}; threads without an identifiable row: {missing_in_report}; "
+    f"rows without a verdict word: {no_verdict}; rows with a verdict but no SHA/short on detail "
+    f"(confirm by reading): {no_sha_or_reason}")
 
 # judgement-based assertions: leave for the reader
 for a in meta["assertions"]:
