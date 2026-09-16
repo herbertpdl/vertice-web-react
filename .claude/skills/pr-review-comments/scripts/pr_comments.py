@@ -41,7 +41,8 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
         nodes {
           id isResolved isOutdated path line startLine originalLine diffSide
           comments(first:100) {
-            nodes { id databaseId author { login } body createdAt url outdated diffHunk }
+            pageInfo { hasNextPage endCursor }
+            nodes { ...ThreadComment }
           }
         }
       }
@@ -50,6 +51,26 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
       }
       comments(first:100) {
         nodes { id databaseId author { login } body createdAt url }
+      }
+    }
+  }
+}
+"""
+
+THREAD_COMMENT_FRAGMENT = """
+fragment ThreadComment on PullRequestReviewComment {
+  id databaseId author { login } body createdAt url outdated diffHunk
+}
+"""
+
+# Follow-up pages for a single thread whose comments overflowed the first page.
+THREAD_COMMENTS_QUERY = """
+query($id:ID!, $cursor:String) {
+  node(id:$id) {
+    ... on PullRequestReviewThread {
+      comments(first:100, after:$cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { ...ThreadComment }
       }
     }
   }
@@ -107,7 +128,7 @@ def fetch(pr_arg):
         variables = {"owner": owner, "repo": repo, "pr": number}
         if cursor:
             variables["cursor"] = cursor
-        data = graphql(THREADS_QUERY, **variables)["data"]["repository"]["pullRequest"]
+        data = graphql(THREADS_QUERY + THREAD_COMMENT_FRAGMENT, **variables)["data"]["repository"]["pullRequest"]
         if pr is None:
             pr = data
         page = data["reviewThreads"]
@@ -115,6 +136,15 @@ def fetch(pr_arg):
         if not page["pageInfo"]["hasNextPage"]:
             break
         cursor = page["pageInfo"]["endCursor"]
+
+    # A thread with more than 100 comments needs its remaining pages fetched so the
+    # "last comment" the workflow keys on is really the last one.
+    for t in threads:
+        page = t["comments"]
+        while page["pageInfo"]["hasNextPage"]:
+            page = graphql(THREAD_COMMENTS_QUERY + THREAD_COMMENT_FRAGMENT,
+                           id=t["id"], cursor=page["pageInfo"]["endCursor"])["data"]["node"]["comments"]
+            t["comments"]["nodes"].extend(page["nodes"])
 
     def flatten_thread(t):
         comments = t["comments"]["nodes"]
