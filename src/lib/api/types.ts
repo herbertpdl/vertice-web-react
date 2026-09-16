@@ -143,6 +143,26 @@ export interface FullWorkout extends Workout {
   exercises: FullWorkoutExercise[];
 }
 
+// Nested entries for POST /training-plans/:planId/workouts and
+// PUT /workouts/:workoutId/exercises. No `order`/`setNumber`: list position is
+// the order. Decimals cross the wire as strings; omitted = unset.
+export interface ExerciseSetEntry {
+  reps?: number;
+  durationSeconds?: number;
+  weight?: string;
+  loadPercentage?: string;
+  strategy?: SetStrategy;
+  restSeconds?: number;
+  notes?: string;
+}
+
+export interface WorkoutExerciseEntry {
+  exerciseId: number;
+  restSecondsBetweenSets?: number;
+  notes?: string;
+  sets?: ExerciseSetEntry[];
+}
+
 export interface WorkoutLog {
   id: number;
   workoutId: number;
