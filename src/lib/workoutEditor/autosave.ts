@@ -54,8 +54,12 @@ export interface Refusal {
 
 export interface AutosaveState {
   workoutId: number | null;
-  /** True when the editor was opened on a workout that did not exist yet (drives the "usar como base" offer, R24). */
-  openedAsNew: boolean;
+  /**
+   * True while "Usar treino existente como base" is offered (R24): a workout
+   * opened as new, until its first exercise. One-way — removing every
+   * exercise again does not bring it back (E20).
+   */
+  offersClone: boolean;
   draft: EditorWorkout;
   status: SaveStatus;
   mode: SyncMode;
@@ -194,7 +198,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
 
   let state: AutosaveState = {
     workoutId: options.workoutId,
-    openedAsNew: options.workoutId === null,
+    offersClone: options.workoutId === null && initial.exercises.length === 0,
     draft: initial,
     status: "idle",
     mode: "replace",
@@ -524,7 +528,10 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
     dispatch(action) {
       const next = reduce(state.draft, action);
       if (next === state.draft) return;
-      setState({ draft: next });
+      setState({
+        draft: next,
+        offersClone: state.offersClone && next.exercises.length === 0,
+      });
       schedule();
     },
     flush,

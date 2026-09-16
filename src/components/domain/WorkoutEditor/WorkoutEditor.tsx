@@ -156,7 +156,7 @@ export function WorkoutEditorSession({
   }, [warnOnLeave]);
 
   const atCap = draft.exercises.length >= MAX_EXERCISES;
-  const offerClone = state.openedAsNew && draft.exercises.length === 0;
+  const offerClone = state.offersClone;
   const crumbName = draft.name.trim() || DEFAULT_WORKOUT_NAME;
 
   async function handleFinish() {

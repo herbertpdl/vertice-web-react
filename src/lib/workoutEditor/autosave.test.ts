@@ -188,6 +188,30 @@ describe("new workout", () => {
     expect(engine.getState().draft.exercises.map((we) => we.id)).not.toContain(null);
   });
 
+  it("offers 'usar como base' only until the first exercise, for good (R24, E7, E20)", async () => {
+    const transport = makeTransport();
+    const engine = createAutosaveEngine({ planId: 7, workoutId: null, initial: emptyWorkout("MONDAY"), transport, delayMs: 100 });
+    expect(engine.getState().offersClone).toBe(true);
+    // Naming (which creates the workout) keeps the offer.
+    engine.dispatch({ type: "setName", name: "Treino A" });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+    expect(engine.getState().workoutId).toBe(42);
+    expect(engine.getState().offersClone).toBe(true);
+    // The first exercise removes it, and removing that exercise again does not bring it back.
+    engine.dispatch({ type: "addExercise", exercise: supino });
+    expect(engine.getState().offersClone).toBe(false);
+    engine.dispatch({ type: "removeExercise", exerciseKey: engine.getState().draft.exercises[0].key });
+    expect(engine.getState().draft.exercises).toHaveLength(0);
+    expect(engine.getState().offersClone).toBe(false);
+  });
+
+  it("never offers 'usar como base' on an existing workout, even an empty one (R24, E20)", async () => {
+    const transport = makeTransport();
+    const engine = createAutosaveEngine({ planId: 7, workoutId: 42, initial: fromFullWorkout(fullFromEntries(42, "Treino A", [])), transport, delayMs: 100 });
+    expect(engine.getState().offersClone).toBe(false);
+  });
+
   it("reverts the rejected batch on a 400 and keeps the message (E9)", async () => {
     const transport = makeTransport();
     transport.create = vi.fn(async () => { throw apiError("VALIDATION_ERROR", 400, "exercise_id: one or more referenced exercises do not exist"); });
