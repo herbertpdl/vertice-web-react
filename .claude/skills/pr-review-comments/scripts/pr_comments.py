@@ -47,10 +47,51 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
         }
       }
       reviews(first:100) {
-        nodes { id databaseId author { login } state body submittedAt url }
+        pageInfo { hasNextPage endCursor }
+        nodes { ...Review }
       }
       comments(first:100) {
-        nodes { id databaseId author { login } body createdAt url }
+        pageInfo { hasNextPage endCursor }
+        nodes { ...IssueComment }
+      }
+    }
+  }
+}
+"""
+
+REVIEW_FRAGMENT = """
+fragment Review on PullRequestReview {
+  id databaseId author { login } state body submittedAt url
+}
+"""
+
+ISSUE_COMMENT_FRAGMENT = """
+fragment IssueComment on IssueComment {
+  id databaseId author { login } body createdAt url
+}
+"""
+
+# Follow-up pages for the PR-level `reviews` / `comments` connections.
+PR_REVIEWS_QUERY = """
+query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
+  repository(owner:$owner, name:$repo) {
+    pullRequest(number:$pr) {
+      reviews(first:100, after:$cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { ...Review }
+      }
+    }
+  }
+}
+"""
+
+PR_COMMENTS_QUERY = """
+query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
+  repository(owner:$owner, name:$repo) {
+    pullRequest(number:$pr) {
+      comments(first:100, after:$cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { ...IssueComment }
       }
     }
   }
@@ -128,7 +169,8 @@ def fetch(pr_arg):
         variables = {"owner": owner, "repo": repo, "pr": number}
         if cursor:
             variables["cursor"] = cursor
-        data = graphql(THREADS_QUERY + THREAD_COMMENT_FRAGMENT, **variables)["data"]["repository"]["pullRequest"]
+        data = graphql(THREADS_QUERY + THREAD_COMMENT_FRAGMENT + REVIEW_FRAGMENT + ISSUE_COMMENT_FRAGMENT,
+                       **variables)["data"]["repository"]["pullRequest"]
         if pr is None:
             pr = data
         page = data["reviewThreads"]
@@ -145,6 +187,16 @@ def fetch(pr_arg):
             page = graphql(THREAD_COMMENTS_QUERY + THREAD_COMMENT_FRAGMENT,
                            id=t["id"], cursor=page["pageInfo"]["endCursor"])["data"]["node"]["comments"]
             t["comments"]["nodes"].extend(page["nodes"])
+
+    # Same for the PR-level reviews and top-level comments: the workflow reads all of
+    # them for findings that have no inline thread, so none may be silently dropped.
+    for field, query in (("reviews", PR_REVIEWS_QUERY + REVIEW_FRAGMENT),
+                         ("comments", PR_COMMENTS_QUERY + ISSUE_COMMENT_FRAGMENT)):
+        page = pr[field]
+        while page["pageInfo"]["hasNextPage"]:
+            page = graphql(query, owner=owner, repo=repo, pr=number,
+                           cursor=page["pageInfo"]["endCursor"])["data"]["repository"]["pullRequest"][field]
+            pr[field]["nodes"].extend(page["nodes"])
 
     def flatten_thread(t):
         comments = t["comments"]["nodes"]
