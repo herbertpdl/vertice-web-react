@@ -218,12 +218,15 @@ def row_for(t):
     # basename:line, or its root comment id; the row itself (a small window around the
     # match, since the report may wrap a thread over more than one line) must also carry a
     # verdict word and, for a fix/fix-differently/already-addressed row, a SHA or reason.
+    # Each key is matched with a trailing "not followed by another digit" boundary so
+    # `src/a.ts:10` can't match a report row that only mentions `src/a.ts:100`.
     keys = [f"{t['path']}:{n}" for n in (t["line"], t["original_line"]) if n]
     keys += [f"{os.path.basename(t['path'])}:{n}" for n in (t["line"], t["original_line"])
              if n and basename_counts[f"{os.path.basename(t['path'])}:{n}"] == 1]
     keys += [f"r{t['root_comment_id']}"]
+    key_res = [re.compile(re.escape(k) + r"(?!\d)") for k in keys]
     for i, line in enumerate(report_lines):
-        if any(k in line for k in keys):
+        if any(kr.search(line) for kr in key_res):
             return "\n".join(report_lines[i:i + 3])
     return None
 
