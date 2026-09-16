@@ -530,9 +530,12 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
     flush,
     retry: flush,
     async finish() {
+      // Drain: a flush chained behind this one *and* a debounce armed by an
+      // edit made while it ran are both "the pending save" Concluir must
+      // complete before leaving (R11, E17).
       do {
         await flush();
-      } while (queuedFlush);
+      } while (queuedFlush || timer !== null);
       return state.status !== "error";
     },
     dismissRefusal() {

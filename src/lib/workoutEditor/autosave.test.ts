@@ -426,6 +426,38 @@ describe("existing workout", () => {
     expect(engine.getState().status).toBe("error");
   });
 
+  it("finish() also completes an edit made while its own save was in flight (R11, E17)", async () => {
+    let resolveReplace: (value: FullWorkout) => void = () => {};
+    let inFlight = true;
+    const { transport, engine } = setup({
+      replace: vi.fn(async (workoutId, exercises) => {
+        if (inFlight) {
+          inFlight = false;
+          return new Promise<FullWorkout>((resolve) => { resolveReplace = resolve; });
+        }
+        return fullFromEntries(workoutId, "Treino A", exercises);
+      }),
+    });
+    const [first] = engine.getState().draft.exercises;
+    engine.dispatch({ type: "addSet", exerciseKey: first.key });
+    let finished: boolean | null = null;
+    const finishing = engine.finish().then((ok) => { finished = ok; });
+    await settle();
+    expect(transport.replace).toHaveBeenCalledTimes(1);
+
+    // Typed while the flush was on the wire: this must land before leaving
+    // (sent at once — finish() does not wait out the debounce).
+    engine.dispatch({ type: "updateExercise", exerciseKey: first.key, patch: { notes: "x" } });
+    resolveReplace(fullFromEntries(42, "Treino A", (transport.replace as ReturnType<typeof vi.fn>).mock.calls[0][1]));
+    await settle();
+    await finishing;
+    expect(finished).toBe(true);
+    expect(transport.replace).toHaveBeenCalledTimes(2);
+    const sent = (transport.replace as ReturnType<typeof vi.fn>).mock.calls[1][1];
+    expect(sent[0].notes).toBe("x");
+    expect(engine.getState().status).toBe("saved");
+  });
+
   it("finish() with nothing pending resolves immediately", async () => {
     const { transport, engine } = setup();
     expect(await engine.finish()).toBe(true);
