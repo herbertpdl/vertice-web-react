@@ -58,7 +58,12 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     session to `per-item` mode, and (c) immediately re-syncs the same diff through the unchanged
     one-at-a-time endpoints (`DELETE`/`POST`/`PATCH` on `workout-exercises` and `exercise-sets`,
     with `order`/`setNumber` = list position for reorders — no unique constraint exists on either
-    column, so sequential `PATCH`es cannot collide). In that mode a removal of a non-recorded item
+    column, so sequential `PATCH`es cannot collide). `per-item` is a transport detail of the
+    engine, not a product mode: the trainer keeps the same autosave, the same footer status and
+    the same screen, nothing is announced and there is nothing to choose (R26, R28 — the PRD's
+    §7 "refused whole-list save" row and §10.1 item 4 describe what the trainer sees, and that is
+    unchanged); it only decides whether a flush is one `PUT` or a sequence of per-item calls.
+    In that mode a removal of a non-recorded item
     succeeds (E14) and a removal of a recorded item fails upstream (FK `set_logs → exercise_sets`,
     surfaced by the BFF as a non-2xx error). **That failed delete is the refused change:** the
     engine restores the item into the draft at its snapshot position, marks it (danger outline +
