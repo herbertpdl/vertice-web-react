@@ -26,8 +26,14 @@ Exit code is non-zero on any gh failure; the error text is passed through.
 
 import argparse
 import json
+import re
 import subprocess
 import sys
+
+# A full PR URL is authoritative for which repo it belongs to — without this, a URL for
+# another repo silently resolved against the current checkout's repo (same PR number,
+# wrong repository).
+PR_URL_RE = re.compile(r"^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)/?$")
 
 THREADS_QUERY = """
 query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
@@ -143,12 +149,21 @@ def repo_owner_name():
     return data["owner"]["login"], data["name"]
 
 
-def resolve_pr_number(pr_arg):
+def resolve_pr(pr_arg):
+    """Returns (owner, repo, number). Accepts "123", "#123", a full PR URL, or nothing
+    (current branch's PR). A full URL's owner/repo is authoritative; anything else uses
+    the current checkout's remote."""
     if pr_arg:
-        # Accept "123", "#123" or a full PR URL.
-        return int(str(pr_arg).rstrip("/").split("/")[-1].lstrip("#"))
+        match = PR_URL_RE.match(str(pr_arg).strip())
+        if match:
+            owner, repo, number = match.group(1), match.group(2), int(match.group(3))
+            return owner, repo, number
+        number = int(str(pr_arg).rstrip("/").split("/")[-1].lstrip("#"))
+        owner, repo = repo_owner_name()
+        return owner, repo, number
+    owner, repo = repo_owner_name()
     data = gh_json("pr", "view", "--json", "number")
-    return int(data["number"])
+    return owner, repo, int(data["number"])
 
 
 def graphql(query, **variables):
@@ -160,8 +175,7 @@ def graphql(query, **variables):
 
 
 def fetch(pr_arg):
-    owner, repo = repo_owner_name()
-    number = resolve_pr_number(pr_arg)
+    owner, repo, number = resolve_pr(pr_arg)
     threads = []
     cursor = None
     pr = None
@@ -306,8 +320,7 @@ def read_body(args):
 
 
 def reply(pr_arg, comment_id, body):
-    owner, repo = repo_owner_name()
-    number = resolve_pr_number(pr_arg)
+    owner, repo, number = resolve_pr(pr_arg)
     out = gh(
         "api", f"repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies",
         "-X", "POST", "-f", f"body={body}",
@@ -323,8 +336,8 @@ def resolve(thread_id, undo=False):
 
 
 def comment(pr_arg, body):
-    number = resolve_pr_number(pr_arg)
-    out = gh("pr", "comment", str(number), "--body", body)
+    owner, repo, number = resolve_pr(pr_arg)
+    out = gh("pr", "comment", str(number), "-R", f"{owner}/{repo}", "--body", body)
     print(out.strip())
 
 
@@ -332,8 +345,7 @@ COPILOT_REVIEWER = "copilot-pull-request-reviewer[bot]"
 
 
 def request_review(pr_arg, reviewer):
-    owner, repo = repo_owner_name()
-    number = resolve_pr_number(pr_arg)
+    owner, repo, number = resolve_pr(pr_arg)
     gh(
         "api", f"repos/{owner}/{repo}/pulls/{number}/requested_reviewers",
         "-X", "POST", "-f", f"reviewers[]={reviewer}",
