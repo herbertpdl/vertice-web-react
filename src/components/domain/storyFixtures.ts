@@ -1,3 +1,4 @@
+import { ApiError } from "@/lib/api/client";
 import type { Exercise, FullWorkout, RecentWorkoutSummary } from "@/lib/api/types";
 import type { AutosaveTransport } from "@/lib/workoutEditor/autosave";
 import type { EditorExercise, EditorSet } from "@/lib/workoutEditor/model";
@@ -55,29 +56,33 @@ export function exercise(
   };
 }
 
+// Server-confirmed cards carry `order`/`setNumber` like `fromFullWorkout` does,
+// so a per-item sync against them only sends what actually changed.
 export const supinoCard: EditorExercise = exercise(supino, {
   id: 10,
+  order: 1,
   restSecondsBetweenSets: 90,
   notes: "Manter escápulas retraídas durante todo o movimento.",
   sets: [
-    set({ id: 101, strategy: "WARM_UP", reps: 12, weight: "20", loadPercentage: "40", restSeconds: 60 }),
-    set({ id: 102, reps: 8, weight: "60", loadPercentage: "75", restSeconds: 90 }),
-    set({ id: 103, reps: 8, weight: "60", loadPercentage: "75", restSeconds: 90 }),
-    set({ id: 104, strategy: "BACKOFF", reps: 10, weight: "50", loadPercentage: "60", restSeconds: 90 }),
+    set({ id: 101, setNumber: 1, strategy: "WARM_UP", reps: 12, weight: "20", loadPercentage: "40", restSeconds: 60 }),
+    set({ id: 102, setNumber: 2, reps: 8, weight: "60", loadPercentage: "75", restSeconds: 90 }),
+    set({ id: 103, setNumber: 3, reps: 8, weight: "60", loadPercentage: "75", restSeconds: 90 }),
+    set({ id: 104, setNumber: 4, strategy: "BACKOFF", reps: 10, weight: "50", loadPercentage: "60", restSeconds: 90 }),
   ],
 });
 
 export const puxadaCard: EditorExercise = exercise(puxada, {
   id: 11,
+  order: 2,
   restSecondsBetweenSets: 75,
   sets: [
-    set({ id: 111, reps: 10, weight: "45", loadPercentage: "70", restSeconds: 75 }),
-    set({ id: 112, reps: 10, weight: "45", loadPercentage: "70", restSeconds: 75 }),
-    set({ id: 113, strategy: "DROPSET", weight: "45", restSeconds: 60 }),
+    set({ id: 111, setNumber: 1, reps: 10, weight: "45", loadPercentage: "70", restSeconds: 75 }),
+    set({ id: 112, setNumber: 2, reps: 10, weight: "45", loadPercentage: "70", restSeconds: 75 }),
+    set({ id: 113, setNumber: 3, strategy: "DROPSET", weight: "45", restSeconds: 60 }),
   ],
 });
 
-export const agachamentoCard: EditorExercise = exercise(agachamento, { id: 12, restSecondsBetweenSets: 60 });
+export const agachamentoCard: EditorExercise = exercise(agachamento, { id: 12, order: 3, restSecondsBetweenSets: 60 });
 
 export const recentWorkouts: RecentWorkoutSummary[] = [
   { id: 42, name: "Treino A — Peito e Costas", trainingPlanId: 7, dayOfWeek: "MONDAY", studentName: "Maria Silva", planName: "Hipertrofia — Fase 1", exerciseCount: 3 },
@@ -85,9 +90,31 @@ export const recentWorkouts: RecentWorkoutSummary[] = [
   { id: 33, name: "Full body", trainingPlanId: 5, dayOfWeek: "FRIDAY", studentName: "João Souza", planName: "Condicionamento", exerciseCount: 6 },
 ];
 
-/** A transport that answers like the BFF would, without HTTP (ids by position, everything succeeds). */
-export function fakeTransport(): AutosaveTransport {
+export interface FakeTransportOptions {
+  /**
+   * Answer every whole-list replace with the 409 the platform sends once a
+   * client has recorded data under the workout (E14): the editor must fall
+   * back to the per-item endpoints.
+   */
+  refuseReplace?: boolean;
+  /** Set ids whose removal the platform refuses with 409 — a client recorded performance on them (R27, E13). */
+  protectedSetIds?: number[];
+}
+
+export interface FakeTransport extends AutosaveTransport {
+  /** Every method called so far, in order — so a story can assert which endpoints a save went through. */
+  calls: (keyof AutosaveTransport)[];
+}
+
+function preconditionFailed(message: string) {
+  return new ApiError({ code: "PRECONDITION_FAILED", message }, 409);
+}
+
+/** A transport that answers like the BFF would, without HTTP (ids by position; everything succeeds unless `options` say otherwise). */
+export function fakeTransport(options: FakeTransportOptions = {}): FakeTransport {
+  const { refuseReplace = false, protectedSetIds = [] } = options;
   let nextId = 1000;
+  const calls: FakeTransport["calls"] = [];
   const toFull = (id: number, name: string, dayOfWeek: FullWorkout["dayOfWeek"], entries: Parameters<AutosaveTransport["replace"]>[1]): FullWorkout => ({
     id,
     name,
@@ -119,15 +146,47 @@ export function fakeTransport(): AutosaveTransport {
     }),
   });
   const delay = <T,>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), 400));
+  const refuse = (message: string) =>
+    new Promise<never>((_, reject) => setTimeout(() => reject(preconditionFailed(message)), 400));
   return {
-    create: (planId, input) => delay(toFull(42, input.name, input.dayOfWeek, input.exercises ?? [])),
-    replace: (workoutId, exercises) => delay(toFull(workoutId, "Treino", "MONDAY", exercises)),
-    patchWorkout: () => delay({}),
-    addExercise: (workoutId, input) => delay({ id: ++nextId, workoutId, exerciseId: input.exerciseId, order: input.order, restSecondsBetweenSets: input.restSecondsBetweenSets, notes: input.notes ?? "" }),
-    updateExercise: () => delay({}),
-    deleteExercise: () => delay(undefined),
-    addSet: (workoutExerciseId, input) => delay({ id: ++nextId, workoutExerciseId, setNumber: input.setNumber, strategy: input.strategy }),
-    updateSet: () => delay({}),
-    deleteSet: () => delay(undefined),
+    calls,
+    create(planId, input) {
+      calls.push("create");
+      return delay(toFull(42, input.name, input.dayOfWeek, input.exercises ?? []));
+    },
+    replace(workoutId, exercises) {
+      calls.push("replace");
+      if (refuseReplace) return refuse("Cannot replace exercises: a set under this workout has recorded workout data");
+      return delay(toFull(workoutId, "Treino", "MONDAY", exercises));
+    },
+    patchWorkout() {
+      calls.push("patchWorkout");
+      return delay({});
+    },
+    addExercise(workoutId, input) {
+      calls.push("addExercise");
+      return delay({ id: ++nextId, workoutId, exerciseId: input.exerciseId, order: input.order, restSecondsBetweenSets: input.restSecondsBetweenSets, notes: input.notes ?? "" });
+    },
+    updateExercise() {
+      calls.push("updateExercise");
+      return delay({});
+    },
+    deleteExercise() {
+      calls.push("deleteExercise");
+      return delay(undefined);
+    },
+    addSet(workoutExerciseId, input) {
+      calls.push("addSet");
+      return delay({ id: ++nextId, workoutExerciseId, setNumber: input.setNumber, strategy: input.strategy });
+    },
+    updateSet() {
+      calls.push("updateSet");
+      return delay({});
+    },
+    deleteSet(id) {
+      calls.push("deleteSet");
+      if (protectedSetIds.includes(id)) return refuse(`Cannot delete set ${id}: it has recorded workout data`);
+      return delay(undefined);
+    },
   };
 }

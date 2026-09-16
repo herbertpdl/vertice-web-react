@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, waitFor } from "storybook/test";
-import { WorkoutEditorSession } from "./WorkoutEditor";
+import { expect, waitFor, within } from "storybook/test";
+import { WorkoutEditorSession, type WorkoutEditorSessionProps } from "./WorkoutEditor";
 import { agachamentoCard, catalog, fakeTransport, puxadaCard, recentWorkouts, supinoCard } from "../storyFixtures";
 import { withSeededQueries } from "../storyQuery";
 import { emptyWorkout } from "@/lib/workoutEditor/model";
@@ -91,5 +91,65 @@ export const ExerciseCapReached: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByText("20 / 20 exercícios")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "+ Adicionar exercício" })).toBeDisabled();
+  },
+};
+
+const treinoA = {
+  name: "Treino A — Peito e Costas",
+  dayOfWeek: "MONDAY",
+  exercises: [supinoCard, puxadaCard, agachamentoCard],
+} satisfies WorkoutEditorSessionProps["initial"];
+
+const recordedData = fakeTransport({ refuseReplace: true });
+
+/**
+ * A client has recorded data under this workout: the first whole-list replace
+ * comes back 409, the same change goes through the per-item endpoints, and
+ * later edits skip the replace altogether (E14).
+ */
+export const RecordedDataFallsBackToPerItem: Story = {
+  args: { workoutId: 42, initial: treinoA, transport: recordedData },
+  play: async ({ canvas, userEvent }) => {
+    recordedData.calls.length = 0;
+    const agachamento = canvas.getByRole("group", { name: "Exercício 3: Agachamento Livre" });
+    await userEvent.click(within(agachamento).getByRole("button", { name: "+ Adicionar série" }));
+    await expect(canvas.getByText("Salvando…")).toBeVisible();
+    await waitFor(() => expect(canvas.getByText("Salvo")).toBeVisible(), { timeout: 5000 });
+    await expect(recordedData.calls).toEqual(["replace", "addSet"]);
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
+
+    await userEvent.click(within(agachamento).getByRole("button", { name: "+ Adicionar série" }));
+    await waitFor(() => expect(canvas.getByText("Salvo")).toBeVisible(), { timeout: 5000 });
+    await expect(recordedData.calls).toEqual(["replace", "addSet", "addSet"]);
+  },
+};
+
+const protectedSet = fakeTransport({ refuseReplace: true, protectedSetIds: [101] });
+
+/**
+ * Removing a set a client already performed: the replace is refused, the
+ * per-item delete is refused too, so the set comes back named in the banner
+ * and flagged on its row while the footer still settles on "Salvo" (R27, E13).
+ */
+export const ProtectedSetRemovalRestored: Story = {
+  args: { workoutId: 42, initial: treinoA, transport: protectedSet },
+  play: async ({ canvas, userEvent }) => {
+    protectedSet.calls.length = 0;
+    const supino = canvas.getByRole("group", { name: "Exercício 1: Supino Reto com Barra" });
+    await userEvent.click(within(supino).getByRole("button", { name: "Remover série 1" }));
+    await expect(within(supino).getAllByRole("row")).toHaveLength(3);
+
+    const banner = await canvas.findByRole("alert", undefined, { timeout: 5000 });
+    await expect(within(banner).getByText("Remoção não aplicada")).toBeVisible();
+    await expect(banner).toHaveTextContent("Supino Reto com Barra · Série 1");
+    await expect(within(supino).getAllByRole("row")).toHaveLength(4);
+    await expect(
+      within(supino).getByText("Remoção desfeita — desempenho registrado por um aluno"),
+    ).toBeVisible();
+    await waitFor(() => expect(canvas.getByText("Salvo")).toBeVisible(), { timeout: 5000 });
+    await expect(protectedSet.calls).toEqual(["replace", "deleteSet"]);
+
+    await userEvent.click(canvas.getByRole("button", { name: "Fechar" }));
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
 };
