@@ -27,12 +27,15 @@ cases the script does not cover.
 
 - If the user named a PR (number or URL), use it. Otherwise `gh pr view --json number,headRefName`
   finds the PR for the current branch; if there is none, ask which PR.
+- Require a clean working tree before touching git at all: `git status --porcelain`
+  must be empty (untracked files included). If it isn't, stop and tell the user — never
+  stash, discard or commit their uncommitted work to make room. This applies whether or
+  not you are already on the right branch: a `git pull` on a dirty tree can fail halfway,
+  and a per-comment commit made on top of stray changes would sweep them in.
 - Fixes are committed to the PR's **head** branch. Check `git branch --show-current`
-  against the PR's `head_ref`. If they differ, switch with `gh pr checkout <n>` — but only
-  from a clean working tree (`git status --porcelain` empty). Never stash or discard the
-  user's uncommitted work to make room; stop and tell them instead.
-- Pull first (`git pull --ff-only`) so you are on the same commit the reviewer saw, and
-  note the PR's `base_ref`. Stacked PRs (base is another feature branch, not `main`) are
+  against the PR's `head_ref`; if they differ, switch with `gh pr checkout <n>`.
+- Pull (`git pull --ff-only`) so you are on the same commit the reviewer saw, and note
+  the PR's `base_ref`. Stacked PRs (base is another feature branch, not `main`) are
   normal in this workflow; that just means the diff you care about is `base..head`.
 - Skim the PR description and the diff (`gh pr diff <n>`) once before reading comments,
   so you judge each comment against what the PR is actually trying to do.
@@ -123,7 +126,8 @@ Calibration, because both failure modes are easy to fall into:
 Order: nits and doc fixes first (fast, low risk), then the substantive ones. For each
 **fix** / **fix-differently**:
 
-- Make the smallest change that fully addresses the point. Match the surrounding
+- Make the smallest change that fully addresses the point, and stage only the files
+  you changed for it (`git add <paths>`, never `git add -A`). Match the surrounding
   code's style. If the comment concerned behaviour, add or extend a test where the repo
   has tests for that layer — a reviewer who found a bug will look for the test.
 - If two threads are genuinely one change (the duplicated-pattern case above), one
