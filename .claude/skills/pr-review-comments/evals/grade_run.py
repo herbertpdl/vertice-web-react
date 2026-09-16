@@ -160,7 +160,9 @@ checks = {}
 changed_raw = sh(["git", "diff", "--name-only", "-z", "--diff-filter=d", f"{before}..{head_now}", "--",
                   "*.ts", "*.tsx", "*.js", "*.mjs"], raw=True)[0]
 changed = [f for f in changed_raw.rstrip("\0").split("\0") if f]
-lint_cmd = ["npx", "eslint", *changed] if changed else ["true"]   # lint only what the run touched: the repo may carry pre-existing lint errors
+# `--` stops option parsing so a changed path starting with `-` can't be read as a flag.
+# Lint only what the run touched — the repo may carry pre-existing lint errors elsewhere.
+lint_cmd = ["npx", "eslint", "--", *changed] if changed else ["true"]
 check_cmds = [("lint(changed files)", lint_cmd), ("tsc", ["npx", "tsc", "--noEmit"])]
 # Run every vitest project the head branch actually defines (`storybook` always,
 # `unit` only on branches that add src/lib tests) rather than hardcoding one name —
