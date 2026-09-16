@@ -35,8 +35,10 @@ def sh(argv, cwd=checkout, check=True, raw=False):
 
 
 data = json.loads(sh(["python3", os.path.join(SKILL, "scripts", "pr_comments.py"), "fetch", pr])[0])
+head_ref = data["pr"]["head_ref"]
 # The PR's head commit comes from the API and is fetched via refs/pull/<n>/head, which
-# exists for fork PRs too (origin/<head_ref> would not).
+# exists for fork PRs too (origin/<head_ref> would not) — head_ref itself is only used
+# below to confirm the checkout is actually on the PR's branch, not just at its commit.
 head_now = data["pr"]["head_sha"]
 sh(["git", "fetch", "origin", "--quiet", f"refs/pull/{pr}/head"])
 sh(["git", "cat-file", "-e", f"{head_now}^{{commit}}"])
@@ -145,11 +147,15 @@ pre = [f"r{t['root_comment_id']}" for t in threads for c in new_replies[t["root_
        if re.match(r"\s*(thanks|thank you|good catch|great point|you're right|agreed)", c["body"], re.I)]
 add("replies_have_no_preamble", len(pre) == 0, f"replies opening with filler: {pre}" if pre else "none open with filler")
 
-# checks at pushed head (the checkout is expected to be on the head branch)
+# checks at pushed head (the checkout is expected to be on the head branch, not just at
+# its commit — a detached HEAD or another local branch pointing at the same commit would
+# satisfy `cur == head_now` alone)
 cur = sh(["git", "rev-parse", "HEAD"])[0]
+cur_branch = sh(["git", "branch", "--show-current"])[0]
 status = sh(["git", "status", "--porcelain"])[0]   # untracked files count: the run must not leave stray files behind
-add("working_tree_clean_and_on_pr_branch", cur == head_now and status == "",
-    f"HEAD={cur[:8]} PR head={head_now[:8]} dirty={bool(status)}")
+add("working_tree_clean_and_on_pr_branch",
+    cur == head_now and cur_branch == head_ref and status == "",
+    f"HEAD={cur[:8]} branch={cur_branch!r} (want {head_ref!r}) PR head={head_now[:8]} dirty={bool(status)}")
 checks = {}
 changed_raw = sh(["git", "diff", "--name-only", "-z", "--diff-filter=d", f"{before}..{head_now}", "--",
                   "*.ts", "*.tsx", "*.js", "*.mjs"], raw=True)[0]
