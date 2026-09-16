@@ -9,7 +9,7 @@ below as `API-R#`/`API-E#` and not restated), [vertice-api/docs/requirements.md]
 requirement: "Create a workut that is a training for a given weekday" and "Assign the created
 workout into a training plan for a client/costumer"), [vertice-bff/docs/specs/create-workout-with-exercises/spec.md](https://github.com/herbertpdl/vertice-bff/blob/main/docs/specs/create-workout-with-exercises/spec.md)
 (the bridge that makes the behavior below reachable from the web)
-Spec: not yet written (will be `docs/specs/create-workout-with-exercises/spec.md`)
+Spec: [docs/specs/create-workout-with-exercises/spec.md](../../specs/create-workout-with-exercises/spec.md)
 
 ## 1. Summary
 
