@@ -63,7 +63,10 @@ Which threads need action:
   previous run) already answered earlier. The reviewer came back; read the whole
   exchange and continue it, don't restart it.
 - **Threads where the last comment is the PR author's and nothing followed** — skip;
-  that thread is waiting on the reviewer.
+  that thread is waiting on the reviewer. Exception: a thread the PR author started
+  themselves (`root_author` is the PR's own author, e.g. a self-review note) is never
+  waiting on anyone else — treat it as the user's own to-do (see "Things that go wrong"
+  below) even if no one replied to it.
 - **Resolved threads** — skip.
 - `is_outdated: true` means the lines moved since the comment. The point may still
   apply; check the current code before deciding it's stale.
