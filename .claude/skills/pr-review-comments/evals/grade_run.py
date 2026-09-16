@@ -222,10 +222,10 @@ no_sha_or_reason = [
     if row and VERDICT_RE.search(row) and not SHA_RE.search(row) and len(row.strip()) < 40
 ]
 add("report_has_per_thread_table",
-    bool(report) and not missing_in_report and not no_verdict,
+    bool(report) and not missing_in_report and not no_verdict and not no_sha_or_reason,
     f"report exists={bool(report)}; threads without an identifiable row: {missing_in_report}; "
-    f"rows without a verdict word: {no_verdict}; rows with a verdict but no SHA/short on detail "
-    f"(confirm by reading): {no_sha_or_reason}")
+    f"rows without a verdict word: {no_verdict}; rows with a verdict but no SHA and too short "
+    f"to be a reason: {no_sha_or_reason}")
 
 # judgement-based assertions: leave for the reader
 for a in meta["assertions"]:
