@@ -7,7 +7,7 @@ import { updateWorkoutExercise, deleteWorkoutExercise } from "@/lib/api/workoutE
 import { createExerciseSet, updateExerciseSet, deleteExerciseSet } from "@/lib/api/exerciseSets";
 import type { ExerciseSetInput } from "@/lib/api/exerciseSets";
 import { muscleGroupLabels } from "@/lib/validation/exercises";
-import { SetRow } from "./SetRow";
+import { SetRow } from "../SetRow";
 import type { FullWorkoutExercise } from "@/lib/api/types";
 
 export function WorkoutExerciseCard({

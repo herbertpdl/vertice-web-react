@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Settings, User } from "lucide-react";
-import { Header, type HeaderNavItem } from "./Header";
+import { Header, type HeaderNavItem } from "../Header";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { logout } from "@/lib/api/auth";
 import { useQueryClient } from "@tanstack/react-query";

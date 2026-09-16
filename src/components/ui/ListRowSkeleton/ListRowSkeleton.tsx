@@ -1,4 +1,4 @@
-import { SkeletonCircle, SkeletonLine } from "./Skeleton";
+import { SkeletonCircle, SkeletonLine } from "../Skeleton";
 
 interface ListRowSkeletonProps {
   className?: string;
