@@ -104,21 +104,35 @@ add("one_commit_per_addressed_thread", len(multi) == 0 or None,
 add("commits_have_coauthor_trailer", all(c["coauthor"] for c in commits) if commits else True,
     f"missing trailer: {[c['sha'][:8] for c in commits if not c['coauthor']]}")
 
-# fixed vs declined resolution state
-fixed_pat = re.compile(r"\b(fixed|addressed|already handled|handled) (in|by)\b|\bfixed in\b", re.I)
-decline_pat = re.compile(r"\b(not changing|leaving (this|it) as is|declin|out of scope|follow-up|keeping)\b", re.I)
+# fixed vs declined resolution state — matched against SKILL.md's own verdict vocabulary
+# (fix / fix-differently / decline / out-of-scope / already-addressed), hyphen or space,
+# with decline checked first so an accidental "addressed in" inside a decline reply (e.g.
+# "not addressed in this PR; follow-up") can't be misread as a fix.
+DECLINE_RE = re.compile(
+    r"\b(not changing|leaving (this|it) as is|declin\w*|out[- ]of[- ]scope|keeping)\b"
+    # "follow-up" alone is a false-positive magnet (a paginated "follow-up query" is not
+    # a decline) — only count it in the out-of-scope phrasing the skill itself uses.
+    r"|\b(as|in) an? follow[- ]up\b|\bfollow[- ]up (pr|issue|ticket)\b|\bopen(ed)? a follow[- ]up\b",
+    re.I,
+)
+ALREADY_RE = re.compile(r"\balready[- ](addressed|handled)\b", re.I)
+FIXED_RE = re.compile(r"\b(fixed|addressed|handled) (in|by)\b", re.I)
 bad_state, sha_missing, reply_dump = [], [], []
 for t in threads:
     for c in new_replies[t["root_comment_id"]]:
         body = c["body"]
-        is_fix = bool(fixed_pat.search(body))
-        is_decl = bool(decline_pat.search(body)) and not is_fix
+        is_decl = bool(DECLINE_RE.search(body))
+        is_already = bool(ALREADY_RE.search(body)) and not is_decl
+        # A "new fix" (this round changed code) needs a pushed SHA; "already-addressed"
+        # (pointing at existing code or an earlier commit) does not.
+        is_new_fix = bool(FIXED_RE.search(body)) and not is_decl and not is_already
+        is_fix = is_already or is_new_fix
         reply_dump.append(f"--- {t['path']}:{t['line']} r{t['root_comment_id']} resolved={t['is_resolved']} ---\n{body}\n")
         if is_fix and not t["is_resolved"]:
             bad_state.append(f"r{t['root_comment_id']} fixed but open")
         if is_decl and t["is_resolved"]:
             bad_state.append(f"r{t['root_comment_id']} declined but resolved")
-        if is_fix:
+        if is_new_fix:
             shas = re.findall(r"\b[0-9a-f]{7,40}\b", body)
             ok = any(sh(["git", "merge-base", "--is-ancestor", s, head_now], check=False)[1] == 0 for s in shas)
             if not ok:
