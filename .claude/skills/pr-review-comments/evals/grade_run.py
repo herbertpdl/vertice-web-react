@@ -17,9 +17,27 @@ import os
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 
 run_dir, pr, checkout, before, started, author = sys.argv[1:7]
 baseline_path = sys.argv[7] if len(sys.argv) > 7 else None
+
+
+def parse_ts(s):
+    # GraphQL `createdAt` is UTC with a "Z" suffix; `started` may come from the harness
+    # with an explicit offset or fractional seconds. Comparing the raw strings is only
+    # correct when both happen to share format and offset — an existing comment in the
+    # same second (or a non-UTC offset) could otherwise be miscounted as a new reply.
+    s = s.strip()
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+started_dt = parse_ts(started)
 SKILL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 meta = json.load(open(os.path.join(os.path.dirname(run_dir.rstrip("/")), "eval_metadata.json")))
 
@@ -47,7 +65,7 @@ sh(["git", "cat-file", "-e", f"{head_now}^{{commit}}"])
 # author's court (last comment not the author's — SKILL.md Step 1 skips threads waiting on
 # the reviewer). With a baseline that is read directly from the pre-run snapshot.
 def author_replies(t):
-    return [c for c in t["comments"] if c["author"] == author and c["created_at"] >= started]
+    return [c for c in t["comments"] if c["author"] == author and parse_ts(c["created_at"]) >= started_dt]
 
 
 if baseline_path:
@@ -64,7 +82,7 @@ else:
           file=sys.stderr)
 
     def in_scope(t):
-        before_start = [c for c in t["comments"] if c["created_at"] < started]
+        before_start = [c for c in t["comments"] if parse_ts(c["created_at"]) < started_dt]
         if not before_start or before_start[-1]["author"] == author:
             return False
         return not (t["is_resolved"] and not author_replies(t))
