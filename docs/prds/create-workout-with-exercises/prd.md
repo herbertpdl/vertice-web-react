@@ -256,7 +256,9 @@ None.
 3. We should make the option "usar treino existente como base" disappear whenever the trainer adds the first exercise to the training. This document should be updated with that requirement and mark here as done once it is. — **Done:** R24 (offered on a new workout until its first exercise is added — naming it first keeps the offer; never on an existing workout), R25, E7, E20, and the §7 row "When is 'Usar treino existente como base' offered?".
 4. "Modo item a item" should not be a different behaviour of the screen, it should always save the changes with a small delay after the change is made. This document should be updated to reflect that behaviour and mark here as done once it is. — **Done:** the whole editor is now automatic saving — §1, §3, R3–R13 (creation on first save, one footer status, "Concluir" only, leave-warning only mid-save/after failure), R26–R28 (per-change refusal, no separate mode), E15–E18, and the *Superseded* rows in §7.
 
-How this applies:
+How this applies (the gate has been passed: the design was updated, reviewed and approved on
+2026-09-15 — see the `Design:` line at the top; the steps stay here as the record of the process
+and as the rule for any later change to the design):
 
 1. Before writing any code for this feature, update the project's pen.dev design file
    (`Vertice Web.pen` — the same file `.claude/skills/pencil-design-audit` audits against, via the
