@@ -27,7 +27,7 @@ The dev server is pinned to port `5173` (not Next's usual `3000`) since `3000` i
 `vertice-bff`'s default port and `vertice-bff`'s `CORS_ORIGIN` already defaults to
 `http://localhost:5173`. Override with `npm run dev -- -p <port>` if needed.
 
-Besides the Storybook story tests (which also cover `src/components/domain/*.stories.tsx`),
+Besides the Storybook story tests (every `src/**/*.stories.tsx`, per `.storybook/main.ts`),
 `vitest.config.ts` has a `unit` project (node environment, `src/lib/**/*.test.ts`) for pure
 modules — today the workout editor's autosave engine. Pages under `src/app/` have no tests.
 
@@ -66,7 +66,7 @@ student/plan/workout, or a deleted one).
   and `src/app/(app)/` (everything behind the session, wrapped by `AppHeader`). Pages are server
   components that read `params`/`searchParams` and hand off to a `"use client"` `*Content.tsx`
   sibling.
-- **Workout editor** (`src/components/domain/WorkoutEditor.tsx`, reached from
+- **Workout editor** (`src/components/domain/WorkoutEditor/WorkoutEditor.tsx`, reached from
   `/planos/[planId]/treinos/novo[?dayOfWeek=]` and `/planos/[planId]/treinos/[workoutId]`) is a
   debounced-autosave workspace: local draft state (`src/lib/workoutEditor/model.ts` +
   `reducer.ts`) is the source of truth and `src/lib/workoutEditor/autosave.ts` syncs it to the
