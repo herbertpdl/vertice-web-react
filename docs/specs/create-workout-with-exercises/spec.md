@@ -46,7 +46,10 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     (`replace` mode, the default). One request covers adds, edits, removals and reorders; the
     response's all-new ids are written back by position (BFF spec §2.2).
 - **409 `PRECONDITION_FAILED` switches the workout to `per-item` mode; the refusal itself is
-    reported by the per-item delete that fails (R27, R28, E13, E14).** Upstream refuses *every*
+    reported by the per-item delete that fails (R27, R28, E13, E14).** The engine keys on
+    `ApiError.code === "PRECONDITION_FAILED"`, not on the status alone (409 is also `CONFLICT`);
+    the code/status pair is the BFF's (`PreconditionFailedError`, BFF spec §0/§3 — vertice-api's
+    own REST handler answers 412, but the web never talks to it). Upstream refuses *every*
     replace once any set under the workout has recorded data — not only replaces that would drop
     the recorded set (api spec §0, BFF spec §3). So "revert only the offending change and keep
     saving the rest" cannot be built on the replace endpoint alone: a diff with no removal at all
