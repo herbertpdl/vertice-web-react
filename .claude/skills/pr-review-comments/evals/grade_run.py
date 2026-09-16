@@ -141,7 +141,7 @@ add("report_has_per_thread_table", bool(report) and not missing_in_report,
 for a in meta["assertions"]:
     name = a.split(":")[0]
     if name not in {e["text"] for e in exp}:
-        add(name, None, "needs reading — see printed replies/triage")
+        add(name, None, "needs reading — see printed replies/report")
 
 json.dump({"expectations": exp}, open(os.path.join(run_dir, "grading.json"), "w"), indent=2)
 print(json.dumps({"pr": pr, "head_before": before[:8], "head_now": head_now[:8], "new_commits": len(commits)}, indent=2))
