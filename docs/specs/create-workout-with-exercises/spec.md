@@ -8,7 +8,10 @@ Related: [docs/prds/create-workout-with-exercises/prd.md](../../prds/create-work
 and [vertice-bff/docs/api-contract.md](https://github.com/herbertpdl/vertice-bff/blob/main/docs/api-contract.md)
 (the endpoints consumed here: `POST /training-plans/:planId/workouts` with nested `exercises`,
 `PUT /workouts/:workoutId/exercises`, 409 `PRECONDITION_FAILED`, and the unchanged per-item
-endpoints), [vertice-api/docs/specs/create-workout-with-exercises/spec.md](https://github.com/herbertpdl/vertice-api/blob/main/docs/specs/create-workout-with-exercises/spec.md)
+endpoints — **not on vertice-bff `main` yet**: they land with
+[vertice-bff#18](https://github.com/herbertpdl/vertice-bff/pull/18), stacked on
+[vertice-bff#17](https://github.com/herbertpdl/vertice-bff/pull/17) for the 409 mapping; until
+those merge, read both documents on that PR's branch), [vertice-api/docs/specs/create-workout-with-exercises/spec.md](https://github.com/herbertpdl/vertice-api/blob/main/docs/specs/create-workout-with-exercises/spec.md)
 (upstream semantics of the replace: whole tree recreated, refused once *any* recorded data exists),
 pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salvamento automático)`
 (visual source of truth for copy, layout and states).

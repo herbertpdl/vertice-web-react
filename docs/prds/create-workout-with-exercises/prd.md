@@ -8,7 +8,8 @@ R1–R16 and edge cases E1–E11 are the product rules this document assumes; th
 below as `API-R#`/`API-E#` and not restated), [vertice-api/docs/requirements.md](https://github.com/herbertpdl/vertice-api/blob/main/docs/requirements.md) (source
 requirement: "Create a workut that is a training for a given weekday" and "Assign the created
 workout into a training plan for a client/costumer"), [vertice-bff/docs/specs/create-workout-with-exercises/spec.md](https://github.com/herbertpdl/vertice-bff/blob/main/docs/specs/create-workout-with-exercises/spec.md)
-(the bridge that makes the behavior below reachable from the web)
+(the bridge that makes the behavior below reachable from the web; in review as
+[vertice-bff#18](https://github.com/herbertpdl/vertice-bff/pull/18) — the `main` link resolves once it merges)
 Spec: [docs/specs/create-workout-with-exercises/spec.md](../../specs/create-workout-with-exercises/spec.md)
 
 ## 1. Summary
