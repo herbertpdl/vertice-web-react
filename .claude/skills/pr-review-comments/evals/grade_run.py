@@ -111,9 +111,11 @@ add("commits_have_coauthor_trailer", all(c["coauthor"] for c in commits) if comm
 # with decline checked first so an accidental "addressed in" inside a decline reply (e.g.
 # "not addressed in this PR; follow-up") can't be misread as a fix.
 DECLINE_RE = re.compile(
-    r"\b(not changing|leaving (this|it) as is|declin\w*|out[- ]of[- ]scope|keeping)\b"
+    r"\b(not changing|leaving (this|it) as[- ]is|keeping (this|it) as[- ]is|declin\w*|out[- ]of[- ]scope)\b"
     # "follow-up" alone is a false-positive magnet (a paginated "follow-up query" is not
-    # a decline) — only count it in the out-of-scope phrasing the skill itself uses.
+    # a decline) — only count it in the out-of-scope phrasing the skill itself uses. Same
+    # for bare "keeping" (matches "keeping the schema validation..." in a fix reply) —
+    # require the "as is" phrase the skill's own decline wording actually uses.
     r"|\b(as|in) an? follow[- ]up\b|\bfollow[- ]up (pr|issue|ticket)\b|\bopen(ed)? a follow[- ]up\b",
     re.I,
 )
