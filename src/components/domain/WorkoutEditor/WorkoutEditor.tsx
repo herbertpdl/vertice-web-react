@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownToLine, ChevronRight, CircleAlert, Dumbbell, TriangleAlert } from "lucide-react";
@@ -116,6 +116,17 @@ export function WorkoutEditorSession({
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  // The engine outlives this component (see `useWorkoutAutosave`), so a save
+  // can land after the trainer navigated away: the cache invalidations below
+  // are still wanted then (they refresh the plan page), the URL rewrite is not.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   const [state, engine] = useWorkoutAutosave({
     planId,
     workoutId,
@@ -128,7 +139,9 @@ export function WorkoutEditorSession({
       if (created) {
         queryClient.invalidateQueries({ queryKey: ["recentWorkouts"] });
         // Same editor, real URL: a reload lands on the workout route (R3).
-        window.history.replaceState(null, "", `/planos/${planId}/treinos/${savedId}`);
+        if (mounted.current) {
+          window.history.replaceState(null, "", `/planos/${planId}/treinos/${savedId}`);
+        }
       }
     },
   });
