@@ -14,8 +14,19 @@ const strategyOptions = Object.entries(setStrategyLabels).map(([value, label]) =
 /** Column template shared by the header row and every set row (design: 14 / 24 / 150 / 110 / 90 / 80 / 90 + actions, gap 10). */
 export const SET_GRID = "grid-cols-[14px_24px_150px_110px_90px_80px_90px_auto] gap-[10px]";
 
+// What may be typed (anything else marks the cell invalid) vs. what is sent:
+// a lone or trailing separator ("." / "6,") is a keystroke away from a number,
+// so it is neither flagged nor committed — committing it would send a value
+// the platform rejects and undo the whole pending batch (E9).
 const DECIMAL = /^\d*([.,]\d*)?$/;
+const COMPLETE_DECIMAL = /^(\d+([.,]\d+)?|[.,]\d+)$/;
 const INTEGER = /^\d*$/;
+
+/** Wire form of a complete decimal: dot separator, leading zero. */
+function toWireDecimal(text: string): string {
+  const dotted = text.replace(",", ".");
+  return dotted.startsWith(".") ? `0${dotted}` : dotted;
+}
 
 function Cell({
   value,
@@ -50,7 +61,13 @@ function Cell({
       onChange={(event) => {
         const next = event.target.value;
         setLocal(next);
-        if (pattern.test(next)) onCommit(next.replace(",", "."));
+        if (!pattern.test(next)) return;
+        if (kind === "integer" || next === "") onCommit(next);
+        else if (COMPLETE_DECIMAL.test(next)) onCommit(toWireDecimal(next));
+      }}
+      onBlur={() => {
+        // Left on a dangling separator: show what was actually committed.
+        if (kind === "decimal" && local !== "" && !COMPLETE_DECIMAL.test(local)) setLocal(value);
       }}
       className={`w-full rounded-[var(--radius-sm)] border bg-[var(--color-bg)] px-[10px] py-[7px] text-[12px] text-[color:var(--color-text-primary)] outline-none transition-colors placeholder:text-[color:var(--color-text-tertiary)] focus:border-[var(--color-primary)] ${
         valid ? "border-[var(--color-border)]" : "border-[var(--color-danger)]"
