@@ -112,7 +112,7 @@ add("replies_have_no_preamble", len(pre) == 0, f"replies opening with filler: {p
 
 # checks at pushed head (the checkout is expected to be on the head branch)
 cur = sh(["git", "rev-parse", "HEAD"])[0]
-status = sh(["git", "status", "--porcelain", "--untracked-files=no"])[0]
+status = sh(["git", "status", "--porcelain"])[0]   # untracked files count: the run must not leave stray files behind
 add("working_tree_clean_and_on_pr_branch", cur == head_now and status == "",
     f"HEAD={cur[:8]} origin/{head_ref}={head_now[:8]} dirty={bool(status)}")
 checks = {}
