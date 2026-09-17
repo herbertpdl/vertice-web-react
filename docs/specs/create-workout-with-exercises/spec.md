@@ -367,12 +367,21 @@ inside the app should complete.
   sent by the follow-up save; network failure → `error` and `retry()` re-sends the current draft;
   a create that failed after upstream committed is adopted on `retry()` (the plan now lists a
   new workout with the sent name/day) instead of being re-sent, and a create that failed
-  before upstream committed is re-sent; `finish()`
-  waits for the pending save.
+  before upstream committed is re-sent; a flush that ends in `error` with nothing queued stays
+  in `error` (never falls through to `saved`); a per-item `POST`'s id is adopted by key so a
+  later op in the same run targets it, not `null`; a per-item op whose response was lost is
+  adopted from a `/full` refetch on `retry()` instead of being re-sent, so it is not duplicated;
+  `finish()` awaits a pending save without scheduling a second one, and after a failed create
+  reuses the reconciliation lookup rather than re-posting.
+- `hasAddedExercise` (reducer/model tests): set on the first `addExercise` regardless of source
+  (picker or "usar como base") and unaffected by a later removal, so the offer does not reappear
+  after an add-then-remove.
 - Storybook stories (browser tests) for `WorkoutExerciseCard` (default, no sets, dragging,
   set-dragging, not-allowed, cap reached, refused), `SetRow`, `EditorFooter` (idle/saving/saved/
   error), `AddExerciseDialog` (cap), `CloneWorkoutDialog`, and `WorkoutEditorSession` (empty new
-  workout with the offer; with exercises).
+  workout with the offer; with exercises; offer gone after an add-then-remove).
+- `Header`'s nav-link `onNavigate` guard (component test): blocks with `window.confirm` while the
+  editor's status is `saving`/`error`, lets navigation through otherwise.
 
 ## 6. Out of scope / follow-ups
 
