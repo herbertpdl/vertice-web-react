@@ -144,17 +144,24 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
 - **Leaving the editor while a save is pending or failed is guarded on both exit paths (R12,
     E17, E18).** A native unload (reload, close tab, typed URL) is caught by `beforeunload`, which
     only fires for a document unload — it does not run for an in-app `<Link>` or `router.push`,
-    which keep the document alive. In-app navigation away from the editor route goes through the
-    persistent `Header`'s nav links (`src/components/layout/Header.tsx`, rendered by the `(app)`
-    layout), so those gain an `onNavigate` guard — the pattern Next documents for blocking `Link`
-    navigation: a shared "leaving" flag, true whenever the footer status is `saving` or `error`,
-    makes `onNavigate` call `window.confirm` and `event.preventDefault()` on a cancel, mirroring
-    `beforeunload`'s condition exactly. `finish()`'s own `router.push` back to the plan needs no
-    guard — it only runs after its flush resolves to a non-`error` status (previous bullet). Any
-    future programmatic exit from the editor must set the same flag before calling `router.push`;
-    today the only one is `finish()`. *Known gap:* neither mechanism catches the browser
-    back/forward buttons (a same-document history transition outside `Header`'s links); accepted
-    for now, matching every other unsaved-state surface in the app.
+    which keep the document alive. In-app navigation away from the editor is not only the
+    persistent `Header`'s nav links (`src/components/layout/Header.tsx`): `WorkoutEditor` renders
+    its own breadcrumb `<Link>`s to the student and the plan (today at
+    `src/components/domain/WorkoutEditor.tsx:90–102`, carried into `WorkoutEditorSession`), and
+    every `<Link>` reachable while the editor is mounted needs the same guard, not just the
+    app-shell ones — a per-component patch would silently miss the next one added anywhere in the
+    tree. So the guard is a `NavigationBlockerContext` (the shared-state pattern Next documents
+    for exactly this — blocking navigation from any link while a form is being edited), provided
+    once by the `(app)` layout above both `Header` and the routed page: its `isBlocked` flag is
+    true whenever the mounted editor session's footer status is `saving` or `error`, and both
+    `Header`'s nav links and the editor's own breadcrumb links read it in `onNavigate`, calling
+    `window.confirm` and `event.preventDefault()` on a cancel — mirroring `beforeunload`'s
+    condition exactly, from one flag instead of two independent patches. `finish()`'s own
+    `router.push` back to the plan needs no guard — it only runs after its flush resolves to a
+    non-`error` status (previous bullet). Any future programmatic exit from the editor must set
+    the same context flag before calling `router.push`; today the only one is `finish()`. Browser
+    back/forward remain unguarded (a same-document history transition, not a `<Link>` click) —
+    see the PRD's explicit R12 exception (§6).
 - **A failed create is reconciled before it is retried, so a lost response cannot create the
     workout twice.** Neither the BFF nor `vertice-api` has an idempotency key on
     `POST /training-plans/:planId/workouts`, and a network failure or gateway 5xx can arrive
@@ -256,7 +263,8 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
 | `src/lib/days.ts` | New `DAY_NAMES_LONG` map ("Segunda-feira" …) next to the existing `DAY_NAMES`/`DAY_ABBR` |
 | `src/app/(app)/planos/[planId]/treinos/[workoutId]/page.tsx` | Now the only route for the editor: treats `workoutId === "novo"` as no workout yet (was a separate `treinos/novo/page.tsx`) and reads the `dayOfWeek` query param for that case |
 | `src/app/(app)/planos/[planId]/treinos/novo/page.tsx`, `NovoTreinoContent.tsx` | Removed — merged into `[workoutId]/page.tsx` above, so a create's `router.replace` is a same-file param change, not a page swap |
-| `src/components/domain/WorkoutEditor.tsx` | Loads plan/student/workout, then renders `WorkoutEditorSession` (draft, header, list, DnD, footer, banners) |
+| `src/components/domain/WorkoutEditor.tsx` | Loads plan/student/workout, then renders `WorkoutEditorSession` (draft, header, list, DnD, footer, banners); its student/plan breadcrumb `Link`s consume `NavigationBlockerContext` |
+| `src/lib/navigationBlocker.tsx` | `NavigationBlockerContext`/`NavigationBlockerProvider` (`isBlocked` state) mounted by the `(app)` layout; consumed by `Header`'s nav links and by the editor's breadcrumb links |
 | `src/components/domain/WorkoutExerciseCard.tsx` | Presentational card: handle, order badge, rest, notes, sets table, drag/refusal/cap states |
 | `src/components/domain/SetRow.tsx` | Presentational row with per-field commit + drag handle + duplicate/remove |
 | `src/components/domain/AddExerciseDialog.tsx` | Picker → `onPick(exercise)`; `atCap` banner and disabled actions |
@@ -414,8 +422,9 @@ inside the app should complete.
   set-dragging, not-allowed, cap reached, refused), `SetRow`, `EditorFooter` (idle/saving/saved/
   error), `AddExerciseDialog` (cap), `CloneWorkoutDialog`, and `WorkoutEditorSession` (empty new
   workout with the offer; with exercises; offer gone after an add-then-remove).
-- `Header`'s nav-link `onNavigate` guard (component test): blocks with `window.confirm` while the
-  editor's status is `saving`/`error`, lets navigation through otherwise.
+- `NavigationBlockerContext` (component tests): both `Header`'s nav links and `WorkoutEditor`'s
+  breadcrumb links block with `window.confirm` while the mounted editor's status is
+  `saving`/`error`, and let navigation through otherwise.
 
 ## 6. Out of scope / follow-ups
 
