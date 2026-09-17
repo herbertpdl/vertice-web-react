@@ -110,6 +110,15 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     other operation in the same flush still runs and the status ends in "Salvo" (R27, E13). The
     banner is dismissed with "Fechar" (R28). No 409 banner is shown when the refused replace
     carried no removal (there is nothing to undo — the per-item resync just saves it).
+    **Restoring an item mid-run does not invalidate the ops already computed for it, but does for
+    any position this run still has left to send.** The per-item diff is computed once, up front,
+    against `sent` (the tree with the refused removal already applied) — so a reorder queued
+    later in the same run for an item after the restored one still carries the position it would
+    have had if the deletion had gone through, which is now wrong by one. So a restore does not
+    just patch the draft; it also re-derives, from the *current* tree (snapshot as advanced so
+    far, with the restored item back in it), the position value of every remaining op in this
+    run that carries one, before that op is sent — not a full re-diff, since only positions can
+    have shifted, never which items are being added/removed/edited.
     *Which delete failures count as a refusal.* Only the codes a recorded-data delete actually
     produces: `PRECONDITION_FAILED` (409 — what `vertice-api` will return once the §6 follow-up
     lands) and `UPSTREAM_ERROR` (502 — the FK violation today). A `NOT_FOUND` delete counts as
@@ -410,7 +419,9 @@ inside the app should complete.
   existing workout uses `PATCH` + `PUT`; 409 flips to per-item and re-syncs; a per-item delete
   answered 409/502 restores the item and raises the named banner while other ops still run, one
   answered 503 (or a network failure) stops the run in `error` without a banner and `retry()`
-  resumes from that op; 400 reverts to
+  resumes from that op; a refused delete followed later in the same run by a reorder PATCH for a
+  different item sends that item's *current* position, not the one computed before the restore;
+  400 reverts to
   the snapshot and an edit made while that request was in flight survives the revert and is
   sent by the follow-up save; network failure → `error` and `retry()` re-sends the current draft;
   a create that failed after upstream committed is adopted on `retry()` (the plan now lists a
