@@ -64,8 +64,13 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     removed. Therefore, on 409 the engine (a) keeps the draft untouched, (b) flips this editor
     session to `per-item` mode, and (c) immediately re-syncs the same diff through the unchanged
     one-at-a-time endpoints (`DELETE`/`POST`/`PATCH` on `workout-exercises` and `exercise-sets`,
-    with `order`/`setNumber` = list position for reorders — no unique constraint exists on either
-    column, so sequential `PATCH`es cannot collide). `per-item` is a transport detail of the
+    with `order`/`setNumber` = list position **+ 1** for reorders — upstream's `order`/`setNumber`
+    are 1-based, the draft array's index is 0-based, and this holds wherever a position is sent,
+    not only here; no unique constraint exists on either column, so sequential `PATCH`es cannot
+    collide). Each per-item `POST`'s response id is adopted into the draft and the snapshot by the
+    item's client `key`, mirroring `adoptIds` for `replace` (§3), the moment it arrives — so a set
+    or exercise created earlier in the same per-item run addresses its real id, not a stale
+    `null`, in any later op that targets it. `per-item` is a transport detail of the
     engine, not a product mode: the trainer keeps the same autosave, the same footer status and
     the same screen, nothing is announced and there is nothing to choose (R26, R28 — the PRD's
     §7 "refused whole-list save" row and §10.1 item 4 describe what the trainer sees, and that is
