@@ -314,9 +314,8 @@ timer ──▶ flush():
                        DELETE 409 PRECONDITION_FAILED / 502 UPSTREAM_ERROR → restore item,
                                    banner(named), continue with the remaining ops
                        any op, other failure → status = error [terminal; per-item snapshot
-                                already advanced for the ops that succeeded]; retry() refetches
-                                `/full` first and adopts any op whose result now exists but was
-                                never confirmed (§0-style reconciliation) before re-sending it
+                                already advanced for the ops that succeeded]; retry() re-sends the
+                                same failed op (known limitation below)
                        all ops settle → done
    done: pendingFlush ? flush() : status = saved
 ```
@@ -327,6 +326,16 @@ saved`, which would otherwise report a failed save as "Salvo" (R9). A `pendingFl
 by an edit made while the failed request was in flight is not chained automatically from an
 `[terminal]` branch either — it is picked up by the next `flush()` call, from "Tentar novamente"
 or the debounce timer of a further edit, keeping R10's "no automatic retry" intact.
+
+*Known limitation: a per-item `POST` retry can duplicate a row.* Unlike the top-level create
+(§0), a per-item `POST`'s result cannot be reconciled by refetching `/full` and matching on
+content: R20 explicitly allows the same catalog exercise more than once, so a lost response
+(network drop, 502, after the row actually committed) can leave two rows — the original and the
+one `retry()`'s re-`POST` creates — indistinguishable from each other or from a genuinely
+duplicate item the trainer added on purpose. There is no per-item idempotency key to resolve this
+(§6 follow-up, extended to cover these endpoints too), so the engine does not attempt a guess:
+it re-sends the failed op as-is, and in the rare case a duplicate results, the trainer sees and
+can remove the extra row like any other edit.
 
 Dirty check = deep-compare of `sent` against `snapshot` (name/day and the tree separately).
 After a create/replace the snapshot is **the tree as sent plus the ids/positions the server
@@ -394,10 +403,10 @@ inside the app should complete.
   new workout with the sent name/day) instead of being re-sent, and a create that failed
   before upstream committed is re-sent; a flush that ends in `error` with nothing queued stays
   in `error` (never falls through to `saved`); a per-item `POST`'s id is adopted by key so a
-  later op in the same run targets it, not `null`; a per-item op whose response was lost is
-  adopted from a `/full` refetch on `retry()` instead of being re-sent, so it is not duplicated;
-  `finish()` awaits a pending save without scheduling a second one, and after a failed create
-  reuses the reconciliation lookup rather than re-posting.
+  later op in the same run targets it, not `null`; `finish()` awaits a pending save without
+  scheduling a second one, and after a failed create reuses the reconciliation lookup rather than
+  re-posting; creating a new workout with a blank name shows "Novo treino" in the field afterward,
+  not a blank one, and a name typed while that create was in flight is not overwritten by it.
 - `hasAddedExercise` (reducer/model tests): set on the first `addExercise` regardless of source
   (picker or "usar como base") and unaffected by a later removal, so the offer does not reappear
   after an add-then-remove.
@@ -415,6 +424,8 @@ inside the app should complete.
   start in per-item mode without a probing 409.
 - `vertice-bff`/`vertice-api`: an idempotency key on `POST /training-plans/:planId/workouts`
   (client-generated, echoed back) would replace the reconciliation lookup in §0 with a plain
-  retry.
+  retry; the same is true of the per-item `POST` endpoints (`workout-exercises`, `exercise-sets`)
+  and the known duplicate-on-retry limitation in §3, where content-based reconciliation is not an
+  option because duplicate items are allowed (R20).
 - Touch/mobile drag and drop; keyboard reordering.
 - Conflict detection between concurrent editors (E19).
