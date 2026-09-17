@@ -170,14 +170,18 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     (or two "Novo treino"). So the engine records `knownWorkoutIds` — the ids of the plan's
     workouts at mount (`GET /training-plans/:planId/workouts`, one call; the editor is opened
     from the plan page, so it is usually cached) — and, when a create failed with anything other
-    than a 4xx (a 4xx means nothing was created), `retry()` first lists the plan's workouts
-    again: a workout whose id is not in `knownWorkoutIds` and whose `name`/`dayOfWeek` equal
-    what was sent is the one that got created. The engine adopts it (`GET /workouts/:id/full`
-    for the ids, then `adoptIds`, snapshot, `replaceState` to the workout URL, all exactly as
-    after a successful create) and continues in the existing-workout path (`PATCH`/`PUT`) with
-    the *current* draft; if none matches, the create is re-sent. Two extra reads on a rare path;
-    the false-match case (another tab of the same trainer created an identically named workout
-    on the same weekday in the same plan in between) is same-owner and last-write-wins by E19.
+    than a 4xx (a 4xx means nothing was created), `retry()` first lists the plan's workouts again
+    and takes candidates outside `knownWorkoutIds` whose `name`/`dayOfWeek` equal what was sent.
+    **Exactly one candidate** is adopted (`GET /workouts/:id/full` for the ids, then `adoptIds`,
+    snapshot, the same `router.replace` a successful create does) and the engine continues in the
+    existing-workout path (`PATCH`/`PUT`) with the *current* draft; **zero candidates** re-sends
+    the create as before. **More than one candidate is a genuine ambiguity, not a last-write-wins
+    case** — E19 covers two editors changing the *same existing* workout, not this lookup
+    silently attaching to a *different* new workout (e.g. another tab created an identically
+    named one on the same weekday in the same plan in between): adopting the wrong one would have
+    every later `PATCH`/`PUT` in this session silently edit someone else's workout instead of the
+    trainer's own. So an ambiguous match is left in `error` instead — the trainer's next "Tentar
+    novamente" re-lists after the race has had time to settle, rather than the engine guessing.
     An idempotency key on the BFF/API would make this lookup unnecessary; noted in §6.
 - **Footer status is derived from the engine, nowhere else (R9, R13).** `idle` (never saved,
     nothing pending — "As alterações são salvas automaticamente" with the info icon, as in the
@@ -411,7 +415,8 @@ inside the app should complete.
   sent by the follow-up save; network failure → `error` and `retry()` re-sends the current draft;
   a create that failed after upstream committed is adopted on `retry()` (the plan now lists a
   new workout with the sent name/day) instead of being re-sent, and a create that failed
-  before upstream committed is re-sent; a flush that ends in `error` with nothing queued stays
+  before upstream committed is re-sent; two candidates matching name/day stays in `error`
+  instead of adopting either; a flush that ends in `error` with nothing queued stays
   in `error` (never falls through to `saved`); a per-item `POST`'s id is adopted by key so a
   later op in the same run targets it, not `null`; `finish()` awaits a pending save without
   scheduling a second one, and after a failed create reuses the reconciliation lookup rather than
