@@ -7,11 +7,11 @@ Related: [docs/prds/create-workout-with-exercises/prd.md](../../prds/create-work
 [vertice-bff/docs/specs/create-workout-with-exercises/spec.md](https://github.com/herbertpdl/vertice-bff/blob/main/docs/specs/create-workout-with-exercises/spec.md)
 and [vertice-bff/docs/api-contract.md](https://github.com/herbertpdl/vertice-bff/blob/main/docs/api-contract.md)
 (the endpoints consumed here: `POST /training-plans/:planId/workouts` with nested `exercises`,
-`PUT /workouts/:workoutId/exercises`, 409 `PRECONDITION_FAILED`, and the unchanged per-item
-endpoints — **not on vertice-bff `main` yet**: they land with
-[vertice-bff#18](https://github.com/herbertpdl/vertice-bff/pull/18), stacked on
-[vertice-bff#17](https://github.com/herbertpdl/vertice-bff/pull/17) for the 409 mapping; until
-those merge, read both documents on that PR's branch), [vertice-api/docs/specs/create-workout-with-exercises/spec.md](https://github.com/herbertpdl/vertice-api/blob/main/docs/specs/create-workout-with-exercises/spec.md)
+`PUT /workouts/:workoutId/exercises` and 409 `PRECONDITION_FAILED` — **not on vertice-bff `main`
+yet**: they land with [vertice-bff#18](https://github.com/herbertpdl/vertice-bff/pull/18), stacked
+on [vertice-bff#17](https://github.com/herbertpdl/vertice-bff/pull/17) for the 409 mapping; until
+those merge, read both documents on that PR's branch — plus the unchanged per-item endpoints,
+already on `main`), [vertice-api/docs/specs/create-workout-with-exercises/spec.md](https://github.com/herbertpdl/vertice-api/blob/main/docs/specs/create-workout-with-exercises/spec.md)
 (upstream semantics of the replace: whole tree recreated, refused once *any* recorded data exists),
 pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salvamento automático)`
 (visual source of truth for copy, layout and states).
@@ -144,7 +144,7 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     "not allowed" style on other cards while a set is dragged — all expressible with
     `dragstart`/`dragover`/`drop`/`dragend` and a few pieces of local state. Adding `dnd-kit` or
     similar would pull a dependency (and its context providers) for desktop-only reordering the
-    product does not need touch support for yet; native events also keep the components plain
+    product does not need touch support yet; native events also keep the components plain
     functions the React Compiler can memoize. Only the grip handle arms `draggable` on its card
     /row (pointer-down on the handle sets a flag; it is cleared on `dragend`), so text selection
     inside the inputs keeps working. Set drags carry the source exercise key; `dragover` on a
@@ -299,7 +299,8 @@ inside the app should complete.
   outline and the restored row the danger outline + lock tag.
 - Footer: left status (info "As alterações são salvas automaticamente" / spinner "Salvando…" /
   check "Salvo" / circle-x "Erro ao salvar —" + link "Tentar novamente"); right "Concluir"
-  (dimmed while saving).
+  (visually muted while saving — a lower-opacity style only, not `disabled`: the button stays
+  clickable so `finish()` can still await the pending save, per E17).
 - Picker at cap: warning banner "Este treino já tem 20 exercícios — o máximo permitido" / "Você
   pode continuar navegando pelo catálogo, mas para adicionar outro exercício remova um do treino
   primeiro."; every "Adicionar" disabled.
