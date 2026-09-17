@@ -35,7 +35,15 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     payload (`name` = typed name, or `"Novo treino"` when blank — R4/E2 — "blank" meaning
     `name.trim() === ""`, so a whitespace-only name does not slip past this check and reach the
     BFF's `min(1)` validator as if it were real content; `dayOfWeek`;
-    `exercises` = the draft, order = list position — R17/R18). `window.history.replaceState` was
+    `exercises` = the draft, order = list position — R17/R18). The substituted `"Novo treino"` is
+    a payload-only value, not a mutation of the draft, so on success it is merged into the
+    *current* draft and the snapshot the same way tree ids are (§3): if the name field is still
+    the blank value that was actually sent, it is set to `"Novo treino"` so the trainer sees the
+    name the server assigned instead of a blank field, and so a later reconciliation match (below)
+    compares against what was really sent, not an empty draft; if the trainer typed a name while
+    the request was in flight, that edit is left alone — it already makes the draft dirty against
+    the new snapshot and goes out with the chained flush, same as any other edit made mid-save.
+    `window.history.replaceState` was
     the wrong tool here: `/treinos/novo` and `/treinos/[workoutId]` are two separate `page.tsx`
     files today, and rewriting the URL bar by hand does not tell the App Router to switch which
     page is mounted, so the `novo` page (and its component tree, including the autosave engine
