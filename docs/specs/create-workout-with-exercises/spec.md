@@ -176,10 +176,15 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     `window.confirm` and `event.preventDefault()` on a cancel — mirroring `beforeunload`'s
     condition exactly, from one flag instead of two independent patches. `finish()`'s own
     `router.push` back to the plan needs no guard — it only runs after its flush resolves to a
-    non-`error` status (previous bullet). Any future programmatic exit from the editor must set
-    the same context flag before calling `router.push`; today the only one is `finish()`. Browser
-    back/forward remain unguarded (a same-document history transition, not a `<Link>` click) —
-    see the PRD's explicit R12 exception (§6).
+    non-`error` status (previous bullet). The app shell has one other programmatic exit that is
+    not a `<Link>`: `AppHeader`'s "Sair" action (`src/components/layout/AppHeader.tsx:28–33`,
+    `handleSignOut` → `logout()` then `router.push("/login")`). It reads `isBlocked` the same way
+    `finish()` reads the flush status — a `window.confirm` guard before calling `handleSignOut`,
+    not before the `router.push` inside it, since sign-out is a single user-initiated action, not
+    two — so signing out while the editor is saving or in error warns first instead of losing the
+    draft silently. Any future programmatic exit from the editor must do the same. Browser
+    back/forward remain unguarded (a same-document history transition, not a `<Link>` click or
+    button) — see the PRD's explicit R12 exception (§6).
 - **A failed create is not reconciled by guessing — it is just re-sent, and a resulting duplicate
     is a known, accepted risk (not silently corrected).** Neither the BFF nor `vertice-api` has an
     idempotency key on `POST /training-plans/:planId/workouts`, and a network failure or gateway
@@ -444,9 +449,9 @@ inside the app should complete.
   set-dragging, not-allowed, cap reached, refused), `SetRow`, `EditorFooter` (idle/saving/saved/
   error), `AddExerciseDialog` (cap), `CloneWorkoutDialog`, and `WorkoutEditorSession` (empty new
   workout with the offer; with exercises; offer gone after an add-then-remove).
-- `NavigationBlockerContext` (component tests): both `Header`'s nav links and `WorkoutEditor`'s
-  breadcrumb links block with `window.confirm` while the mounted editor's status is
-  `saving`/`error`, and let navigation through otherwise.
+- `NavigationBlockerContext` (component tests): `Header`'s nav links, `WorkoutEditor`'s breadcrumb
+  links, and `AppHeader`'s "Sair" action all block with `window.confirm` while the mounted
+  editor's status is `saving`/`error`, and let navigation/sign-out through otherwise.
 
 ## 6. Out of scope / follow-ups
 
