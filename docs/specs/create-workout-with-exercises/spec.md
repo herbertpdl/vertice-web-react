@@ -105,10 +105,16 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     **That failed delete is the refused change:** the
     engine restores the item into the draft at its snapshot position, marks it (danger outline +
     "Remoção desfeita — desempenho registrado por um aluno" tag, per the design) and shows the
-    "Remoção não aplicada" banner naming the exercise (and set number) from local state; every
-    other operation in the same flush still runs and the status ends in "Salvo" (R27, E13). The
-    banner is dismissed with "Fechar" (R28). No 409 banner is shown when the refused replace
-    carried no removal (there is nothing to undo — the per-item resync just saves it).
+    "Remoção não aplicada" banner — naming the exercise and set number when the refused delete
+    was a set (E13), or only the exercise when it was the whole exercise (E13a: the platform's
+    generic FK/502 response cannot say which of the exercise's sets blocked it, so no set number
+    is invented; §4 has the exact copy for both). Every other operation in the same flush still
+    runs, and *provided all of them succeed*, the status ends in "Salvo" (R27, E13) — a later
+    operation failing for a non-refusal reason still lands the flush in `error` per "which delete
+    failures count as a refusal" below and §3's per-op flow; a restore is not itself a failure of
+    the flush, only of that one op. The banner is dismissed with "Fechar" (R28). No 409 banner is
+    shown when the refused replace carried no removal (there is nothing to undo — the per-item
+    resync just saves it).
     **Restoring an item mid-run does not invalidate the ops already computed for it, but does for
     any position this run still has left to send.** The per-item diff is computed once, up front,
     against `sent` (the tree with the refused removal already applied) — so a reorder queued
