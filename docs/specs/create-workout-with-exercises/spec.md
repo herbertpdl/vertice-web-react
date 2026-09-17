@@ -459,6 +459,11 @@ inside the app should complete.
 
 ## 6. Out of scope / follow-ups
 
+- `vertice-bff`: document the 502 `UPSTREAM_ERROR` code in `docs/api-contract.md`'s common-codes
+  list. §0's per-item refusal detection depends on it (the FK-violation delete failure), and it is
+  real behavior — `mapGrpcError`'s fallback for an unmapped gRPC status — but as of vertice-bff#17
+  only `PRECONDITION_FAILED`/409 was added to that list; `UPSTREAM_ERROR` isn't documented on
+  `main` or on #17/#18, so this spec is currently the only place it's written down.
 - `vertice-api`: return `FAILED_PRECONDITION` from `DeleteExerciseSet`/`DeleteWorkoutExercise`
   when the item has recorded data, and expose `hasRecordedData` on the workout so the web can
   start in per-item mode without a probing 409.
