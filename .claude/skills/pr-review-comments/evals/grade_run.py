@@ -240,30 +240,58 @@ for t in threads:
             basename_counts[f"{os.path.basename(t['path'])}:{n}"] = basename_counts.get(f"{os.path.basename(t['path'])}:{n}", 0) + 1
 
 
-def row_for(t):
+row_keys = {}
+match_idx = {}
+for t in threads:
     # A thread's row is identified by full path:line (current or original), an unambiguous
-    # basename:line, or its root comment id; the row itself (a small window around the
-    # match, since the report may wrap a thread over more than one line) must also carry a
-    # verdict word and, for a fix/fix-differently/already-addressed row, a SHA or reason.
-    # Each key is matched with a trailing "not followed by another digit" boundary so
-    # `src/a.ts:10` can't match a report row that only mentions `src/a.ts:100`.
+    # basename:line, or its root comment id. Each key is matched with a trailing "not
+    # followed by another digit" boundary so `src/a.ts:10` can't match a report row that
+    # only mentions `src/a.ts:100`.
     keys = [f"{t['path']}:{n}" for n in (t["line"], t["original_line"]) if n]
     keys += [f"{os.path.basename(t['path'])}:{n}" for n in (t["line"], t["original_line"])
              if n and basename_counts[f"{os.path.basename(t['path'])}:{n}"] == 1]
     keys += [f"r{t['root_comment_id']}"]
+    row_keys[t["root_comment_id"]] = keys
     key_res = [re.compile(re.escape(k) + r"(?!\d)") for k in keys]
     for i, line in enumerate(report_lines):
         if any(kr.search(line) for kr in key_res):
-            return "\n".join(report_lines[i:i + 3])
-    return None
+            match_idx[t["root_comment_id"]] = i
+            break
+
+sorted_starts = sorted(match_idx.values())
 
 
-rows = {t["root_comment_id"]: row_for(t) for t in threads}
+def row_for(rid):
+    # The row itself is a small window around the match, since the report may wrap a
+    # thread over more than one line — bounded by the next thread's own row so a
+    # neighboring row's SHA or verdict can't be mistaken for this row's content.
+    i = match_idx.get(rid)
+    if i is None:
+        return None
+    later_starts = [s for s in sorted_starts if s > i]
+    end = min([i + 3] + later_starts)
+    return "\n".join(report_lines[i:end])
+
+
+def has_reason(rid, row):
+    # A real reason is leftover prose once this row's own identifying keys, the verdict
+    # word and any SHA are stripped out — a bare "<long path> — fix" (already >40 chars
+    # from the path alone) must not be mistaken for a reason.
+    text = row
+    for k in row_keys[rid]:
+        text = text.replace(k, " ")
+    text = VERDICT_RE.sub(" ", text)
+    text = SHA_RE.sub(" ", text)
+    text = re.sub(r"[|`*_#>:.\-]", " ", text)
+    return len(re.sub(r"\s+", " ", text).strip()) >= 15
+
+
+rows = {t["root_comment_id"]: row_for(t["root_comment_id"]) for t in threads}
 missing_in_report = [f"{t['path']}:{t['line'] or t['original_line']}" for t in threads if rows[t["root_comment_id"]] is None]
 no_verdict = [f"r{rid}" for rid, row in rows.items() if row and not VERDICT_RE.search(row)]
 no_sha_or_reason = [
     f"r{rid}" for rid, row in rows.items()
-    if row and VERDICT_RE.search(row) and not SHA_RE.search(row) and len(row.strip()) < 40
+    if row and VERDICT_RE.search(row) and not SHA_RE.search(row) and not has_reason(rid, row)
 ]
 add("report_has_per_thread_table",
     bool(report) and not missing_in_report and not no_verdict and not no_sha_or_reason,
