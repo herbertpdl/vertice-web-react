@@ -332,7 +332,11 @@ timer ──▶ flush():
                     2xx        → ids by position → snapshot → done
                     non-4xx    → status = error [terminal]; retry() re-sends the create as-is
                                   (accepted duplicate-on-retry risk, §0 — no reconciliation)
-                    4xx        → status = error [terminal]; nothing was created
+                    400        → draft tree = reduce(empty tree, sinceSent), banner(generic
+                                  message); dirty if anything survived → done (§0 — same revert-
+                                  and-replay as the existing-workout 400 branch below, just against
+                                  an empty snapshot since nothing was created)
+                    other 4xx  → status = error [terminal]; nothing was created
    else           → PATCH name/day if changed
                     tree changed & mode=replace → PUT replace
                        2xx  → ids by position → snapshot → done
