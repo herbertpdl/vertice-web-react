@@ -245,22 +245,38 @@ timer ──▶ flush():
    in flight?  → pendingFlush = true, return
    clean?      → status = saved | idle, return
    sent = draft; sinceSent = []   (every edit while in flight is appended)
-   workoutId null → POST create(nested)        → ids by position → snapshot
+   workoutId null → POST create(nested)
+                    2xx        → ids by position → snapshot → done
+                    non-4xx    → status = error [terminal]; retry() lists the plan's workouts,
+                                  adopts a new one matching name/day (ids from /full) or
+                                  re-sends the create
+                    4xx        → status = error [terminal]; nothing was created
    else           → PATCH name/day if changed
-                    tree changed & mode=replace → PUT replace   → ids by position → snapshot
-                    tree changed & mode=per-item → diff(snapshot, sent) as DELETE/POST/PATCH
-   errors: create failed with a non-4xx → status = error; retry() lists the plan's workouts,
-                                        adopts a new one matching name/day (ids from
-                                        /full) or re-sends the create
-           409 on PUT → mode = per-item, pendingFlush = true (re-sync same diff)
-           400 on POST/PUT → draft tree = reduce(snapshot tree, sinceSent), banner(generic
-                             message); dirty if anything survived
-           DELETE in per-item → 404: done; 409 PRECONDITION_FAILED / 502 UPSTREAM_ERROR:
-                                restore item, banner(named), continue
-           anything else → status = error (draft kept; per-item snapshot already advanced
-                           for the ops that succeeded)
+                    tree changed & mode=replace → PUT replace
+                       2xx  → ids by position → snapshot → done
+                       409  → mode = per-item, pendingFlush = true (re-sync same diff) → done
+                       400  → draft tree = reduce(snapshot tree, sinceSent), banner(generic
+                              message); dirty if anything survived → done
+                       other → status = error [terminal]
+                    tree changed & mode=per-item → diff(snapshot, sent) as DELETE/POST/PATCH,
+                       each op advancing the per-item snapshot on 2xx
+                       DELETE 404 → counts as done for that op
+                       DELETE 409 PRECONDITION_FAILED / 502 UPSTREAM_ERROR → restore item,
+                                   banner(named), continue with the remaining ops
+                       any op, other failure → status = error [terminal; per-item snapshot
+                                already advanced for the ops that succeeded]; retry() refetches
+                                `/full` first and adopts any op whose result now exists but was
+                                never confirmed (§0-style reconciliation) before re-sending it
+                       all ops settle → done
    done: pendingFlush ? flush() : status = saved
 ```
+
+`[terminal]` means the flush ends there without reaching `done`: a flush that fails with no new
+edits queued stays in `error` rather than falling through to `pendingFlush ? flush() : status =
+saved`, which would otherwise report a failed save as "Salvo" (R9). A `pendingFlush` left `true`
+by an edit made while the failed request was in flight is not chained automatically from an
+`[terminal]` branch either — it is picked up by the next `flush()` call, from "Tentar novamente"
+or the debounce timer of a further edit, keeping R10's "no automatic retry" intact.
 
 Dirty check = deep-compare of `sent` against `snapshot` (name/day and the tree separately).
 After a create/replace the snapshot is **the tree as sent plus the ids/positions the server
