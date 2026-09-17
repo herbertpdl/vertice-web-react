@@ -187,29 +187,38 @@ add("replies_have_no_preamble", len(pre) == 0, f"replies opening with filler: {p
 cur = sh(["git", "rev-parse", "HEAD"])[0]
 cur_branch = sh(["git", "branch", "--show-current"])[0]
 status = sh(["git", "status", "--porcelain"])[0]   # untracked files count: the run must not leave stray files behind
-add("working_tree_clean_and_on_pr_branch",
-    cur == head_now and cur_branch == head_ref and status == "",
+tree_ok = cur == head_now and cur_branch == head_ref and status == ""
+add("working_tree_clean_and_on_pr_branch", tree_ok,
     f"HEAD={cur[:8]} branch={cur_branch!r} (want {head_ref!r}) PR head={head_now[:8]} dirty={bool(status)}")
+
 checks = {}
-changed_raw = sh(["git", "diff", "--name-only", "-z", "--diff-filter=d", f"{before}..{head_now}", "--",
-                  "*.ts", "*.tsx", "*.js", "*.mjs"], raw=True)[0]
-changed = [f for f in changed_raw.rstrip("\0").split("\0") if f]
-# `--` stops option parsing so a changed path starting with `-` can't be read as a flag.
-# Lint only what the run touched — the repo may carry pre-existing lint errors elsewhere.
-lint_cmd = ["npx", "eslint", "--", *changed] if changed else ["true"]
-check_cmds = [("lint(changed files)", lint_cmd), ("tsc", ["npx", "tsc", "--noEmit"])]
-# Run every vitest project the head branch actually defines (`storybook` always,
-# `unit` only on branches that add src/lib tests) rather than hardcoding one name —
-# SKILL.md requires "the relevant tests", and skipping `storybook` here let a broken
-# story pass unnoticed.
-vitest_config = os.path.join(checkout, "vitest.config.ts")
-if os.path.exists(vitest_config):
-    for name in re.findall(r"name:\s*['\"]([\w-]+)['\"]", open(vitest_config).read()):
-        check_cmds.append((f"vitest:{name}", ["npx", "vitest", "run", "--project", name]))
-for name, cmd in check_cmds:
-    out, rc = sh(cmd, check=False)
-    checks[name] = rc
-add("checks_pass_at_pushed_head", all(rc == 0 for rc in checks.values()), f"exit codes: {checks}")
+if tree_ok:
+    changed_raw = sh(["git", "diff", "--name-only", "-z", "--diff-filter=d", f"{before}..{head_now}", "--",
+                      "*.ts", "*.tsx", "*.js", "*.mjs"], raw=True)[0]
+    changed = [f for f in changed_raw.rstrip("\0").split("\0") if f]
+    # `--` stops option parsing so a changed path starting with `-` can't be read as a flag.
+    # Lint only what the run touched — the repo may carry pre-existing lint errors elsewhere.
+    lint_cmd = ["npx", "eslint", "--", *changed] if changed else ["true"]
+    check_cmds = [("lint(changed files)", lint_cmd), ("tsc", ["npx", "tsc", "--noEmit"])]
+    # Run every vitest project the head branch actually defines (`storybook` always,
+    # `unit` only on branches that add src/lib tests) rather than hardcoding one name —
+    # SKILL.md requires "the relevant tests", and skipping `storybook` here let a broken
+    # story pass unnoticed.
+    vitest_config = os.path.join(checkout, "vitest.config.ts")
+    if os.path.exists(vitest_config):
+        for name in re.findall(r"name:\s*['\"]([\w-]+)['\"]", open(vitest_config).read()):
+            check_cmds.append((f"vitest:{name}", ["npx", "vitest", "run", "--project", name]))
+    for name, cmd in check_cmds:
+        out, rc = sh(cmd, check=False)
+        checks[name] = rc
+    add("checks_pass_at_pushed_head", all(rc == 0 for rc in checks.values()), f"exit codes: {checks}")
+else:
+    # The checkout isn't verifiably at the pushed head (stale branch, detached HEAD, or
+    # dirty tree) — running lint/tsc/vitest here would grade different code than what was
+    # actually pushed, so record the check as failed instead of running it.
+    add("checks_pass_at_pushed_head", False,
+        f"skipped: working tree not clean and on the PR's head branch/commit "
+        f"(HEAD={cur[:8]} branch={cur_branch!r} want={head_ref!r} dirty={bool(status)})")
 
 # report
 report_path = os.path.join(run_dir, "outputs", "report.md")
