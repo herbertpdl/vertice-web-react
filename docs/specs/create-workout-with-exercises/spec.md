@@ -171,27 +171,24 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     the same context flag before calling `router.push`; today the only one is `finish()`. Browser
     back/forward remain unguarded (a same-document history transition, not a `<Link>` click) —
     see the PRD's explicit R12 exception (§6).
-- **A failed create is reconciled before it is retried, so a lost response cannot create the
-    workout twice.** Neither the BFF nor `vertice-api` has an idempotency key on
-    `POST /training-plans/:planId/workouts`, and a network failure or gateway 5xx can arrive
-    after upstream committed the insert — the workout exists, but `workoutId` is still `null`
-    on the web. If `retry()` simply re-ran the `POST`, the plan would end up with two "Treino A"
-    (or two "Novo treino"). So the engine records `knownWorkoutIds` — the ids of the plan's
-    workouts at mount (`GET /training-plans/:planId/workouts`, one call; the editor is opened
-    from the plan page, so it is usually cached) — and, when a create failed with anything other
-    than a 4xx (a 4xx means nothing was created), `retry()` first lists the plan's workouts again
-    and takes candidates outside `knownWorkoutIds` whose `name`/`dayOfWeek` equal what was sent.
-    **Exactly one candidate** is adopted (`GET /workouts/:id/full` for the ids, then `adoptIds`,
-    snapshot, the same `router.replace` a successful create does) and the engine continues in the
-    existing-workout path (`PATCH`/`PUT`) with the *current* draft; **zero candidates** re-sends
-    the create as before. **More than one candidate is a genuine ambiguity, not a last-write-wins
-    case** — E19 covers two editors changing the *same existing* workout, not this lookup
-    silently attaching to a *different* new workout (e.g. another tab created an identically
-    named one on the same weekday in the same plan in between): adopting the wrong one would have
-    every later `PATCH`/`PUT` in this session silently edit someone else's workout instead of the
-    trainer's own. So an ambiguous match is left in `error` instead — the trainer's next "Tentar
-    novamente" re-lists after the race has had time to settle, rather than the engine guessing.
-    An idempotency key on the BFF/API would make this lookup unnecessary; noted in §6.
+- **A failed create is not reconciled by guessing — it is just re-sent, and a resulting duplicate
+    is a known, accepted risk (not silently corrected).** Neither the BFF nor `vertice-api` has an
+    idempotency key on `POST /training-plans/:planId/workouts`, and a network failure or gateway
+    5xx can arrive after upstream committed the insert — the workout exists, but `workoutId` is
+    still `null` on the web. An earlier version of this spec tried to close that gap by listing
+    the plan's workouts and adopting whichever one not seen before matched the sent `name`/
+    `dayOfWeek`. That is unsound at any candidate count, not just when there is more than one:
+    matching by content instead of identity can adopt a workout another tab created around the
+    same time with the same name and weekday, and every following `PATCH`/`PUT` in the session
+    would then silently edit that unrelated workout — a single, unambiguous-looking match is just
+    as much a guess as an ambiguous one, only quieter about it. There is no way to tell "my lost
+    create" apart from "someone else's coincidentally identical create" without a correlation key
+    the platform does not have, so `retry()` does not try: it re-sends the `POST` as it would any
+    other retry, with everything that implies — if the first attempt actually committed, the plan
+    ends up with two "Novo treino" entries. That is a visible, low-severity, trainer-fixable
+    outcome (delete the extra one); silently editing the wrong workout's data is not, which is
+    why this spec no longer trades one risk for the other. An idempotency key on the BFF/API
+    remains the real fix; tracked in §6.
 - **Footer status is derived from the engine, nowhere else (R9, R13).** `idle` (never saved,
     nothing pending — "As alterações são salvas automaticamente" with the info icon, as in the
     empty-workout frame), `saving` (from the moment a change is made, through the debounce window
@@ -202,10 +199,10 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     is already in flight, only awaits it — it never itself sets `pendingFlush` or schedules a
     second one. Once idle, if the draft is dirty or the flush it awaited ended in `error`, it
     calls the exact same function `retry()` calls — not a separate implementation, so the two
-    can't drift the way this bullet and §3 briefly did: for a failed create (`workoutId === null`)
-    that means the §0 `knownWorkoutIds` reconciliation lookup before ever re-sending the `POST`;
-    for a failed per-item op it means re-sending that op as-is, with the same known
-    duplicate-on-retry limitation §3 documents (no `/full` adoption — R20 rules that out). It
+    can't drift the way this bullet and §3 briefly did: for a failed create it re-sends the `POST`
+    with the accepted duplicate-on-retry risk §0 documents, and for a failed per-item op it
+    re-sends that op as-is, with the same known duplicate-on-retry limitation §3 documents (R20
+    rules out a safer, content-based adoption in both cases). It
     resolves `true` only when the resulting status is not `error`; the editor then invalidates the
     plan/workout queries and `router.push`es to the plan. On `false` it stays, with the footer in
     the error state.
@@ -423,16 +420,15 @@ inside the app should complete.
   different item sends that item's *current* position, not the one computed before the restore;
   400 reverts to
   the snapshot and an edit made while that request was in flight survives the revert and is
-  sent by the follow-up save; network failure → `error` and `retry()` re-sends the current draft;
-  a create that failed after upstream committed is adopted on `retry()` (the plan now lists a
-  new workout with the sent name/day) instead of being re-sent, and a create that failed
-  before upstream committed is re-sent; two candidates matching name/day stays in `error`
-  instead of adopting either; a flush that ends in `error` with nothing queued stays
+  sent by the follow-up save; network failure → `error` and `retry()` re-sends the current draft,
+  including a create — `retry()` never lists or matches other workouts to guess whether it
+  already committed; a flush that ends in `error` with nothing queued stays
   in `error` (never falls through to `saved`); a per-item `POST`'s id is adopted by key so a
   later op in the same run targets it, not `null`; `finish()` awaits a pending save without
-  scheduling a second one, and after a failed create reuses the reconciliation lookup rather than
-  re-posting; creating a new workout with a blank name shows "Novo treino" in the field afterward,
-  not a blank one, and a name typed while that create was in flight is not overwritten by it.
+  scheduling a second one and calls the same retry path `retry()` does for a failed create or
+  per-item op, not a bare `flush()`; creating a new workout with a blank name shows "Novo treino"
+  in the field afterward, not a blank one, and a name typed while that create was in flight is
+  not overwritten by it.
 - `hasAddedExercise` (reducer/model tests): set on the first `addExercise` regardless of source
   (picker or "usar como base") and unaffected by a later removal, so the offer does not reappear
   after an add-then-remove.
@@ -450,9 +446,10 @@ inside the app should complete.
   when the item has recorded data, and expose `hasRecordedData` on the workout so the web can
   start in per-item mode without a probing 409.
 - `vertice-bff`/`vertice-api`: an idempotency key on `POST /training-plans/:planId/workouts`
-  (client-generated, echoed back) would replace the reconciliation lookup in §0 with a plain
-  retry; the same is true of the per-item `POST` endpoints (`workout-exercises`, `exercise-sets`)
-  and the known duplicate-on-retry limitation in §3, where content-based reconciliation is not an
-  option because duplicate items are allowed (R20).
+  (client-generated, echoed back) is the only real fix for the accepted duplicate-on-retry risk
+  in §0 — a content-based match (name/weekday) was tried and rejected as unsafe at any candidate
+  count, not just an ambiguous one. The same is true of the per-item `POST` endpoints
+  (`workout-exercises`, `exercise-sets`) and the known duplicate-on-retry limitation in §3, where
+  content-based reconciliation is not an option at all because duplicate items are allowed (R20).
 - Touch/mobile drag and drop; keyboard reordering.
 - Conflict detection between concurrent editors (E19).
