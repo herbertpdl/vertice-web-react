@@ -32,8 +32,9 @@ import sys
 
 # A full PR URL is authoritative for which repo it belongs to — without this, a URL for
 # another repo silently resolved against the current checkout's repo (same PR number,
-# wrong repository).
-PR_URL_RE = re.compile(r"^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)/?$")
+# wrong repository). A copied review/PR URL commonly carries a subpath (`/files`), a
+# query string, or a `#discussion_r...` fragment after the number — accept all of those.
+PR_URL_RE = re.compile(r"^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:[/?#].*)?$")
 
 THREADS_QUERY = """
 query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
