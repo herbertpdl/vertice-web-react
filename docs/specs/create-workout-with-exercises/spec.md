@@ -39,8 +39,7 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     a payload-only value, not a mutation of the draft, so on success it is merged into the
     *current* draft and the snapshot the same way tree ids are (§3): if the name field is still
     the blank value that was actually sent, it is set to `"Novo treino"` so the trainer sees the
-    name the server assigned instead of a blank field, and so a later reconciliation match (below)
-    compares against what was really sent, not an empty draft; if the trainer typed a name while
+    name the server assigned instead of a blank field; if the trainer typed a name while
     the request was in flight, that edit is left alone — it already makes the draft dirty against
     the new snapshot and goes out with the chained flush, same as any other edit made mid-save.
     `window.history.replaceState` was
@@ -316,9 +315,8 @@ timer ──▶ flush():
    sent = draft; sinceSent = []   (every edit while in flight is appended)
    workoutId null → POST create(nested)
                     2xx        → ids by position → snapshot → done
-                    non-4xx    → status = error [terminal]; retry() lists the plan's workouts,
-                                  adopts a new one matching name/day (ids from /full) or
-                                  re-sends the create
+                    non-4xx    → status = error [terminal]; retry() re-sends the create as-is
+                                  (accepted duplicate-on-retry risk, §0 — no reconciliation)
                     4xx        → status = error [terminal]; nothing was created
    else           → PATCH name/day if changed
                     tree changed & mode=replace → PUT replace
