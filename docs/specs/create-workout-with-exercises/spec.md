@@ -32,7 +32,9 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
   Node with fake timers; React consumes it through `useSyncExternalStore`.
 - **Which endpoint each change uses.** Traced to R3–R5 (creation), R7 (everything else):
   - *New workout, first flush* → `POST /training-plans/:planId/workouts` with the full nested
-    payload (`name` = typed name, or `"Novo treino"` when blank — R4/E2; `dayOfWeek`;
+    payload (`name` = typed name, or `"Novo treino"` when blank — R4/E2 — "blank" meaning
+    `name.trim() === ""`, so a whitespace-only name does not slip past this check and reach the
+    BFF's `min(1)` validator as if it were real content; `dayOfWeek`;
     `exercises` = the draft, order = list position — R17/R18). The response's ids are written
     back into the draft by list position and the URL is switched to
     `/planos/:planId/treinos/:workoutId` with `window.history.replaceState` (Next's router syncs
@@ -40,12 +42,13 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     reload lands on the `[workoutId]` route normally. A new workout with no change never flushes
     (R5/E3).
   - *Existing workout, name/weekday* → `PATCH /workouts/:id` `{name, dayOfWeek}`, debounced
-    together with everything else and sent first in the same flush. A blank name is never sent
-    (the BFF requires `min(1)`): when the flush runs and the draft's name is blank, the engine
-    puts the snapshot's name back into the draft (the field snaps back to the saved name) before
-    comparing, so screen and server never disagree, "Salvo" is honest and `finish()` cannot
-    leave with a blank field. Clearing the name is therefore not a way to rename; the trainer
-    types the new name over it (mirrors R4 for a new workout, where blank → "Novo treino").
+    together with everything else and sent first in the same flush. A blank name (same
+    `trim() === ""` check as above) is never sent (the BFF requires `min(1)`): when the flush
+    runs and the draft's name is blank, the engine puts the snapshot's name back into the draft
+    (the field snaps back to the saved name) before comparing, so screen and server never
+    disagree, "Salvo" is honest and `finish()` cannot leave with a blank field. Clearing the name
+    is therefore not a way to rename; the trainer types the new name over it (mirrors R4 for a
+    new workout, where blank → "Novo treino").
   - *Existing workout, exercise/set tree* → **`PUT /workouts/:id/exercises`** with the whole draft
     (`replace` mode, the default). One request covers adds, edits, removals and reorders; the
     response's all-new ids are written back by position (BFF spec §2.2).
