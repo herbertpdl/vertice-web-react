@@ -174,10 +174,15 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     E7, E8, E20).** `CloneWorkoutDialog` keeps its picker UI; picking now fetches the source's
     full tree and hands it to the editor, which replaces name, weekday, exercises and sets in the
     draft (new client keys, no server ids) and lets autosave create/replace as usual. The offer is
-    shown only while `openedAsNew && exercises.length === 0`, so naming the workout (which creates
-    it) keeps it and the first exercise removes it for good. `POST /workouts/:id/clone` and
-    `cloneWorkout()` are removed from the web: nothing uses them any more. If the source exceeds a
-    cap, the fill is refused and the footer shows the error state with the reason (E8).
+    shown only while `openedAsNew && !hasAddedExercise` — `hasAddedExercise` is a session flag
+    set once, the first time an exercise (from the catalog picker *or* from this same fill) lands
+    in the draft, and never cleared again. Gating on `exercises.length === 0` instead would bring
+    the offer back if the trainer added an exercise and removed it again before the first 800 ms
+    flush (`openedAsNew` still `true`, length back at `0`), contrary to R24's "removes it for
+    good". Naming the workout (which creates it) does not set the flag, so it keeps the offer;
+    the first exercise does, permanently. `POST /workouts/:id/clone` and `cloneWorkout()` are
+    removed from the web: nothing uses them any more. If the source exceeds a cap, the fill is
+    refused and the footer shows the error state with the reason (E8).
 - **Query cache.** The editor reads `["workout", id, "full"]` once to initialise the draft
     (`initialData` for the session component); after every successful flush it invalidates
     `["workout", id, "full"]` and `["trainingPlan", planId]`, and after creation also
@@ -243,7 +248,8 @@ set `strategy: "STRAIGHT"` with every other field unset (R19).
 
 ## 3. Autosave engine
 
-State exposed to React: `{ workoutId, draft, status, mode, refusal, errorMessage, openedAsNew }`.
+State exposed to React: `{ workoutId, draft, status, mode, refusal, errorMessage, openedAsNew,
+hasAddedExercise }`.
 
 ```
 edit ──▶ draft' ──▶ status = saving, arm timer (800 ms)
