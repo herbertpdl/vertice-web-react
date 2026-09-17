@@ -242,6 +242,7 @@ for t in threads:
 
 row_keys = {}
 match_idx = {}
+used_report_rows = set()
 for t in threads:
     # A thread's row is identified by full path:line (current or original), an unambiguous
     # basename:line, or its root comment id. Each key is matched with a trailing "not
@@ -254,8 +255,11 @@ for t in threads:
     row_keys[t["root_comment_id"]] = keys
     key_res = [re.compile(re.escape(k) + r"(?!\d)") for k in keys]
     for i, line in enumerate(report_lines):
+        if i in used_report_rows:
+            continue
         if any(kr.search(line) for kr in key_res):
             match_idx[t["root_comment_id"]] = i
+            used_report_rows.add(i)
             break
 
 sorted_starts = sorted(match_idx.values())
