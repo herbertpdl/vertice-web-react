@@ -115,10 +115,23 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     leaves the draft dirty and goes out with the chained flush (`pendingFlush`). A plain
     `draft tree = snapshot tree` would have thrown those edits away and then reported "Salvo"
     because the chained flush saw a clean draft.
-- **Any other failure (network, 5xx, 503) leaves the draft on screen, sets the footer to
-    "Erro ao salvar — Tentar novamente" and arms `beforeunload` (R9, R10, R12, E16).** "Tentar
-    novamente" calls `flush()` again with the *current* draft (R10). No automatic retry: the
-    trainer decides.
+- **Any other failure (network, 5xx, 503) leaves the draft on screen and sets the footer to
+    "Erro ao salvar — Tentar novamente" (R9, R10, E16).** "Tentar novamente" calls `flush()` again
+    with the *current* draft (R10). No automatic retry: the trainer decides.
+- **Leaving the editor while a save is pending or failed is guarded on both exit paths (R12,
+    E17, E18).** A native unload (reload, close tab, typed URL) is caught by `beforeunload`, which
+    only fires for a document unload — it does not run for an in-app `<Link>` or `router.push`,
+    which keep the document alive. In-app navigation away from the editor route goes through the
+    persistent `Header`'s nav links (`src/components/layout/Header.tsx`, rendered by the `(app)`
+    layout), so those gain an `onNavigate` guard — the pattern Next documents for blocking `Link`
+    navigation: a shared "leaving" flag, true whenever the footer status is `saving` or `error`,
+    makes `onNavigate` call `window.confirm` and `event.preventDefault()` on a cancel, mirroring
+    `beforeunload`'s condition exactly. `finish()`'s own `router.push` back to the plan needs no
+    guard — it only runs after its flush resolves to a non-`error` status (previous bullet). Any
+    future programmatic exit from the editor must set the same flag before calling `router.push`;
+    today the only one is `finish()`. *Known gap:* neither mechanism catches the browser
+    back/forward buttons (a same-document history transition outside `Header`'s links); accepted
+    for now, matching every other unsaved-state surface in the app.
 - **A failed create is reconciled before it is retried, so a lost response cannot create the
     workout twice.** Neither the BFF nor `vertice-api` has an idempotency key on
     `POST /training-plans/:planId/workouts`, and a network failure or gateway 5xx can arrive
@@ -140,8 +153,8 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     nothing pending — "As alterações são salvas automaticamente" with the info icon, as in the
     empty-workout frame), `saving` (from the moment a change is made, through the debounce window
     and the request — "Salvando…"), `saved` ("Salvo"), `error`. Counting the debounce window as
-    "saving" is deliberate: it is the only window in which leaving loses something, so it must
-    also be the window `beforeunload` warns in (R12, E17, E18).
+    "saving" is deliberate: it is the only window (together with `error`) in which leaving loses
+    something, so it must be exactly the condition both leaving guards warn on (R12, E17, E18).
 - **"Concluir" flushes then navigates (R11, E17).** `finish()` cancels the timer and, if a flush
     is already in flight, only awaits it — it never itself sets `pendingFlush` or schedules a
     second one. Once idle, if the draft is dirty or the flush it awaited ended in `error`, it
