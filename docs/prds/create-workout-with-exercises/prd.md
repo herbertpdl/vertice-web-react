@@ -109,7 +109,8 @@ trainer whether the latest change is being saved, is saved, or failed.
 - R11: The footer's only action is "Concluir", which returns to the plan's page; if a save is
   pending at that moment it is completed first.
 - R12: Leaving the editor (navigating away, reloading, closing the tab) warns the trainer only
-  while a save is in progress or the last save failed; otherwise the trainer leaves freely.
+  while a save is in progress or the last save failed; otherwise the trainer leaves freely. Does
+  not cover the browser's back/forward buttons (§6).
 - R13: The editor never shows "unsaved changes" or "draft" wording, because there is nothing
   unsaved to point at.
 
@@ -149,8 +150,10 @@ trainer whether the latest change is being saved, is saved, or failed.
   other workout in the editor; nothing is announced up front.
 - R27: When a change would remove an exercise or set that a client has already recorded
   performance data against, that change alone is refused: it is undone on screen and a message
-  names the blocking exercise and set (API-R12/R13); everything else keeps being saved
-  automatically.
+  names the blocking exercise and, when the removed item was a set, the set as well (API-R12/R13)
+  — removing an exercise is refused by the same recorded-data check applied to *some* set inside
+  it, but the platform does not say which one, so that variant names only the exercise; everything
+  else keeps being saved automatically.
 - R28: The refusal message offers no alternative editing mode; the trainer dismisses it and
   keeps editing.
 
@@ -174,7 +177,8 @@ trainer whether the latest change is being saved, is saved, or failed.
 | E10 | Trainer drags one exercise to a new position. | New order saved automatically a moment later. | R7, R15, R17 |
 | E11 | Trainer drags a set onto another exercise. | Not allowed; the set snaps back to its own exercise. | R16 |
 | E12 | Client opened this week's session but recorded nothing; trainer removes one of its exercises. | Allowed (API-E9/R14). | R7 |
-| E13 | Client has recorded a set; trainer removes that set (or its exercise). | Refused; the set/exercise comes back on screen; message names the exercise and set; all other changes keep saving. | R27, R28 |
+| E13 | Client has recorded a set; trainer removes that set. | Refused; the set comes back on screen; message names the exercise and the set; all other changes keep saving. | R27, R28 |
+| E13a | Client has recorded a set; trainer removes its exercise instead. | Refused; the exercise comes back on screen; message names the exercise only — the platform does not say which of its sets blocked the removal; all other changes keep saving. | R27, R28 |
 | E14 | Client has recorded a set in exercise 1; trainer edits exercise 2 or adds a new exercise. | Saved normally; only removals of recorded exercises/sets are protected (API-R12/R14). | R7, R27 |
 | E15 | Trainer types several set values quickly, one after the other. | They are saved together in the next save; the footer shows "Salvando…" once, then "Salvo". | R8, R9 |
 | E16 | A save fails (network, platform error). | Footer shows "Erro ao salvar — Tentar novamente"; the trainer's change stays on screen; leaving the page now warns first. | R9, R10, R12 |
@@ -204,6 +208,13 @@ trainer whether the latest change is being saved, is saved, or failed.
 - **Any change to the client's session, progress or plan screens.** Nothing changes for the
   client (API-R16).
 - **Conflict detection between concurrent edits.** Matches the rest of the product (API-E10).
+- **Warning on the browser's back/forward buttons.** R12's warning is implemented as the native
+  `beforeunload` prompt (§10, step 1) plus a same-document guard on the app's own links (spec
+  §0); neither can intercept a back/forward history transition, which is not a page unload and
+  not a link click. A reliable, cross-browser guard for that case does not exist without a
+  browser API this product does not otherwise depend on, so R12 is scoped to reload/close/typed-URL
+  and in-app link or button navigation; back/forward stays unwarned, same as every other unsaved
+  state already in the app today.
 
 ## 7. Decisions
 
@@ -226,7 +237,7 @@ follow-up interview, and are kept so the history stays visible.
 | "Usar treino existente como base": separate copy, or seed the editor? | Seed the editor (fills name, weekday, exercises and sets), saved automatically; never a separate copy | Lets the trainer adjust before moving on and leaves no stray workout. (proposed, accepted) |
 | When is "Usar treino existente como base" offered? | ~~On new workouts only~~ **Superseded by the owner's design review (§10.1 item 3): on a workout opened as new, until its first exercise is added — typing a name first keeps it; never on an existing workout, even an empty one.** | Owner: "make the option disappear whenever the trainer adds the first exercise". Owner chose "new workouts only" over "any workout with no exercises", and confirmed that naming the workout (which creates it) must not remove the offer — only the first exercise does. |
 | "Usar como base" on a workout that already has content: replace or append, with confirmation? | ~~Replace, after confirmation~~ **Superseded: no confirmation — the action only exists before the first exercise, so only a name/weekday can be overwritten; the fill replaces them.** | Nothing meaningful to lose. (proposed, accepted) |
-| What happens on a refused whole-list save? | ~~Nothing changes, draft stays on screen, blocker named, offer to switch to one-at-a-time~~ **Superseded: there is no whole-list save. When a single change would remove a recorded exercise/set, that change alone is refused and undone on screen, a message names the blocking exercise and set, and everything else keeps autosaving; no mode switch, no banner-locked screen. (How the web sends a save to the platform — one request or several — is a spec detail the trainer never sees; this row is about the screen's behavior.)** | Matches API-R12/R13 at the granularity autosave works in; the trainer loses only the one refused change. Owner chose this over a banner-locked read-only editor. (proposed, accepted) |
+| What happens on a refused whole-list save? | ~~Nothing changes, draft stays on screen, blocker named, offer to switch to one-at-a-time~~ **Superseded: there is no whole-list save. When a single change would remove a recorded exercise/set, that change alone is refused and undone on screen, a message names the blocking exercise (and the set too, when a set was the item removed — R27), and everything else keeps autosaving; no mode switch, no banner-locked screen. (How the web sends a save to the platform — one request or several — is a spec detail the trainer never sees; this row is about the screen's behavior.)** | Matches API-R12/R13 at the granularity autosave works in; the trainer loses only the one refused change. Owner chose this over a banner-locked read-only editor. (proposed, accepted) |
 | Locked workout reopens as a draft and is refused again — acceptable? | ~~Yes, for now~~ **Superseded: no draft; a workout with recorded data looks like any other and only removals of recorded items are refused, one at a time.** | The platform still does not say up front that a workout has recorded data (BFF spec §6 follow-up); the per-change refusal is enough feedback meanwhile. (proposed, accepted) |
 | Is the one-at-a-time switch available at any time? | ~~No, only after a refusal~~ **Superseded: there is no one-at-a-time mode; autosave is the only behavior.** | — |
 | Reordering in one-at-a-time mode? | ~~Not available~~ **Superseded: there is no separate mode; reordering is available everywhere.** | — |

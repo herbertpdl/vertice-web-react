@@ -384,10 +384,11 @@ inside the app should complete.
   possível soltar uma série de outro exercício aqui".
 - Refused removal: banner "Remoção não aplicada" + body "Um aluno já registrou desempenho em
   {exercício} · Série {n}, então essa série não pode mais ser removida. A remoção foi desfeita e a
-  série voltou para a tela. O restante do treino continua sendo salvo automaticamente." (exercise
-  variant: "…em {exercício}, então esse exercício não pode mais ser removido. A remoção foi
-  desfeita e o exercício voltou para a tela. …") with "Fechar"; the restored card gets the danger
-  outline and the restored row the danger outline + lock tag.
+  série voltou para a tela. O restante do treino continua sendo salvo automaticamente." (E13; exercise
+  variant, E13a — names only the exercise, since the platform does not say which of its sets
+  blocked the removal, per the PRD's R27: "…em {exercício}, então esse exercício não pode mais
+  ser removido. A remoção foi desfeita e o exercício voltou para a tela. …") with "Fechar"; the
+  restored card gets the danger outline and the restored row the danger outline + lock tag.
 - Footer: left status (info "As alterações são salvas automaticamente" / spinner "Salvando…" /
   check "Salvo" / circle-x "Erro ao salvar —" + link "Tentar novamente"); right "Concluir"
   (visually muted while saving — a lower-opacity style only, not `disabled`: the button stays
