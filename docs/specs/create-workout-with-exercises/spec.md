@@ -142,9 +142,15 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     and the request — "Salvando…"), `saved` ("Salvo"), `error`. Counting the debounce window as
     "saving" is deliberate: it is the only window in which leaving loses something, so it must
     also be the window `beforeunload` warns in (R12, E17, E18).
-- **"Concluir" flushes then navigates (R11, E17).** `finish()` cancels the timer, runs a flush
-    if the draft is dirty, awaits any in-flight one, and resolves `true` only when the final
-    status is not `error`; the editor then invalidates the plan/workout queries and
+- **"Concluir" flushes then navigates (R11, E17).** `finish()` cancels the timer and, if a flush
+    is already in flight, only awaits it — it never itself sets `pendingFlush` or schedules a
+    second one. Once idle, if the draft is dirty or the flush it awaited ended in `error`, it
+    runs the *same* recovery-aware attempt `retry()` uses rather than a bare `flush()`: for a
+    failed create (`workoutId === null`) that means the §0 `knownWorkoutIds` reconciliation
+    lookup before ever re-sending the `POST`, and for a failed per-item op the §3 `/full`-adoption
+    check before re-sending that op — so pressing "Concluir" right after a failed save cannot
+    duplicate what the failed request may have already committed. It resolves `true` only when
+    the resulting status is not `error`; the editor then invalidates the plan/workout queries and
     `router.push`es to the plan. On `false` it stays, with the footer in the error state.
 - **Drag and drop uses native HTML5 DnD, no library (R15, R16, E10, E11).** The design needs a
     handle-initiated drag, a drop placeholder between cards ("Soltar aqui — o exercício passa a
