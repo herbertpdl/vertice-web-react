@@ -127,12 +127,16 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     *Which delete failures count as a refusal.* Only the codes a recorded-data delete actually
     produces: `PRECONDITION_FAILED` (409 — what `vertice-api` will return once the §6 follow-up
     lands) and `UPSTREAM_ERROR` (502 — the FK violation today). A `NOT_FOUND` delete counts as
-    done (§3). Everything else — network failure, `UPSTREAM_UNAVAILABLE` (503), 401/403, 400,
-    unknown codes — is **not** a refusal: the per-item run stops there, the draft is kept and the
-    footer goes to "Erro ao salvar — Tentar novamente" exactly as for any other failure (next
-    bullet); because the snapshot is advanced op by op (§3), the retry resumes from the failed
-    op. Mapping every non-2xx to the refusal path would show "desempenho registrado" for a
-    server outage and then report "Salvo" for a change that never reached the server.
+    done (§3). Everything else — network failure, `UPSTREAM_UNAVAILABLE` (503), 403, 400, unknown
+    codes — is **not** a refusal: the per-item run stops there, the draft is kept and the footer
+    goes to "Erro ao salvar — Tentar novamente" exactly as for any other failure (next bullet);
+    because the snapshot is advanced op by op (§3), the retry resumes from the failed op. Mapping
+    every non-2xx to the refusal path would show "desempenho registrado" for a server outage and
+    then report "Salvo" for a change that never reached the server. 401 is listed separately, not
+    grouped with 403 above, because it never actually reaches this branch: every request goes
+    through `apiClient`, which on a 401 fires a hard redirect to `/login` before the caller sees
+    anything but a rejected promise (`src/lib/api/client.ts:50–60`) — the same auth-redirect
+    exception the rest of the app already has, not a distinct per-item footer state to build.
     *Known limitation, recorded as a follow-up for `vertice-api` (§6):* until the delete RPCs
     return `FAILED_PRECONDITION` themselves, a genuine upstream 502 on a delete is
     indistinguishable from the FK refusal and is reported as one; the trainer's remedy is to
