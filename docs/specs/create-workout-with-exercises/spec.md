@@ -289,7 +289,7 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
 | `src/app/(app)/planos/[planId]/treinos/[workoutId]/page.tsx` | Now the only route for the editor: treats `workoutId === "novo"` as no workout yet (was a separate `treinos/novo/page.tsx`) and reads the `dayOfWeek` query param for that case |
 | `src/app/(app)/planos/[planId]/treinos/novo/page.tsx`, `NovoTreinoContent.tsx` | Removed — merged into `[workoutId]/page.tsx` above, so a create's `router.replace` is a same-file param change, not a page swap |
 | `src/components/domain/WorkoutEditor.tsx` | Loads plan/student/workout, then renders `WorkoutEditorSession` (draft, header, list, DnD, footer, banners); its student/plan breadcrumb `Link`s consume `NavigationBlockerContext` |
-| `src/lib/navigationBlocker.tsx` | `NavigationBlockerContext`/`NavigationBlockerProvider` (`isBlocked` state) mounted by the `(app)` layout; consumed by `Header`'s nav links and by the editor's breadcrumb links |
+| `src/lib/navigationBlocker.tsx` | `NavigationBlockerContext`/`NavigationBlockerProvider` (`isBlocked` state) mounted by the `(app)` layout; consumed by `Header`'s nav links, the editor's breadcrumb links, and `AppHeader`'s "Sair" action |
 | `src/components/domain/WorkoutExerciseCard.tsx` | Presentational card: handle, order badge, rest, notes, sets table, drag/refusal/cap states |
 | `src/components/domain/SetRow.tsx` | Presentational row with per-field commit + drag handle + duplicate/remove |
 | `src/components/domain/AddExerciseDialog.tsx` | Picker → `onPick(exercise)`; `atCap` banner and disabled actions |
