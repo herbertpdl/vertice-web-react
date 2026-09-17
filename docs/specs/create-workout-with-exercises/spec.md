@@ -35,12 +35,27 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     payload (`name` = typed name, or `"Novo treino"` when blank — R4/E2 — "blank" meaning
     `name.trim() === ""`, so a whitespace-only name does not slip past this check and reach the
     BFF's `min(1)` validator as if it were real content; `dayOfWeek`;
-    `exercises` = the draft, order = list position — R17/R18). The response's ids are written
-    back into the draft by list position and the URL is switched to
-    `/planos/:planId/treinos/:workoutId` with `window.history.replaceState` (Next's router syncs
-    with the native History API), so the editor stays mounted and no local state is lost. A
-    reload lands on the `[workoutId]` route normally. A new workout with no change never flushes
-    (R5/E3).
+    `exercises` = the draft, order = list position — R17/R18). `window.history.replaceState` was
+    the wrong tool here: `/treinos/novo` and `/treinos/[workoutId]` are two separate `page.tsx`
+    files today, and rewriting the URL bar by hand does not tell the App Router to switch which
+    page is mounted, so the `novo` page (and its component tree, including the autosave engine
+    and any edits made while the request was in flight) would keep running under a URL that now
+    claims to be the created workout. Instead, `treinos/novo/page.tsx` and `NovoTreinoContent.tsx`
+    are removed and `treinos/[workoutId]/page.tsx` becomes the single route for both: it treats
+    the literal segment value `"novo"` as "no workout yet" (`workoutId: undefined`, no `/full`
+    fetch) instead of parsing it as a number, and reads the `dayOfWeek` query param itself
+    (`NovoTreinoContent`'s job today) so it needs no client wrapper. `WorkoutEditorSession` is not
+    keyed by `workoutId`, so when the create response arrives its ids are written into the draft
+    by list position (as before) and the session calls `router.replace(`/planos/${planId}/treinos/${workoutId}`, { scroll: false })`
+    from `next/navigation`'s `useRouter` — a same-page-file param change, which the App Router
+    re-renders without unmounting the client subtree, so the engine instance, its `sinceSent`
+    queue and any edit made mid-request all survive (standard App Router reconciliation; this
+    project does not enable Cache Components — `next.config.ts` has no `cacheComponents` flag —
+    so there is no `<Activity>` layer to reason about here). Existing links to `/treinos/novo`
+    (the plan page's "Novo treino" button and its per-weekday slots) are unaffected: they still
+    request that URL, now served by the merged route. A reload after the replace lands on
+    `/treinos/:workoutId` normally, same as any existing workout. A new workout with no change
+    never flushes (R5/E3).
   - *Existing workout, name/weekday* → `PATCH /workouts/:id` `{name, dayOfWeek}`, debounced
     together with everything else and sent first in the same flush. A blank name (same
     `trim() === ""` check as above) is never sent (the BFF requires `min(1)`): when the flush
@@ -231,6 +246,8 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
 | `src/lib/api/workouts.ts` | `createWorkout` now takes `WorkoutCreateInput` (nested `exercises?`) and returns `FullWorkout`; new `replaceWorkoutExercises`; `cloneWorkout` removed |
 | `src/lib/api/types.ts` | `WorkoutExerciseEntry`, `ExerciseSetEntry` |
 | `src/lib/days.ts` | New `DAY_NAMES_LONG` map ("Segunda-feira" …) next to the existing `DAY_NAMES`/`DAY_ABBR` |
+| `src/app/(app)/planos/[planId]/treinos/[workoutId]/page.tsx` | Now the only route for the editor: treats `workoutId === "novo"` as no workout yet (was a separate `treinos/novo/page.tsx`) and reads the `dayOfWeek` query param for that case |
+| `src/app/(app)/planos/[planId]/treinos/novo/page.tsx`, `NovoTreinoContent.tsx` | Removed — merged into `[workoutId]/page.tsx` above, so a create's `router.replace` is a same-file param change, not a page swap |
 | `src/components/domain/WorkoutEditor.tsx` | Loads plan/student/workout, then renders `WorkoutEditorSession` (draft, header, list, DnD, footer, banners) |
 | `src/components/domain/WorkoutExerciseCard.tsx` | Presentational card: handle, order badge, rest, notes, sets table, drag/refusal/cap states |
 | `src/components/domain/SetRow.tsx` | Presentational row with per-field commit + drag handle + duplicate/remove |
