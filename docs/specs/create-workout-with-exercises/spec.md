@@ -182,6 +182,7 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     persistent `Header`'s nav links (`src/components/layout/Header.tsx`): `WorkoutEditor` renders
     its own breadcrumb `<Link>`s to the student and the plan (today at
     `src/components/domain/WorkoutEditor.tsx:90–102`, carried into `WorkoutEditorSession`), and
+    every `<Link>` reachable while the editor is mounted needs the same guard, not just the
     app-shell ones — a per-component patch would silently miss the next one added anywhere in the
     tree. So the guard is a `NavigationBlockerContext` (the shared-state pattern Next documents
     for exactly this — blocking navigation from any link while a form is being edited), provided
