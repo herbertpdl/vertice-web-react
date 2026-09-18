@@ -1,5 +1,5 @@
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { SkeletonCircle, SkeletonLine } from "./Skeleton";
+import { SkeletonCircle, SkeletonLine } from "../Skeleton";
 
 interface MetricCardProps {
   label: string;

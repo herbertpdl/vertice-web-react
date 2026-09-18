@@ -1,4 +1,4 @@
-import { AuthBrandPanel } from "./AuthBrandPanel";
+import { AuthBrandPanel } from "../AuthBrandPanel";
 
 interface AuthScreenShellProps {
   lines: [string, string, string];
