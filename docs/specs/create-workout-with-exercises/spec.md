@@ -155,7 +155,10 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     an exercise that was in the rejected batch) are dropped by the reducer; whatever survives
     leaves the draft dirty and goes out with the chained flush (`pendingFlush`). A plain
     `draft tree = snapshot tree` would have thrown those edits away and then reported "Salvo"
-    because the chained flush saw a clean draft.
+    because the chained flush saw a clean draft. The footer does not go to `error` on this path:
+    it ends in `saved` for an existing workout (the screen now matches the server — E9, not E16)
+    and in `idle` when the rejected request was the create (nothing exists yet); §3 spells out
+    why, and why "Tentar novamente" would be meaningless here.
 - **Any other failure (network, 5xx, 503) leaves the draft on screen and sets the footer to
     "Erro ao salvar — Tentar novamente" (R9, R10, E16).** "Tentar novamente" calls `flush()` again
     with the *current* draft (R10). No automatic retry: the trainer decides.
@@ -353,7 +356,7 @@ timer ──▶ flush():
                                 already advanced for the ops that succeeded]; retry() re-sends the
                                 same failed op (known limitation below)
                        all ops settle → done
-   done: pendingFlush ? flush() : status = saved
+   done: pendingFlush ? flush() : status = (workoutId null ? idle : saved)
 ```
 
 `[terminal]` means the flush ends there without reaching `done`: a flush that fails with no new
@@ -362,6 +365,22 @@ saved`, which would otherwise report a failed save as "Salvo" (R9). A `pendingFl
 by an edit made while the failed request was in flight is not chained automatically from an
 `[terminal]` branch either — it is picked up by the next `flush()` call, from "Tentar novamente"
 or the debounce timer of a further edit, keeping R10's "no automatic retry" intact.
+
+A handled 400 is the one non-2xx branch that *does* reach `done`, and the footer state it lands
+in is deliberate, not a fall-through. After the revert the draft *is* the server's state (plus
+whatever survived the `sinceSent` replay — which is dirty and chains a flush, so `done` never
+reports on it), so the footer says what is true of the screen. For an existing workout that is
+`saved`: the rejected change is undone and reported by the banner, which is E9's outcome, distinct
+from E16's "the change stays on screen, footer in error". `error` here would make "Tentar
+novamente" re-send content identical to the snapshot — a no-op R10 does not describe — and make
+the R12 leaving guard warn about a loss that cannot happen. For a workout the rejected request
+was supposed to *create*, `workoutId` is still `null` at `done`, so the state is `idle` ("As
+alterações são salvas automaticamente"), never `saved` — nothing has been saved yet; the create
+400 branch is the only way `done` runs with `workoutId === null`. In that branch the pristine
+new-workout draft (blank name, the query-param weekday, no exercises) plays the snapshot's role
+in the dirty check, so the kept name/weekday count like any edit: a name typed before the rejected
+create still creates the workout on the chained flush (R3/R4), while a workout whose only change
+was the rejected batch — E2's nameless add, say — ends in `idle` with nothing created (R5).
 
 *Known limitation: a per-item `POST` retry can duplicate a row.* Unlike the top-level create
 (§0), a per-item `POST`'s result cannot be reconciled by refetching `/full` and matching on
@@ -437,7 +456,10 @@ inside the app should complete.
   different item sends that item's *current* position, not the one computed before the restore;
   400 reverts to
   the snapshot and an edit made while that request was in flight survives the revert and is
-  sent by the follow-up save; network failure → `error` and `retry()` re-sends the current draft,
+  sent by the follow-up save; a 400 with nothing surviving ends in `saved` for an existing
+  workout and in `idle` (with no `POST` re-sent) for a nameless never-created one, never in
+  `error`, while a rejected create with a typed name re-sends the create with that name and an
+  empty tree; network failure → `error` and `retry()` re-sends the current draft,
   including a create — `retry()` never lists or matches other workouts to guess whether it
   already committed; a flush that ends in `error` with nothing queued stays
   in `error` (never falls through to `saved`); a per-item `POST`'s id is adopted by key so a
