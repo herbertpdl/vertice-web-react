@@ -39,3 +39,14 @@ export const DAY_NAME_LOWER: Record<DayOfWeek, string> = {
   SATURDAY: "sábado",
   SUNDAY: "domingo",
 };
+
+/** Full weekday names, as the workout editor's "Dia da semana" dropdown shows them. */
+export const DAY_NAMES_LONG: Record<DayOfWeek, string> = {
+  MONDAY: "Segunda-feira",
+  TUESDAY: "Terça-feira",
+  WEDNESDAY: "Quarta-feira",
+  THURSDAY: "Quinta-feira",
+  FRIDAY: "Sexta-feira",
+  SATURDAY: "Sábado",
+  SUNDAY: "Domingo",
+};

@@ -4,21 +4,21 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Dialog, TextField } from "@/components/ui";
-import { fetchRecentWorkouts, cloneWorkout } from "@/lib/api/workouts";
+import { fetchRecentWorkouts, fetchFullWorkout } from "@/lib/api/workouts";
 import { DAY_NAMES } from "@/lib/days";
-import type { Workout } from "@/lib/api/types";
+import type { FullWorkout } from "@/lib/api/types";
 
 interface CloneWorkoutDialogProps {
-  targetTrainingPlanId: number;
   onClose: () => void;
-  onCloned: (workout: Workout) => void;
+  /**
+   * "Usar treino existente como base" seeds the editor with the chosen
+   * workout's name, weekday, exercises and sets (R25); it never creates a
+   * separate copy, so the source's full tree is fetched and handed over.
+   */
+  onPick: (source: FullWorkout) => void;
 }
 
-export function CloneWorkoutDialog({
-  targetTrainingPlanId,
-  onClose,
-  onCloned,
-}: CloneWorkoutDialogProps) {
+export function CloneWorkoutDialog({ onClose, onPick }: CloneWorkoutDialogProps) {
   const [search, setSearch] = useState("");
   const { data } = useQuery({ queryKey: ["recentWorkouts"], queryFn: fetchRecentWorkouts });
 
@@ -34,14 +34,12 @@ export function CloneWorkoutDialog({
     );
   }, [data, search]);
 
-  const cloneMutation = useMutation({
-    mutationFn: (source: (typeof filtered)[number]) =>
-      cloneWorkout(source.id, {
-        targetTrainingPlanId,
-        name: source.name,
-        dayOfWeek: source.dayOfWeek,
-      }),
-    onSuccess: (workout) => onCloned(workout),
+  const pickMutation = useMutation({
+    mutationFn: (sourceId: number) => fetchFullWorkout(sourceId),
+    onSuccess: (source) => {
+      onPick(source);
+      onClose();
+    },
   });
 
   return (
@@ -64,8 +62,9 @@ export function CloneWorkoutDialog({
           <button
             key={workout.id}
             type="button"
-            disabled={cloneMutation.isPending}
-            onClick={() => cloneMutation.mutate(workout)}
+            disabled={pickMutation.isPending}
+            aria-busy={pickMutation.isPending && pickMutation.variables === workout.id}
+            onClick={() => pickMutation.mutate(workout.id)}
             className="flex w-full items-center justify-between gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--color-border)] px-[var(--space-4)] py-[var(--space-3)] text-left transition-colors hover:border-[var(--color-border-strong)]"
           >
             <div className="flex flex-col gap-[2px]">
@@ -84,6 +83,11 @@ export function CloneWorkoutDialog({
         {filtered.length === 0 && (
           <p className="py-[var(--space-4)] text-center text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
             Nenhum treino encontrado.
+          </p>
+        )}
+        {pickMutation.isError && (
+          <p className="text-[12px] text-[color:var(--color-danger)]">
+            Não foi possível carregar o treino escolhido. Tente novamente.
           </p>
         )}
       </div>

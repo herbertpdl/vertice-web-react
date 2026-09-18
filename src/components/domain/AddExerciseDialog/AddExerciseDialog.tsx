@@ -3,12 +3,12 @@
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Search } from "lucide-react";
+import { CircleAlert, CirclePlay, Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Dialog, DialogFooter, Dropdown, TextField } from "@/components/ui";
 import { fetchExercises, createExercise } from "@/lib/api/exercises";
-import { addWorkoutExercise } from "@/lib/api/workoutExercises";
 import { exerciseSchema, muscleGroupLabels, type ExerciseFormInput } from "@/lib/validation/exercises";
+import { MAX_EXERCISES } from "@/lib/workoutEditor/model";
 import type { Exercise } from "@/lib/api/types";
 
 const groupOptions = Object.entries(muscleGroupLabels).map(([value, label]) => ({
@@ -17,18 +17,25 @@ const groupOptions = Object.entries(muscleGroupLabels).map(([value, label]) => (
 }));
 
 interface AddExerciseDialogProps {
-  workoutId: number;
-  nextOrder: number;
+  /** The workout already has 20 exercises: browsing stays possible, adding does not (R21, E5). */
+  atCap?: boolean;
   onClose: () => void;
-  onAdded: () => void;
+  /** Hands the picked catalog exercise to the editor, which adds it to the draft (R14). */
+  onPick: (exercise: Exercise) => void;
 }
 
-export function AddExerciseDialog({ workoutId, nextOrder, onClose, onAdded }: AddExerciseDialogProps) {
+export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExerciseDialogProps) {
   const [mode, setMode] = useState<"search" | "create">("search");
   const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
 
   const { data: exercises } = useQuery({ queryKey: ["exercises"], queryFn: fetchExercises });
+
+  function pick(exercise: Exercise) {
+    if (atCap) return;
+    onPick(exercise);
+    onClose();
+  }
 
   const filtered = useMemo(() => {
     if (!exercises) return [];
@@ -36,15 +43,6 @@ export function AddExerciseDialog({ workoutId, nextOrder, onClose, onAdded }: Ad
     if (!q) return exercises;
     return exercises.filter((ex) => ex.name.toLowerCase().includes(q));
   }, [exercises, search]);
-
-  const addMutation = useMutation({
-    mutationFn: (exerciseId: number) =>
-      addWorkoutExercise(workoutId, { exerciseId, order: nextOrder, restSecondsBetweenSets: 60 }),
-    onSuccess: () => {
-      onAdded();
-      onClose();
-    },
-  });
 
   const {
     register,
@@ -59,11 +57,13 @@ export function AddExerciseDialog({ workoutId, nextOrder, onClose, onAdded }: Ad
   });
   const muscleGroup = watch("muscleGroup");
 
+  // Creating from the picker adds to the catalog right away (R23); adding it
+  // to the workout then follows the same path as a catalog pick.
   const createMutation = useMutation({
     mutationFn: (data: ExerciseFormInput) => createExercise(data),
     onSuccess: (exercise: Exercise) => {
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
-      addMutation.mutate(exercise.id);
+      pick(exercise);
     },
     onError: (error) => {
       setError("root", {
@@ -99,6 +99,25 @@ export function AddExerciseDialog({ workoutId, nextOrder, onClose, onAdded }: Ad
         </button>
       </div>
 
+      {atCap && (
+        <div className="flex w-full items-start gap-[10px] rounded-[var(--radius-md)] border border-[var(--color-warning)] bg-[#ffb02014] px-[14px] py-[12px]">
+          <CircleAlert
+            width={16}
+            height={16}
+            className="mt-[1px] shrink-0 text-[color:var(--color-warning)]"
+          />
+          <div className="flex flex-col gap-[4px]">
+            <span className="text-[13px] font-semibold text-[color:var(--color-warning)]">
+              Este treino já tem {MAX_EXERCISES} exercícios — o máximo permitido
+            </span>
+            <span className="text-[12px] text-[color:var(--color-text-secondary)]">
+              Você pode continuar navegando pelo catálogo, mas para adicionar outro exercício
+              remova um do treino primeiro.
+            </span>
+          </div>
+        </div>
+      )}
+
       {mode === "search" ? (
         <div className="flex w-full flex-col gap-[var(--space-3)]">
           <div className="relative w-full">
@@ -108,7 +127,7 @@ export function AddExerciseDialog({ workoutId, nextOrder, onClose, onAdded }: Ad
               className="pointer-events-none absolute top-1/2 left-[14px] -translate-y-1/2 text-[color:var(--color-text-tertiary)]"
             />
             <TextField
-              placeholder="Buscar exercício..."
+              placeholder="Buscar exercício por nome..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               className="[&_input]:pl-[22px]"
@@ -118,25 +137,35 @@ export function AddExerciseDialog({ workoutId, nextOrder, onClose, onAdded }: Ad
             {filtered.map((exercise) => (
               <div
                 key={exercise.id}
-                className="flex w-full items-center justify-between gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--color-border)] px-[var(--space-4)] py-[var(--space-3)]"
+                className="flex w-full items-center justify-between gap-[var(--space-3)] rounded-[var(--radius-md)] bg-[var(--color-bg)] p-[var(--space-3)]"
               >
-                <div className="flex flex-col gap-[2px]">
-                  <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
-                    {exercise.name}
-                  </span>
-                  <span className="text-[11px] text-[color:var(--color-text-tertiary)]">
-                    {muscleGroupLabels[exercise.muscleGroup]}
-                  </span>
+                <div className="flex min-w-0 flex-col gap-[2px]">
+                  <div className="flex items-center gap-[8px]">
+                    <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
+                      {exercise.name}
+                    </span>
+                    <span className="rounded-[var(--radius-full)] bg-[var(--color-surface-hover)] px-[8px] py-[2px] text-[10px] font-semibold text-[color:var(--color-text-secondary)]">
+                      {muscleGroupLabels[exercise.muscleGroup]}
+                    </span>
+                    {exercise.videoUrl && (
+                      <CirclePlay width={12} height={12} className="text-[color:var(--color-primary)]" />
+                    )}
+                  </div>
+                  {exercise.description && (
+                    <span className="truncate text-[11px] text-[color:var(--color-text-tertiary)]">
+                      {exercise.description}
+                    </span>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => addMutation.mutate(exercise.id)}
-                  disabled={addMutation.isPending}
-                  aria-label="Adicionar"
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-surface-hover)] text-[color:var(--color-primary)] hover:bg-[var(--color-surface-active)]"
+                <Button
+                  size="sm"
+                  onClick={() => pick(exercise)}
+                  disabled={atCap}
+                  aria-label={`Adicionar ${exercise.name}`}
+                  className="shrink-0 !px-[14px] !py-[6px] !text-[12px]"
                 >
-                  <Plus width={15} height={15} />
-                </button>
+                  Adicionar
+                </Button>
               </div>
             ))}
             {filtered.length === 0 && (
@@ -190,10 +219,7 @@ export function AddExerciseDialog({ workoutId, nextOrder, onClose, onAdded }: Ad
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              loading={createMutation.isPending || addMutation.isPending}
-            >
+            <Button type="submit" loading={createMutation.isPending} disabled={atCap}>
               Criar e adicionar
             </Button>
           </DialogFooter>

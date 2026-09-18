@@ -1,5 +1,11 @@
 import { apiClient } from "./client";
-import type { Workout, FullWorkout, RecentWorkoutSummary, DayOfWeek } from "./types";
+import type {
+  Workout,
+  FullWorkout,
+  RecentWorkoutSummary,
+  DayOfWeek,
+  WorkoutExerciseEntry,
+} from "./types";
 
 export function fetchRecentWorkouts() {
   return apiClient.get<RecentWorkoutSummary[]>("/workouts", { recent: "true" });
@@ -14,8 +20,14 @@ export interface WorkoutInput {
   dayOfWeek: DayOfWeek;
 }
 
-export function createWorkout(planId: number, input: WorkoutInput) {
-  return apiClient.post<Workout>(`/training-plans/${planId}/workouts`, input);
+export interface WorkoutCreateInput extends WorkoutInput {
+  /** Optional nested tree; omitted or `[]` creates an empty workout. Max 20. */
+  exercises?: WorkoutExerciseEntry[];
+}
+
+/** Creates the workout and (optionally) its whole exercise/set tree in one call; returns the full tree with every new id. */
+export function createWorkout(planId: number, input: WorkoutCreateInput) {
+  return apiClient.post<FullWorkout>(`/training-plans/${planId}/workouts`, input);
 }
 
 export function fetchWorkout(id: number) {
@@ -34,12 +46,11 @@ export function deleteWorkout(id: number) {
   return apiClient.delete<void>(`/workouts/${id}`);
 }
 
-export interface CloneWorkoutInput {
-  targetTrainingPlanId: number;
-  name: string;
-  dayOfWeek: DayOfWeek;
-}
-
-export function cloneWorkout(id: number, input: CloneWorkoutInput) {
-  return apiClient.post<Workout>(`/workouts/${id}/clone`, input);
+/**
+ * Replaces the workout's entire exercise/set tree (full replace, not merge).
+ * Every WorkoutExercise/ExerciseSet id in the response is new. Refused with
+ * 409 PRECONDITION_FAILED once any set under the workout has recorded data.
+ */
+export function replaceWorkoutExercises(workoutId: number, exercises: WorkoutExerciseEntry[]) {
+  return apiClient.put<FullWorkout>(`/workouts/${workoutId}/exercises`, { exercises });
 }
