@@ -179,9 +179,9 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     E17, E18).** A native unload (reload, close tab, typed URL) is caught by `beforeunload`, which
     only fires for a document unload — it does not run for an in-app `<Link>` or `router.push`,
     which keep the document alive. In-app navigation away from the editor is not only the
-    persistent `Header`'s nav links (`src/components/layout/Header.tsx`): `WorkoutEditor` renders
+    persistent `Header`'s nav links (`src/components/layout/Header/Header.tsx`): `WorkoutEditor` renders
     its own breadcrumb `<Link>`s to the student and the plan (today at
-    `src/components/domain/WorkoutEditor.tsx:90–102`, carried into `WorkoutEditorSession`), and
+    `src/components/domain/WorkoutEditor/WorkoutEditor.tsx:90–102`, carried into `WorkoutEditorSession`), and
     every `<Link>` reachable while the editor is mounted needs the same guard, not just the
     app-shell ones — a per-component patch would silently miss the next one added anywhere in the
     tree. So the guard is a `NavigationBlockerContext` (the shared-state pattern Next documents
@@ -193,7 +193,7 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     condition exactly, from one flag instead of two independent patches. `finish()`'s own
     `router.push` back to the plan needs no guard — it only runs after its flush resolves to a
     non-`error` status (previous bullet). The app shell has one other programmatic exit that is
-    not a `<Link>`: `AppHeader`'s "Sair" action (`src/components/layout/AppHeader.tsx:28–33`,
+    not a `<Link>`: `AppHeader`'s "Sair" action (`src/components/layout/AppHeader/AppHeader.tsx:28–33`,
     `handleSignOut` → `logout()` then `router.push("/login")`). It reads
     `isBlocked` the same way `finish()` reads the flush status — a `window.confirm` guard before calling `handleSignOut`,
     not before the `router.push` inside it, since sign-out is a single user-initiated action, not
