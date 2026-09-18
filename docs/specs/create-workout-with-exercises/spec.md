@@ -216,7 +216,14 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     true whenever the mounted editor session's footer status is `saving` or `error`, and both
     `Header`'s nav links and the editor's own breadcrumb links read it in `onNavigate`, calling
     `window.confirm` and `event.preventDefault()` on a cancel — mirroring `beforeunload`'s
-    condition exactly, from one flag instead of two independent patches. `finish()`'s own
+    condition exactly, from one flag instead of two independent patches. The flag is *owned* by
+    the mounted session, not merely written by it: `WorkoutEditorSession` publishes its status
+    to the provider from an effect whose cleanup resets `isBlocked` to `false`, so once the
+    trainer confirms leaving (or leaves from a clean state) and the editor unmounts, the shell
+    stops prompting — the provider outlives the page, and without that cleanup a session that
+    unmounted in `saving`/`error` would leave every later link and sign-out asking about an
+    editor that is no longer there. The engine itself is still not torn down (§3): an in-flight
+    save completes in the background, it just no longer guards anything. `finish()`'s own
     `router.push` back to the plan needs no guard — it only runs after its flush resolves to a
     non-`error` status (previous bullet). The app shell has one other programmatic exit that is
     not a `<Link>`: `AppHeader`'s "Sair" action (`src/components/layout/AppHeader/AppHeader.tsx:28–33`,
