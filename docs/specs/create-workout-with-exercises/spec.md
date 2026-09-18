@@ -332,7 +332,8 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
 | `src/lib/workoutEditor/autosave.ts` | `createAutosaveEngine(...)`: debounce, coalesce, serialize, create-then-replace, per-item fallback, 409/400 handling, `finish`, `retry`, `dismissRefusal` |
 | `src/lib/workoutEditor/autosave.test.ts` | Node/vitest unit tests for the engine (fake transport + fake timers) |
 | `src/lib/workoutEditor/useWorkoutAutosave.ts` | `useSyncExternalStore` hook creating one engine per editor session |
-| `src/lib/api/workouts.ts` | `createWorkout` now takes `WorkoutCreateInput` (nested `exercises?`) and returns `FullWorkout`; new `replaceWorkoutExercises`; `cloneWorkout` removed |
+| `src/lib/api/client.ts` | `apiClient` gains `put` (same shape as `patch`: JSON body through the shared `request`, so `ApiError` and the 401 redirect apply) — it has only `get`/`post`/`patch`/`delete` today, and `PUT /workouts/:id/exercises` needs it |
+| `src/lib/api/workouts.ts` | `createWorkout` now takes `WorkoutCreateInput` (nested `exercises?`) and returns `FullWorkout`; new `replaceWorkoutExercises` (via `apiClient.put`); `cloneWorkout` removed |
 | `src/lib/api/types.ts` | `WorkoutExerciseEntry`, `ExerciseSetEntry` |
 | `src/lib/days.ts` | New `DAY_NAMES_LONG` map ("Segunda-feira" …) next to the existing `DAY_NAMES`/`DAY_ABBR` |
 | `src/app/(app)/planos/[planId]/treinos/[workoutId]/page.tsx` | Now the only route for the editor: treats `workoutId === "novo"` as no workout yet (was a separate `treinos/novo/page.tsx`) and reads the `dayOfWeek` query param for that case |
