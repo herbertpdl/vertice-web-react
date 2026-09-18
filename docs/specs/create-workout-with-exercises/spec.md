@@ -193,9 +193,9 @@ In-app navigation away from the editor is not only the
     condition exactly, from one flag instead of two independent patches. `finish()`'s own
     `router.push` back to the plan needs no guard — it only runs after its flush resolves to a
     non-`error` status (previous bullet). The app shell has one other programmatic exit that is
-    not a `<Link>`: `AppHeader`'s "Sair" action (`src/components/layout/AppHeader/AppHeader.tsx:28–33`,
-    `handleSignOut` → `logout()` then `router.push("/login")`). It reads `isBlocked` the same way
-    `finish()` reads the flush status — a `window.confirm` guard before calling `handleSignOut`,
+    not a `<Link>`: `AppHeader`'s "Sair" action (`src/components/layout/AppHeader.tsx:28–33`,
+    `handleSignOut` → `logout()` then `router.push("/login")`). It reads
+    `isBlocked` the same way `finish()` reads the flush status — a `window.confirm` guard before calling `handleSignOut`,
     not before the `router.push` inside it, since sign-out is a single user-initiated action, not
     two — so signing out while the editor is saving or in error warns first instead of losing the
     draft silently. Any future programmatic exit from the editor must do the same. Browser
