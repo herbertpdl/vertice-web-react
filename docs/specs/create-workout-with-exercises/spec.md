@@ -135,8 +135,9 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     far, with the restored item back in it), the position value of every remaining op in this
     run that carries one, before that op is sent — not a full re-diff, since only positions can
     have shifted, never which items are being added/removed/edited. The same re-derivation runs
-    after an op is *undone* mid-run (a rejected per-item `POST`/`PATCH`, next bullet), which
-    shifts positions the other way by dropping an item or snapping one back.
+    after an op is *undone* or an item *re-created* mid-run (a rejected or orphaned per-item
+    `POST`/`PATCH`, next bullet), which can shift positions either way by dropping an item,
+    snapping one back or giving one a fresh id.
     *Which delete failures count as a refusal.* Only the codes a recorded-data delete actually
     produces: `PRECONDITION_FAILED` (409 — the BFF's `mapGrpcError` rendering of the gRPC
     `FAILED_PRECONDITION` that `vertice-api`'s delete RPCs will return once the §6 follow-up
@@ -180,24 +181,37 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     400.** The bulk create/replace reports a vanished catalog exercise as `INVALID_ARGUMENT` → 400
     (api spec §0/F10), but the unchanged per-item `POST workout-exercises` resolves the exercise
     with `ResourceNotFoundException` → `NOT_FOUND` → 404 (`WorkoutExerciseService.createWorkoutExercise`),
-    and a `PATCH` on an item another session deleted meanwhile (E19) is a 404 too. Neither can
+    and a `PATCH` on an item another session deleted meanwhile is a 404 too. None of these can
     succeed on a retry, so routing them to `error` and re-sending would loop on "Tentar novamente"
-    forever. They get E9's outcome at op granularity instead — the trainer must not be able to
-    tell the two modes apart (per-item is a transport detail, above): a `POST` or `PATCH` answered
-    400 `VALIDATION_ERROR` or 404 `NOT_FOUND` **undoes that op's change** in the draft and shows
-    the same generic banner, and the run continues. A rejected `POST` drops the posted item (an
-    exercise's sets with it) from the draft; a `PATCH` 400 puts the per-item snapshot's values
-    for that item — fields and position — back into the draft; a `PATCH` 404 removes the item
-    from both the draft and the per-item snapshot (gone upstream, the mirror of "`DELETE` 404
-    counts as done"). In every case the `sinceSent` actions for that key are then replayed on
-    top, exactly as the bulk 400 branch does, so a mid-run edit to a restored item is not
-    clobbered and an edit to a dropped one is discarded by the reducer. Remaining ops in the run
-    that target a dropped item (a set `POST` under a dropped exercise) are skipped as done — they
-    would only 404 — and remaining positions are re-derived per "restoring an item mid-run"
-    above, which covers an undo the same way. Like a restore, an undo is not a failure of the
-    flush: with the rest of the run succeeding it ends in `saved`, because the screen once again
-    matches the server. `DELETE` is unaffected — its 404 already counts as done, and its 400 stays
-    in the not-a-refusal list above, since nothing about a delete payload can be invalid.
+    forever. Each gets, at op granularity, the outcome the bulk path already gives the same event
+    — the trainer must not be able to tell the two modes apart (per-item is a transport detail,
+    above), so the rule is derived from what `replace` mode does, not invented for per-item:
+    - *Rejection — E9.* A `POST` or `PATCH` answered 400 `VALIDATION_ERROR`, or a
+      `POST workout-exercises` answered 404 (the catalog exercise is gone; the only thing that
+      `POST` resolves besides the workout itself), **undoes that op's change** in the draft and
+      shows the same generic banner: a rejected `POST` drops the posted item (an exercise's sets
+      with it) from the draft; a `PATCH` 400 puts the per-item snapshot's values for that item —
+      fields and position — back into the draft. The `sinceSent` actions for that key are then
+      replayed on top, exactly as the bulk 400 branch does, so a mid-run edit to a restored item
+      is not clobbered and an edit to a dropped one is discarded by the reducer. Remaining ops in
+      the run that target a dropped item (a set `POST` under a dropped exercise) are skipped as
+      done — they would only 404.
+    - *Concurrent removal — E19, the draft wins.* A `PATCH` answered 404, or a set `POST`
+      answered 404 (its parent workout-exercise is gone — a set resolves nothing else), means
+      another session removed the item. In `replace` mode this event is invisible: the `PUT`
+      rewrites the whole tree and the item simply comes back (last write wins, PRD E19). Per-item
+      mode does the same thing explicitly: it re-creates the missing item with a `POST` at its
+      current position — the exercise with all its draft sets, or the set — adopts the new id
+      (§3), shows no banner, and moves on. If that `POST` is itself rejected it follows the
+      rejection rule above. Dropping the item and announcing it, the mirror of "`DELETE` 404
+      counts as done", would have made the two modes observably different for one and the same
+      event, which the PRD's §7 rules out.
+    After either, remaining positions are re-derived per "restoring an item mid-run" above,
+    which covers an undo or a re-create the same way. Like a restore, neither is a failure of
+    the flush: with the rest of the run succeeding it ends in `saved`, because the screen once
+    again matches the server. `DELETE` is unaffected — its 404 already counts as done, and its
+    400 stays in the not-a-refusal list above, since nothing about a delete payload can be
+    invalid.
 - **Any other failure (network, 5xx, 503) leaves the draft on screen and sets the footer to
     "Erro ao salvar — Tentar novamente" (R9, R10, E16).** "Tentar novamente" calls `flush()` again
     with the *current* draft (R10). No automatic retry: the trainer decides.
@@ -403,11 +417,15 @@ timer ──▶ flush():
                        DELETE 404 → counts as done for that op
                        DELETE 409 PRECONDITION_FAILED / 502 UPSTREAM_ERROR → restore item,
                                    banner(named), continue with the remaining ops
-                       POST/PATCH 400 VALIDATION_ERROR / 404 NOT_FOUND → undo that op's change
-                                   (drop the posted item; PATCH 400: snapshot values back;
-                                   PATCH 404: drop from draft and snapshot), replay sinceSent
-                                   for that key, banner(generic message), skip remaining ops on
-                                   a dropped item, continue (§0 — E9 at op granularity)
+                       POST/PATCH 400 VALIDATION_ERROR, or POST workout-exercises 404 →
+                                   undo that op's change (drop the posted item; PATCH 400:
+                                   snapshot values back), replay sinceSent for that key,
+                                   banner(generic message), skip remaining ops on a dropped
+                                   item, continue (§0 — E9 at op granularity)
+                       PATCH 404, or POST exercise-sets 404 → item removed by another session:
+                                   re-create it (exercise with its sets, or the set) with a POST
+                                   at its current position, adopt id, no banner, continue
+                                   (§0 — E19, the draft wins as it would under `replace`)
                        any op, other failure → status = error [terminal; per-item snapshot
                                 already advanced for the ops that succeeded]; retry() re-sends the
                                 same failed op (known limitation below)
@@ -521,7 +539,10 @@ inside the app should complete.
   resumes from that op; a per-item `POST` answered 404 (catalog exercise gone) drops the item,
   raises the generic banner, skips the set `POST`s queued under it, re-derives later positions
   and still ends the run in `saved` — `retry()` is never asked to re-send it — while a `PATCH`
-  400 snaps the item back to its snapshot values with a mid-run edit to it replayed on top; a refused delete followed later in the same run by a reorder PATCH for a
+  400 snaps the item back to its snapshot values with a mid-run edit to it replayed on top; a
+  `PATCH` answered 404 (or a set `POST` answered 404) re-creates the item with a `POST` at its
+  current position, adopts the new id for the ops still queued on it, raises no banner and ends
+  in `saved`; a refused delete followed later in the same run by a reorder PATCH for a
   different item sends that item's *current* position, not the one computed before the restore;
   400 reverts to
   the snapshot and an edit made while that request was in flight survives the revert and is
