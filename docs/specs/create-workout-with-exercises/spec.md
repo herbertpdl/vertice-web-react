@@ -354,7 +354,7 @@ timer ──▶ flush():
                                   below; the snapshot here is the pristine new-workout draft,
                                   so a kept name/weekday makes it dirty as much as a survivor)
                     other 4xx  → status = error [terminal]; nothing was created
-   else           → PATCH name/day if changed
+   else           → PATCH name/day if changed; after a 2xx response, advance the snapshot's name/day to the values sent before any tree operation below
                     tree changed & mode=replace → PUT replace
                        2xx  → ids by position → snapshot → done
                        409  → mode = per-item, pendingFlush = true (re-sync same diff) → done
