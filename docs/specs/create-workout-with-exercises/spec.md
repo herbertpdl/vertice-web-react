@@ -97,9 +97,9 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     the same screen, nothing is announced and there is nothing to choose (R26, R28 — the PRD's
     §7 "refused whole-list save" row and §10.1 item 4 describe what the trainer sees, and that is
     unchanged); it only decides whether a flush is one `PUT` or a sequence of per-item calls.
-    Nor does it change what E19 promises: "last save wins" there is API-E10's "whichever edit is
-    processed last is what sticks" — last *write* wins, request by request, with no conflict
-    detection anywhere in the stack. That granularity is not introduced by `per-item` mode: the
+    Nor does it change what E19 promises: E19's "last write wins, change by change" is API-E10's
+    "whichever edit is processed last is what sticks" — per request, with no conflict detection
+    anywhere in the stack. That granularity is not introduced by `per-item` mode: the
     editor shipping today is per-item only (the `useMutation`s listed under "Retired code paths"
     below), and even `replace` mode is two requests (`PATCH` name/weekday, then `PUT` tree), so
     two sessions can already end with one's name and the other's exercises. In `per-item` mode
