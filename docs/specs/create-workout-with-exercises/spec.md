@@ -179,9 +179,9 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     E17, E18).** A native unload (reload, close tab, typed URL) is caught by `beforeunload`, which
     only fires for a document unload — it does not run for an in-app `<Link>` or `router.push`,
     which keep the document alive. In-app navigation away from the editor is not only the
-    persistent `Header`'s nav links (`src/components/layout/Header.tsx`): `WorkoutEditor` renders
+    persistent `Header`'s nav links (`src/components/layout/Header/Header.tsx`): `WorkoutEditor` renders
     its own breadcrumb `<Link>`s to the student and the plan (today at
-    `src/components/domain/WorkoutEditor.tsx:90–102`, carried into `WorkoutEditorSession`), and
+    `src/components/domain/WorkoutEditor/WorkoutEditor.tsx:90–102`, carried into `WorkoutEditorSession`), and
     every `<Link>` reachable while the editor is mounted needs the same guard, not just the
     app-shell ones — a per-component patch would silently miss the next one added anywhere in the
     tree. So the guard is a `NavigationBlockerContext` (the shared-state pattern Next documents
@@ -193,7 +193,7 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     condition exactly, from one flag instead of two independent patches. `finish()`'s own
     `router.push` back to the plan needs no guard — it only runs after its flush resolves to a
     non-`error` status (previous bullet). The app shell has one other programmatic exit that is
-    not a `<Link>`: `AppHeader`'s "Sair" action (`src/components/layout/AppHeader.tsx:28–33`,
+    not a `<Link>`: `AppHeader`'s "Sair" action (`src/components/layout/AppHeader/AppHeader.tsx:28–33`,
     `handleSignOut` → `logout()` then `router.push("/login")`). It reads `isBlocked` the same way
     `finish()` reads the flush status — a `window.confirm` guard before calling `handleSignOut`,
     not before the `router.push` inside it, since sign-out is a single user-initiated action, not
@@ -304,14 +304,14 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
 | `src/lib/days.ts` | New `DAY_NAMES_LONG` map ("Segunda-feira" …) next to the existing `DAY_NAMES`/`DAY_ABBR` |
 | `src/app/(app)/planos/[planId]/treinos/[workoutId]/page.tsx` | Now the only route for the editor: treats `workoutId === "novo"` as no workout yet (was a separate `treinos/novo/page.tsx`) and reads the `dayOfWeek` query param for that case |
 | `src/app/(app)/planos/[planId]/treinos/novo/page.tsx`, `NovoTreinoContent.tsx` | Removed — merged into `[workoutId]/page.tsx` above, so a create's `router.replace` is a same-file param change, not a page swap |
-| `src/components/domain/WorkoutEditor.tsx` | Loads plan/student/workout, then renders `WorkoutEditorSession` (draft, header, list, DnD, footer, banners); its student/plan breadcrumb `Link`s consume `NavigationBlockerContext` |
+| `src/components/domain/WorkoutEditor/WorkoutEditor.tsx` | Loads plan/student/workout, then renders `WorkoutEditorSession` (draft, header, list, DnD, footer, banners); its student/plan breadcrumb `Link`s consume `NavigationBlockerContext` |
 | `src/lib/navigationBlocker.tsx` | `NavigationBlockerContext`/`NavigationBlockerProvider` (`isBlocked` state) mounted by the `(app)` layout; consumed by `Header`'s nav links, the editor's breadcrumb links, and `AppHeader`'s "Sair" action |
-| `src/components/domain/WorkoutExerciseCard.tsx` | Presentational card: handle, order badge, rest, notes, sets table, drag/refusal/cap states |
-| `src/components/domain/SetRow.tsx` | Presentational row with per-field commit + drag handle + duplicate/remove |
-| `src/components/domain/AddExerciseDialog.tsx` | Picker → `onPick(exercise)`; `atCap` banner and disabled actions |
-| `src/components/domain/CloneWorkoutDialog.tsx` | Picker → fetches `/workouts/:id/full` → `onPick(full)` |
-| `src/components/domain/EditorFooter.tsx` | Status (`idle`/`saving`/`saved`/`error`) + "Concluir" |
-| `src/components/domain/*.stories.tsx`, `storyFixtures.ts`, `storyQuery.tsx` | Storybook states for the card, set row, footer, dialogs and the editor session (fake transport, seeded query cache) |
+| `src/components/domain/WorkoutExerciseCard/WorkoutExerciseCard.tsx` | Presentational card: handle, order badge, rest, notes, sets table, drag/refusal/cap states |
+| `src/components/domain/SetRow/SetRow.tsx` | Presentational row with per-field commit + drag handle + duplicate/remove |
+| `src/components/domain/AddExerciseDialog/AddExerciseDialog.tsx` | Picker → `onPick(exercise)`; `atCap` banner and disabled actions |
+| `src/components/domain/CloneWorkoutDialog/CloneWorkoutDialog.tsx` | Picker → fetches `/workouts/:id/full` → `onPick(full)` |
+| `src/components/domain/EditorFooter/EditorFooter.tsx` (+ `index.ts`) | New: status (`idle`/`saving`/`saved`/`error`) + "Concluir" |
+| `src/components/domain/<Name>/<Name>.stories.tsx` (one per component above, next to it), `src/components/domain/storyFixtures.ts`, `storyQuery.tsx` (shared helpers, at the group root) | Storybook states for the card, set row, footer, dialogs and the editor session (fake transport, seeded query cache) |
 | `vitest.config.ts` | Second project `unit` (node environment) for `src/lib/**/*.test.ts` |
 
 ## 2. Editor model
