@@ -184,7 +184,7 @@ trainer whether the latest change is being saved, is saved, or failed.
 | E16 | A save fails (network, platform error). | Footer shows "Erro ao salvar — Tentar novamente"; the trainer's change stays on screen; leaving the page now warns first. | R9, R10, R12 |
 | E17 | Trainer presses "Concluir" while the footer says "Salvando…". | The pending save completes first, then the trainer is back on the plan's page. | R11 |
 | E18 | Trainer closes the tab while the footer says "Salvo". | Leaves freely, no warning; everything is already saved. | R12 |
-| E19 | Two trainers (or two tabs) edit the same workout at the same time. | Last save wins; no conflict detection (API-E10). | — |
+| E19 | Two trainers (or two tabs) edit the same workout at the same time. | Last write wins, change by change as each reaches the platform; no conflict detection (API-E10). Because a session's edits reach the platform as more than one request, the workout can end up with a mix of both trainers' changes rather than either one's whole version — the same as the editor today. | — |
 | E20 | Trainer removes every exercise from a workout, or reopens an existing workout that has none. | Workout stays (or opens) empty; "Usar treino existente como base" is not offered — it exists only before a new workout's first exercise. | R6, R24 |
 
 ## 6. Out of scope

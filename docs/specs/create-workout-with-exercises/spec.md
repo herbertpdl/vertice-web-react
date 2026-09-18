@@ -97,6 +97,17 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     the same screen, nothing is announced and there is nothing to choose (R26, R28 — the PRD's
     §7 "refused whole-list save" row and §10.1 item 4 describe what the trainer sees, and that is
     unchanged); it only decides whether a flush is one `PUT` or a sequence of per-item calls.
+    Nor does it change what E19 promises: "last save wins" there is API-E10's "whichever edit is
+    processed last is what sticks" — last *write* wins, request by request, with no conflict
+    detection anywhere in the stack. That granularity is not introduced by `per-item` mode: the
+    editor shipping today is per-item only (the `useMutation`s listed under "Retired code paths"
+    below), and even `replace` mode is two requests (`PATCH` name/weekday, then `PUT` tree), so
+    two sessions can already end with one's name and the other's exercises. In `per-item` mode
+    their `DELETE`/`POST`/`PATCH` sequences interleave the same way, item by item, and the
+    workout can end as a mix of both drafts rather than either one whole. The engine serializes
+    only its own session's requests and makes no cross-session promise; the PRD's E19 row is
+    worded to match, and the server-side version/transaction contract that would let a session
+    detect a stale tree is the §6 follow-up, not something this editor can build alone.
     In that mode a removal of a non-recorded item
     succeeds (E14) and a removal of a recorded item fails upstream (FK `set_logs → exercise_sets`;
     `DeleteExerciseSet`/`DeleteWorkoutExercise` have no explicit check, so the
@@ -496,4 +507,7 @@ inside the app should complete.
   (`workout-exercises`, `exercise-sets`) and the known duplicate-on-retry limitation in §3, where
   content-based reconciliation is not an option at all because duplicate items are allowed (R20).
 - Touch/mobile drag and drop; keyboard reordering.
-- Conflict detection between concurrent editors (E19).
+- Conflict detection between concurrent editors (E19): a server-side version (ETag /
+  `If-Match`) or transactional contract on the workout, so a session that edits a stale tree is
+  told so instead of overwriting it request by request — item by item in `per-item` mode. Nothing
+  in the stack detects the overlap today (API-E10), and the web cannot add it on its own.
