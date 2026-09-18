@@ -374,14 +374,15 @@ timer ──▶ flush():
 ```
 
 `[terminal]` means the flush ends there without reaching `done`: a flush that fails with no new
-edits queued stays in `error` rather than falling through to `pendingFlush ? flush() : status =
-saved`, which would otherwise report a failed save as "Salvo" (R9). A `pendingFlush` left `true`
+edits queued stays in `error` rather than falling through to `done`, which would otherwise report
+a failed save as "Salvo" (R9) — or, for a failed create, as the never-saved `idle`. A `pendingFlush` left `true`
 by an edit made while the failed request was in flight is not chained automatically from an
 `[terminal]` branch either — it is picked up by the next `flush()` call, from "Tentar novamente"
 or the debounce timer of a further edit, keeping R10's "no automatic retry" intact.
 
-A handled 400 is the one non-2xx branch that *does* reach `done`, and the footer state it lands
-in is deliberate, not a fall-through. After the revert, the branch runs the ordinary dirty check
+A handled 400 is a non-2xx answer that reaches `done` instead of ending `[terminal]` (as a 409
+and a refused or already-gone per-item delete also do), and the footer state it lands in is
+deliberate, not a fall-through. After the revert, the branch runs the ordinary dirty check
 against the snapshot and sets `pendingFlush` from its result — not from "did anything survive the
 `sinceSent` replay", which would miss a kept name/weekday that was part of `sent` — so `done`
 either chains a flush for whatever is dirty or reports on a draft that *is* the server's state,
@@ -485,7 +486,7 @@ inside the app should complete.
   create with a typed name or a changed weekday re-sends the create with them and an empty tree; network failure → `error` and `retry()` re-sends the current draft,
   including a create — `retry()` never lists or matches other workouts to guess whether it
   already committed; a flush that ends in `error` with nothing queued stays
-  in `error` (never falls through to `saved`); a per-item `POST`'s id is adopted by key so a
+  in `error` (never falls through to `saved`, nor to `idle` for a failed create); a per-item `POST`'s id is adopted by key so a
   later op in the same run targets it, not `null`; `finish()` awaits a pending save without
   scheduling a second one and calls the same retry path `retry()` does for a failed create or
   per-item op, not a bare `flush()`; creating a new workout with a blank name shows "Novo treino"
