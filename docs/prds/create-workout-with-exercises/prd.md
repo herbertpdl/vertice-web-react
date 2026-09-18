@@ -106,8 +106,9 @@ trainer whether the latest change is being saved, is saved, or failed.
   progress, "Salvo" once the latest change is saved, "Erro ao salvar — Tentar novamente" if a
   save failed — and no other save status appears anywhere on the screen.
 - R10: "Tentar novamente" re-attempts the failed save with the editor's current content.
-- R11: The footer's only action is "Concluir", which returns to the plan's page; if a save is
-  pending at that moment it is completed first.
+- R11: The footer's only button is "Concluir", which returns to the plan's page; if a save is
+  pending at that moment it is completed first. ("Tentar novamente" is part of the error status
+  text, R9/R10 — not a second footer action.)
 - R12: Leaving the editor (navigating away, reloading, closing the tab) warns the trainer only
   while a save is in progress or the last save failed; otherwise the trainer leaves freely. Does
   not cover the browser's back/forward buttons (§6).
