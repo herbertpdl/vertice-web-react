@@ -121,9 +121,10 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     generic FK/502 response cannot say which of the exercise's sets blocked it, so no set number
     is invented; §4 has the exact copy for both). Every other operation in the same flush still
     runs, and *provided all of them succeed*, the status ends in "Salvo" (R27, E13) — a later
-    operation failing for a non-refusal reason still lands the flush in `error` per "which delete
-    failures count as a refusal" below and §3's per-op flow; a restore is not itself a failure of
-    the flush, only of that one op. The banner is dismissed with "Fechar" (R28). No 409 banner is
+    operation failing for a reason that is neither a refusal nor a rejection/orphan handled by
+    the 400 bullet's per-item rule still lands the flush in `error` per "which delete failures
+    count as a refusal" below and §3's per-op flow; a restore is not itself a failure of the
+    flush, only of that one op. The banner is dismissed with "Fechar" (R28). No 409 banner is
     shown when the refused replace carried no removal (there is nothing to undo — the per-item
     resync just saves it).
     **Restoring an item mid-run does not invalidate the ops already computed for it, but does for
@@ -145,7 +146,8 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     code, never on an upstream status) and `UPSTREAM_ERROR` (502 — the FK violation today). A `NOT_FOUND` delete counts as
     done (§3). Everything else — network failure, `UPSTREAM_UNAVAILABLE` (503), 403, 400, unknown
     codes — is **not** a refusal: the per-item run stops there, the draft is kept and the footer
-    goes to "Erro ao salvar — Tentar novamente" exactly as for any other failure (next bullet);
+    goes to "Erro ao salvar — Tentar novamente" exactly as for any other failure ("Any other
+    failure" bullet below);
     because the snapshot is advanced op by op (§3), the retry resumes from the failed op. Mapping
     every non-2xx to the refusal path would show "desempenho registrado" for a server outage and
     then report "Salvo" for a change that never reached the server. 401 is listed separately, not
@@ -440,8 +442,9 @@ by an edit made while the failed request was in flight is not chained automatica
 `[terminal]` branch either — it is picked up by the next `flush()` call, from "Tentar novamente"
 or the debounce timer of a further edit, keeping R10's "no automatic retry" intact.
 
-A handled 400 is a non-2xx answer that reaches `done` instead of ending `[terminal]` (as a 409
-and a refused or already-gone per-item delete also do), and the footer state it lands in is
+A handled 400 is a non-2xx answer that reaches `done` instead of ending `[terminal]` (as a 409,
+a refused or already-gone per-item delete, and a per-item `POST`/`PATCH` 400/404 that was undone
+or re-created also do), and the footer state it lands in is
 deliberate, not a fall-through. After the revert, the branch runs the ordinary dirty check
 against the snapshot and sets `pendingFlush` from its result — not from "did anything survive the
 `sinceSent` replay", which would miss a kept name/weekday that was part of `sent` — so `done`
