@@ -340,6 +340,9 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
 | `src/app/(app)/planos/[planId]/treinos/novo/page.tsx`, `NovoTreinoContent.tsx` | Removed — merged into `[workoutId]/page.tsx` above, so a create's `router.replace` is a same-file param change, not a page swap |
 | `src/components/domain/WorkoutEditor/WorkoutEditor.tsx` | Loads plan/student/workout, then renders `WorkoutEditorSession` (draft, header, list, DnD, footer, banners); its student/plan breadcrumb `Link`s consume `NavigationBlockerContext` |
 | `src/lib/navigationBlocker.tsx` | `NavigationBlockerContext`/`NavigationBlockerProvider` (`isBlocked` state) mounted by the `(app)` layout; consumed by `Header`'s nav links, the editor's breadcrumb links, and `AppHeader`'s "Sair" action |
+| `src/app/(app)/layout.tsx` | Wraps `AppHeader` and the routed page in `NavigationBlockerProvider` (today it renders `AppHeader` bare) |
+| `src/components/layout/Header/Header.tsx` | Nav `<Link>`s gain the `onNavigate` guard that reads `isBlocked` |
+| `src/components/layout/AppHeader/AppHeader.tsx` | "Sair" reads `isBlocked` and `window.confirm`s before `handleSignOut` |
 | `src/components/domain/WorkoutExerciseCard/WorkoutExerciseCard.tsx` | Presentational card: handle, order badge, rest, notes, sets table, drag/refusal/cap states |
 | `src/components/domain/SetRow/SetRow.tsx` | Presentational row with per-field commit + drag handle + duplicate/remove |
 | `src/components/domain/AddExerciseDialog/AddExerciseDialog.tsx` | Picker → `onPick(exercise)`; `atCap` banner and disabled actions |
