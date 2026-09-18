@@ -164,12 +164,14 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     (`sinceSent`, cleared on every flush start) and, after the reset, replays them through the
     reducer on top of the snapshot. Actions whose target key no longer exists (an edit to a set of
     an exercise that was in the rejected batch) are dropped by the reducer; whatever survives
-    leaves the draft dirty and goes out with the chained flush (`pendingFlush`). A plain
-    `draft tree = snapshot tree` would have thrown those edits away and then reported "Salvo"
-    because the chained flush saw a clean draft. The footer does not go to `error` on this path:
-    it ends in `saved` for an existing workout (the screen now matches the server — E9, not E16)
-    and in `idle` when the rejected request was the create (nothing exists yet); §3 spells out
-    why, and why "Tentar novamente" would be meaningless here.
+    leaves the draft dirty and goes out with the chained flush (`pendingFlush`) — as does a kept
+    name/weekday on a create that was rejected, since the branch decides `pendingFlush` by the
+    ordinary dirty check against the snapshot (§3), not by whether the replay produced anything. A
+    plain `draft tree = snapshot tree` would have thrown those edits away and then reported
+    "Salvo" because the chained flush saw a clean draft. The footer does not go to `error` on this
+    path: it ends in `saved` for an existing workout (the screen now matches the server — E9, not
+    E16) and in `idle` when the rejected request was the create and nothing is left to send
+    (nothing exists yet); §3 spells out why, and why "Tentar novamente" would be meaningless here.
 - **Any other failure (network, 5xx, 503) leaves the draft on screen and sets the footer to
     "Erro ao salvar — Tentar novamente" (R9, R10, E16).** "Tentar novamente" calls `flush()` again
     with the *current* draft (R10). No automatic retry: the trainer decides.
@@ -343,20 +345,21 @@ timer ──▶ flush():
    clean?      → status = saved | idle, return
    sent = draft; sinceSent = []   (every edit while in flight is appended)
    workoutId null → POST create(nested)
-                    2xx        → ids by position → snapshot → done
+                    2xx        → workoutId = response id, ids by position → snapshot → done
                     non-4xx    → status = error [terminal]; retry() re-sends the create as-is
                                   (accepted duplicate-on-retry risk, §0 — no reconciliation)
                     400        → draft tree = reduce(empty tree, sinceSent), banner(generic
-                                  message); dirty if anything survived → done (§0 — same revert-
-                                  and-replay as the existing-workout 400 branch below, just against
-                                  an empty snapshot since nothing was created)
+                                  message); pendingFlush = dirty(draft, snapshot) → done (§0 —
+                                  same revert-and-replay as the existing-workout 400 branch
+                                  below; the snapshot here is the pristine new-workout draft,
+                                  so a kept name/weekday makes it dirty as much as a survivor)
                     other 4xx  → status = error [terminal]; nothing was created
    else           → PATCH name/day if changed
                     tree changed & mode=replace → PUT replace
                        2xx  → ids by position → snapshot → done
                        409  → mode = per-item, pendingFlush = true (re-sync same diff) → done
                        400  → draft tree = reduce(snapshot tree, sinceSent), banner(generic
-                              message); dirty if anything survived → done
+                              message); pendingFlush = dirty(draft, snapshot) → done
                        other → status = error [terminal]
                     tree changed & mode=per-item → diff(snapshot, sent) as DELETE/POST/PATCH,
                        each op advancing the per-item snapshot on 2xx
@@ -378,20 +381,25 @@ by an edit made while the failed request was in flight is not chained automatica
 or the debounce timer of a further edit, keeping R10's "no automatic retry" intact.
 
 A handled 400 is the one non-2xx branch that *does* reach `done`, and the footer state it lands
-in is deliberate, not a fall-through. After the revert the draft *is* the server's state (plus
-whatever survived the `sinceSent` replay — which is dirty and chains a flush, so `done` never
-reports on it), so the footer says what is true of the screen. For an existing workout that is
+in is deliberate, not a fall-through. After the revert, the branch runs the ordinary dirty check
+against the snapshot and sets `pendingFlush` from its result — not from "did anything survive the
+`sinceSent` replay", which would miss a kept name/weekday that was part of `sent` — so `done`
+either chains a flush for whatever is dirty or reports on a draft that *is* the server's state,
+and the footer says what is true of the screen. For an existing workout that is
 `saved`: the rejected change is undone and reported by the banner, which is E9's outcome, distinct
 from E16's "the change stays on screen, footer in error". `error` here would make "Tentar
 novamente" re-send content identical to the snapshot — a no-op R10 does not describe — and make
 the R12 leaving guard warn about a loss that cannot happen. For a workout the rejected request
 was supposed to *create*, `workoutId` is still `null` at `done`, so the state is `idle` ("As
 alterações são salvas automaticamente"), never `saved` — nothing has been saved yet; the create
-400 branch is the only way `done` runs with `workoutId === null`. In that branch the pristine
-new-workout draft (blank name, the query-param weekday, no exercises) plays the snapshot's role
-in the dirty check, so the kept name/weekday count like any edit: a name typed before the rejected
-create still creates the workout on the chained flush (R3/R4), while a workout whose only change
-was the rejected batch — E2's nameless add, say — ends in `idle` with nothing created (R5).
+400 branch is the only way `done` runs with `workoutId === null` (every other route to `done` is
+under `else`, and the create's 2xx assigns `workoutId` before reaching it). Because a never-created
+workout's snapshot is its pristine draft (below), the kept name/weekday count like any edit: a name
+or weekday set before the rejected create leaves the draft dirty, so `done` chains a flush that
+re-sends the create with it and an empty tree (R3/R4), while a workout whose only change was the
+rejected batch — E2's nameless add on the weekday it opened with, say — is clean, ends in `idle`
+and creates nothing (R5). `idle` is therefore never reached with a dirty draft, so the R12 guard
+being off in that state is right.
 
 *Known limitation: a per-item `POST` retry can duplicate a row.* Unlike the top-level create
 (§0), a per-item `POST`'s result cannot be reconciled by refetching `/full` and matching on
@@ -404,7 +412,11 @@ it re-sends the failed op as-is, and in the rare case a duplicate results, the t
 can remove the extra row like any other edit.
 
 Dirty check = deep-compare of `sent` against `snapshot` (name/day and the tree separately).
-After a create/replace the snapshot is **the tree as sent plus the ids/positions the server
+Until the workout is created, `snapshot` is the pristine new-workout draft the session opened
+with (blank name, the weekday from R2, no exercises): that is what the `clean?` check at the top
+of `flush()` compares against when nothing has been saved yet (R5 — a name typed then cleared
+again before the timer fires is clean and never creates anything), and what the create-400
+branch compares against after its revert. After a create/replace the snapshot is **the tree as sent plus the ids/positions the server
 assigned by list position** (`adoptIds`), not the server's echo: the API normalises values
 (decimal `"60.5"` comes back as `"60.50"`), and comparing against the echo left the draft
 "dirty" forever (found in the smoke test). Ids are merged into the *current* draft by key, so
@@ -468,9 +480,9 @@ inside the app should complete.
   400 reverts to
   the snapshot and an edit made while that request was in flight survives the revert and is
   sent by the follow-up save; a 400 with nothing surviving ends in `saved` for an existing
-  workout and in `idle` (with no `POST` re-sent) for a nameless never-created one, never in
-  `error`, while a rejected create with a typed name re-sends the create with that name and an
-  empty tree; network failure → `error` and `retry()` re-sends the current draft,
+  workout and in `idle` (with no `POST` re-sent) for a never-created one whose name is still
+  blank and whose weekday is still the one it opened with, never in `error`, while a rejected
+  create with a typed name or a changed weekday re-sends the create with them and an empty tree; network failure → `error` and `retry()` re-sends the current draft,
   including a create — `retry()` never lists or matches other workouts to guess whether it
   already committed; a flush that ends in `error` with nothing queued stays
   in `error` (never falls through to `saved`); a per-item `POST`'s id is adopted by key so a
