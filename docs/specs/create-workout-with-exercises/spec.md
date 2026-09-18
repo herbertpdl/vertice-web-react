@@ -179,7 +179,6 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     E17, E18).** A native unload (reload, close tab, typed URL) is caught by `beforeunload`, which
     only fires for a document unload — it does not run for an in-app `<Link>` or `router.push`,
     which keep the document alive. In-app navigation away from the editor is not only the
-In-app navigation away from the editor is not only the
     persistent `Header`'s nav links (`src/components/layout/Header.tsx`): `WorkoutEditor` renders
     its own breadcrumb `<Link>`s to the student and the plan (today at
     `src/components/domain/WorkoutEditor.tsx:90–102`, carried into `WorkoutEditorSession`), and
