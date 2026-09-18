@@ -136,8 +136,10 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     run that carries one, before that op is sent — not a full re-diff, since only positions can
     have shifted, never which items are being added/removed/edited.
     *Which delete failures count as a refusal.* Only the codes a recorded-data delete actually
-    produces: `PRECONDITION_FAILED` (409 — what `vertice-api` will return once the §6 follow-up
-    lands) and `UPSTREAM_ERROR` (502 — the FK violation today). A `NOT_FOUND` delete counts as
+    produces: `PRECONDITION_FAILED` (409 — the BFF's `mapGrpcError` rendering of the gRPC
+    `FAILED_PRECONDITION` that `vertice-api`'s delete RPCs will return once the §6 follow-up
+    lands; the mapping is already generic in vertice-bff#17, so the web's check is on the BFF
+    code, never on an upstream status) and `UPSTREAM_ERROR` (502 — the FK violation today). A `NOT_FOUND` delete counts as
     done (§3). Everything else — network failure, `UPSTREAM_UNAVAILABLE` (503), 403, 400, unknown
     codes — is **not** a refusal: the per-item run stops there, the draft is kept and the footer
     goes to "Erro ao salvar — Tentar novamente" exactly as for any other failure (next bullet);
