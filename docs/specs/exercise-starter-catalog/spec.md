@@ -1,13 +1,9 @@
 # Spec: Starter exercise catalog (Web)
 
 Status: Draft
-Design: pending — no web PRD exists for this slug, so this line lives here (brief D14). It blocks
-every PR in §8 that renders new or changed UI (PR1–PR5: the `MultiSelect` control, multi-group
-pills, the ownership-gated row, the group filter, the in-use delete refusal, the picker's
-loading/error states). Nothing in this feature is exempt: the `Exercise` shape change forces the
-consumer screens to change in the same PR that changes the types (§0, "no lib-only PR"), so no
-PR here touches only `src/lib`. Flip to `design-ok` once `Vertice Web.pen` has the frames named
-in §5 and the owner has reviewed them.
+Design: design-ok — the owner reviewed the four frames named in §5 in `Vertice Web.pen` (section
+"Vertice — Catálogo inicial de exercícios (exercise-starter-catalog)") on 2026-09-23. No web PRD
+exists for this slug, so the gate lives here (brief D14); it covered every PR in §8 (PR1–PR5).
 Owner: hebertpdl@gmail.com
 Related: [vertice-api/docs/prds/exercise-starter-catalog/prd.md](https://github.com/herbertpdl/vertice-api/blob/main/docs/prds/exercise-starter-catalog/prd.md)
 (source PRD — rules R1–R59, edge cases E1–E23, decisions §7; not restated here; no web PRD exists),
