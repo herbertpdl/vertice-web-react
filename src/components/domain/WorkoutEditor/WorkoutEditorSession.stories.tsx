@@ -5,6 +5,7 @@ import {
   agachamentoCard,
   catalog,
   fakeTransport,
+  muscleGroups,
   puxadaCard,
   recentWorkouts,
   supinoCard,
@@ -12,6 +13,8 @@ import {
 } from "../storyFixtures";
 import { withSeededQueries } from "../storyQuery";
 import { emptyWorkout } from "@/lib/workoutEditor/model";
+import { exercisesQueryKey } from "@/lib/api/exercises";
+import { muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 
 const meta = {
   component: WorkoutEditorSession,
@@ -27,7 +30,8 @@ const meta = {
   },
   decorators: [
     withSeededQueries({
-      '["exercises"]': catalog,
+      [JSON.stringify(exercisesQueryKey({}))]: catalog,
+      [JSON.stringify(muscleGroupsQueryKey)]: muscleGroups,
       '["recentWorkouts"]': recentWorkouts,
       '["workout",42,"full"]': treinoAFull,
     }),

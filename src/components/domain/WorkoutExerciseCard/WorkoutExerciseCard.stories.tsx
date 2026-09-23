@@ -31,6 +31,9 @@ type Story = StoryObj<typeof meta>;
 export const WithSets: Story = {
   play: async ({ canvas, userEvent, args }) => {
     await expect(canvas.getByText("Supino Reto com Barra")).toBeVisible();
+    // One pill per muscle group, primary first.
+    await expect(canvas.getByText("Peito")).toBeVisible();
+    await expect(canvas.getByText("Tríceps")).toBeVisible();
     await expect(canvas.getAllByRole("row")).toHaveLength(4);
     await userEvent.click(canvas.getByRole("button", { name: "+ Adicionar série" }));
     await expect(args.onAddSet).toHaveBeenCalled();

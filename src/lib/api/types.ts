@@ -46,21 +46,20 @@ export interface StudentDetailOverview {
   adherence4Weeks: number | null;
 }
 
-export type MuscleGroup =
-  | "CHEST"
-  | "BACK"
-  | "LEGS"
-  | "SHOULDERS"
-  | "ARMS"
-  | "CORE"
-  | "CARDIO";
+export interface MuscleGroup {
+  id: number;
+  name: string;
+}
 
 export interface Exercise {
   id: number;
   name: string;
   description: string;
   videoUrl: string;
-  muscleGroup: MuscleGroup;
+  /** Upstream order: primary group first on starter rows; id order on a trainer's own exercise. */
+  muscleGroups: MuscleGroup[];
+  /** Part of the platform's starter set: read-only for every trainer. */
+  isStarter: boolean;
 }
 
 export interface ExerciseProgressPoint {

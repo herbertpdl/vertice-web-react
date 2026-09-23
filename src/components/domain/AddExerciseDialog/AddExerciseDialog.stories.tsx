@@ -1,13 +1,20 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn } from "storybook/test";
 import { AddExerciseDialog } from "./AddExerciseDialog";
-import { catalog } from "../storyFixtures";
+import { catalog, muscleGroups } from "../storyFixtures";
 import { withSeededQueries } from "../storyQuery";
+import { exercisesQueryKey } from "@/lib/api/exercises";
+import { muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 
 const meta = {
   component: AddExerciseDialog,
   args: { onClose: fn(), onPick: fn() },
-  decorators: [withSeededQueries({ '["exercises"]': catalog })],
+  decorators: [
+    withSeededQueries({
+      [JSON.stringify(exercisesQueryKey({}))]: catalog,
+      [JSON.stringify(muscleGroupsQueryKey)]: muscleGroups,
+    }),
+  ],
 } satisfies Meta<typeof AddExerciseDialog>;
 
 export default meta;
