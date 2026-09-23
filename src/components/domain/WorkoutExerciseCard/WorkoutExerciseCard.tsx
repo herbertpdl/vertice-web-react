@@ -3,7 +3,6 @@
 import { useState, type DragEvent } from "react";
 import { Ban, CircleAlert, CirclePlay, GripVertical, Info, Move, Trash2 } from "lucide-react";
 import { Button, TextField } from "@/components/ui";
-import { muscleGroupLabels } from "@/lib/validation/exercises";
 import { MAX_SETS, type EditorExercise, type ExerciseFields, type SetFields } from "@/lib/workoutEditor/model";
 import { SET_GRID, SetRow } from "../SetRow";
 
@@ -186,9 +185,14 @@ export function WorkoutExerciseCard({
               )}
             </div>
             <div className="flex items-center gap-[8px]">
-              <span className="rounded-[var(--radius-full)] bg-[var(--color-surface-hover)] px-[8px] py-[3px] text-[11px] font-semibold text-[color:var(--color-text-secondary)]">
-                {muscleGroupLabels[exercise.exercise.muscleGroup]}
-              </span>
+              {exercise.exercise.muscleGroups.map((group) => (
+                <span
+                  key={group.id}
+                  className="rounded-[var(--radius-full)] bg-[var(--color-surface-hover)] px-[8px] py-[3px] text-[11px] font-semibold text-[color:var(--color-text-secondary)]"
+                >
+                  {group.name}
+                </span>
+              ))}
               {exercise.exercise.videoUrl && (
                 <a
                   href={exercise.exercise.videoUrl}

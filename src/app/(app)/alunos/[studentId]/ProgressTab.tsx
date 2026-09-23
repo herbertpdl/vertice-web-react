@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dropdown } from "@/components/ui";
-import { fetchExercises, fetchExerciseProgress } from "@/lib/api/exercises";
+import { exercisesQueryKey, fetchExercises, fetchExerciseProgress } from "@/lib/api/exercises";
 import { formatDateShort } from "@/lib/format";
 
 export function ProgressTab({ clientId }: { clientId: number }) {
   const { data: exercises } = useQuery({
-    queryKey: ["exercises"],
-    queryFn: fetchExercises,
+    queryKey: exercisesQueryKey({}),
+    queryFn: () => fetchExercises(),
   });
   const [exerciseId, setExerciseId] = useState<string>("");
 
