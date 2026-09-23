@@ -170,9 +170,9 @@ empty), as it does today.
 | `ExerciciosContent` list, `AddExerciseDialog` list | any failure of `GET /exercises` — `VALIDATION_ERROR` (400, bad query), `FORBIDDEN` (403, unreachable for a trainer), `NOT_FOUND` (404, unknown `muscleGroupId` — unreachable, ids come from `GET /muscle-groups`), network | Inline error state with "Tentar novamente" → `refetch()`. Never `useRedirectOnError` (D16). |
 | same | any failure of `GET /muscle-groups` | Filter `Dropdown` disabled with placeholder "Grupos indisponíveis"; the list still loads. |
 | `ExerciseDialog`, `AddExerciseDialog` create form | any failure of `GET /muscle-groups` | `MultiSelect` disabled, error line "Não foi possível carregar os grupos musculares" + "Tentar novamente" link (`refetch()`). |
-| `ExerciseDialog` save, `AddExerciseDialog` create | `VALIDATION_ERROR` (400) | Root error box with `error.message` (today's behavior — the BFF's Zod message or upstream's `INVALID_ARGUMENT` text); the mirrored "at least one group" check normally fires first. |
-| `ExerciseDialog` save/delete | `FORBIDDEN` (403 — starter-set or another trainer's exercise; unreachable through the UI, R28) | Generic root error box with `error.message`. |
-| `ExerciseDialog` save/delete | `NOT_FOUND` (404 — deleted meanwhile) | Generic root error box. |
+| `ExerciseDialog` save, `AddExerciseDialog` create | `VALIDATION_ERROR` (400) | Root error box with the fixed pt-BR text "Não foi possível salvar o exercício" — `error.message` (English, from the BFF or upstream) is never rendered (owner, 2026-09-23); the disabled submit normally prevents it. |
+| `ExerciseDialog` save/delete | `FORBIDDEN` (403 — starter-set or another trainer's exercise; unreachable through the UI, R28) | Generic root error box with the fixed pt-BR text ("Não foi possível salvar o exercício" / "Não foi possível excluir o exercício"); `error.message` is not rendered. |
+| `ExerciseDialog` save/delete | `NOT_FOUND` (404 — deleted meanwhile) | Same fixed pt-BR root error box. |
 | `ExerciseDialog` delete | `PRECONDITION_FAILED` (409) — message `Exercise <id> is used by a workout and cannot be deleted` | Refusal block (§5) with pt-BR title and body only (the English upstream message is not shown), dialog stays open. |
 | every call | `UNAUTHENTICATED`/401 | `apiClient` logs out and hard-navigates to `/login` (existing). |
 
@@ -227,7 +227,7 @@ Plain forms and two queries; no engine.
 - `useForm({ mode: "onChange", resolver: zodResolver(exerciseSchema), … })`; the submit button is `disabled={!isValid}` (`formState.isValid`), so an invalid form can never be submitted.
 - `MultiSelect value={muscleGroupIds.map(String)} onChange={ids => setValue("muscleGroupIds", ids.map(Number), { shouldValidate: true, shouldTouch: true })}` — the "at least one group" error shows once the trainer has touched the control and left it empty (e.g. unchecked every group), and clears as soon as a group is picked; an untouched empty create form shows no error, only the disabled button.
 - Submit → `createExercise(data)` or `updateExercise(exercise.id, data)` with body `{ name, description, videoUrl, muscleGroupIds }`; success → `invalidateQueries({ queryKey: ["exercises"] })`, `onCreated?.(result)`, `onClose()`.
-- Delete → `deleteExercise(exercise.id)`; success → invalidate `["exercises"]`, close; `onError`: `error instanceof ApiError && error.code === "PRECONDITION_FAILED"` → `setRefusal(true)` (local state rendering the refusal block; cleared on the next Excluir click; `error.message` is not rendered), else `setError("root", …)` as today.
+- Delete → `deleteExercise(exercise.id)`; success → invalidate `["exercises"]`, close; `onError`: `error instanceof ApiError && error.code === "PRECONDITION_FAILED"` → `setRefusal(true)` (local state rendering the refusal block; cleared on the next Excluir click; `error.message` is not rendered), else `setError("root", { message: "Não foi possível excluir o exercício" })`. Save's `onError` likewise always sets "Não foi possível salvar o exercício" (create in `AddExerciseDialog`: "Não foi possível criar o exercício"); no `ApiError.message` reaches the screen.
 - `api?: { create, update, remove }` prop defaults to the real `src/lib/api/exercises` functions; stories pass fakes.
 
 **`AddExerciseDialog`.** Same two queries and the same key helper as the catalog (so a list the
@@ -299,8 +299,9 @@ visual baseline and only the states below are new.
   control, danger border, submit disabled; no request can be sent (R40/E13, R31/E22).
 - Groups failing to load: `MultiSelect` disabled, line **"Não foi possível carregar os grupos
   musculares"** with link **"Tentar novamente"**.
-- Save failure (400/403/404/network): root error box (existing style) with `error.message`,
-  fallback "Não foi possível salvar o exercício".
+- Save failure (400/403/404/network): root error box (existing style) with the fixed text
+  **"Não foi possível salvar o exercício"** — never the server's `error.message`, which is
+  English (owner, 2026-09-23).
 
 ### 5.3 `ExerciseDialog` — frame `Exercício — não pode excluir (em uso)`
 
@@ -310,8 +311,8 @@ visual baseline and only the states below are new.
   dos treinos antes de excluí-lo."** No detail line: the upstream message is English and is not
   shown. The form stays editable;
   Excluir stays enabled (a second click re-tries and re-renders the block).
-- Delete failure with any other code: root error box, fallback "Não foi possível excluir o
-  exercício" (unchanged).
+- Delete failure with any other code: root error box with the fixed text **"Não foi possível
+  excluir o exercício"** — never the server's `error.message`.
 
 ### 5.4 `AddExerciseDialog` — frame `Adicionar exercício — filtro por grupo`
 
