@@ -96,8 +96,16 @@ hand-over lists them for the owner to overturn before implementation starts.
   delete renders a refusal block, not the generic root error.** Same key as the workout editor
   (code, not status — 409 is also `CONFLICT`). The block follows the editor's refusal banner
   (danger border, `TriangleAlert`, title + body) so it is visually distinct from field
-  validation, and carries the upstream `message` verbatim as a detail line (the brief asks for
-  verbatim; the title/body are pt-BR). The dialog stays open so the trainer can Cancelar. Assumed.
+  validation. It shows only its pt-BR title and body: the upstream `message` is English and is
+  **not** rendered (owner review, 2026-09-23 — the screen must not show English text). The dialog
+  stays open so the trainer can Cancelar.
+- **Submit stays disabled until the form is valid (owner review, 2026-09-23).** Every form in
+  scope — `ExerciseDialog` create and edit, and `AddExerciseDialog`'s create mode — disables its
+  submit button ("Criar exercício", "Salvar alterações", "Criar e adicionar") while
+  `exerciseSchema` fails: blank name, no muscle group, or a non-empty invalid video URL. The form
+  runs `mode: "onChange"` and the button is `disabled={!formState.isValid}` (plus the existing
+  `atCap` in the picker). While the groups fail to load, the form is invalid, so the button is
+  disabled too.
 - **Exactly one rule is mirrored client-side: "at least one muscle group" (R31/R40, E13/E22,
   F10).** `exerciseSchema.muscleGroupIds` is `z.array(z.number().int().positive()).min(1,
   "Selecione pelo menos um grupo muscular")`; the server enforces it too. Everything else — name
@@ -165,7 +173,7 @@ empty), as it does today.
 | `ExerciseDialog` save, `AddExerciseDialog` create | `VALIDATION_ERROR` (400) | Root error box with `error.message` (today's behavior — the BFF's Zod message or upstream's `INVALID_ARGUMENT` text); the mirrored "at least one group" check normally fires first. |
 | `ExerciseDialog` save/delete | `FORBIDDEN` (403 — starter-set or another trainer's exercise; unreachable through the UI, R28) | Generic root error box with `error.message`. |
 | `ExerciseDialog` save/delete | `NOT_FOUND` (404 — deleted meanwhile) | Generic root error box. |
-| `ExerciseDialog` delete | `PRECONDITION_FAILED` (409) — message `Exercise <id> is used by a workout and cannot be deleted` | Refusal block (§5), upstream message verbatim as the detail line, dialog stays open. |
+| `ExerciseDialog` delete | `PRECONDITION_FAILED` (409) — message `Exercise <id> is used by a workout and cannot be deleted` | Refusal block (§5) with pt-BR title and body only (the English upstream message is not shown), dialog stays open. |
 | every call | `UNAUTHENTICATED`/401 | `apiClient` logs out and hard-navigates to `/login` (existing). |
 
 ## 2. Files
@@ -216,9 +224,10 @@ Plain forms and two queries; no engine.
 
 **`ExerciseDialog` form** (`react-hook-form` + `zodResolver(exerciseSchema)`):
 - Fields and defaults: `name` (`exercise?.name ?? ""`), `muscleGroupIds` (`exercise?.muscleGroups.map(g => g.id) ?? []`), `description` (`?? ""`), `videoUrl` (`?? ""`).
-- `MultiSelect value={muscleGroupIds.map(String)} onChange={ids => setValue("muscleGroupIds", ids.map(Number), { shouldValidate: isSubmitted })}` — so the "at least one group" error clears as soon as a group is picked after a failed submit, and never nags before the first submit.
+- `useForm({ mode: "onChange", resolver: zodResolver(exerciseSchema), … })`; the submit button is `disabled={!isValid}` (`formState.isValid`), so an invalid form can never be submitted.
+- `MultiSelect value={muscleGroupIds.map(String)} onChange={ids => setValue("muscleGroupIds", ids.map(Number), { shouldValidate: true, shouldTouch: true })}` — the "at least one group" error shows once the trainer has touched the control and left it empty (e.g. unchecked every group), and clears as soon as a group is picked; an untouched empty create form shows no error, only the disabled button.
 - Submit → `createExercise(data)` or `updateExercise(exercise.id, data)` with body `{ name, description, videoUrl, muscleGroupIds }`; success → `invalidateQueries({ queryKey: ["exercises"] })`, `onCreated?.(result)`, `onClose()`.
-- Delete → `deleteExercise(exercise.id)`; success → invalidate `["exercises"]`, close; `onError`: `error instanceof ApiError && error.code === "PRECONDITION_FAILED"` → `setRefusal(error.message)` (local state rendering the refusal block; cleared on the next Excluir click), else `setError("root", …)` as today.
+- Delete → `deleteExercise(exercise.id)`; success → invalidate `["exercises"]`, close; `onError`: `error instanceof ApiError && error.code === "PRECONDITION_FAILED"` → `setRefusal(true)` (local state rendering the refusal block; cleared on the next Excluir click; `error.message` is not rendered), else `setError("root", …)` as today.
 - `api?: { create, update, remove }` prop defaults to the real `src/lib/api/exercises` functions; stories pass fakes.
 
 **`AddExerciseDialog`.** Same two queries and the same key helper as the catalog (so a list the
@@ -271,7 +280,7 @@ visual baseline and only the states below are new.
 - Empty (settled, 0 rows): "Nenhum exercício encontrado" / **"Ajuste a busca ou o filtro de grupo
   muscular, ou cadastre um novo exercício."**
 - Error (`isError`, no data): **"Não foi possível carregar os exercícios"** / "Verifique sua
-  conexão e tente de novo." + outline button **"Tentar novamente"** (`refetch()`), inside the
+  conexão e tente novamente." + outline button **"Tentar novamente"** (`refetch()`), inside the
   table shell where rows would be. With stale data present and a failed refetch, the stale rows
   stay and the same message shows as a one-line banner above them.
 
@@ -284,8 +293,10 @@ visual baseline and only the states below are new.
   exercício" / "Salvar alterações".
 - `MultiSelect` open: check-box options in id order, selected ones checked; trigger shows
   "Peito, Tríceps".
-- Validation, on submit with no group: **"Selecione pelo menos um grupo muscular"** under the
-  control, danger border; no request is sent (R40/E13, R31/E22).
+- Submit button ("Criar exercício" / "Salvar alterações") disabled while the form is invalid —
+  empty create form, blank name, no group, invalid video URL; enabled for a valid form.
+- Validation, with every group unchecked: **"Selecione pelo menos um grupo muscular"** under the
+  control, danger border, submit disabled; no request can be sent (R40/E13, R31/E22).
 - Groups failing to load: `MultiSelect` disabled, line **"Não foi possível carregar os grupos
   musculares"** with link **"Tentar novamente"**.
 - Save failure (400/403/404/network): root error box (existing style) with `error.message`,
@@ -296,8 +307,8 @@ visual baseline and only the states below are new.
 - After Excluir → 409 `PRECONDITION_FAILED`: a `role="alert"` block above the fields, danger
   border + `TriangleAlert` (the editor's refusal banner style, not the flat root-error box):
   title **"Não é possível excluir este exercício"**, body **"Um treino usa este exercício. Remova-o
-  dos treinos antes de excluí-lo."**, detail line in the tertiary color with the upstream message
-  verbatim (`Exercise 12 is used by a workout and cannot be deleted`). The form stays editable;
+  dos treinos antes de excluí-lo."** No detail line: the upstream message is English and is not
+  shown. The form stays editable;
   Excluir stays enabled (a second click re-tries and re-renders the block).
 - Delete failure with any other code: root error box, fallback "Não foi possível excluir o
   exercício" (unchanged).
@@ -311,8 +322,8 @@ visual baseline and only the states below are new.
 - Empty (settled): "Não encontrou o exercício? Criar novo →" (unchanged copy).
 - Error: **"Não foi possível carregar os exercícios"** + link **"Tentar novamente"**.
 - Cap banner and disabled "Adicionar"/"Criar e adicionar" unchanged (other PRD).
-- Create mode: identical to §5.2's fields, button "Criar e adicionar"; same "Selecione pelo
-  menos um grupo muscular" message.
+- Create mode: identical to §5.2's fields, button "Criar e adicionar" — disabled while the form
+  is invalid (as §5.2) or at the cap; same "Selecione pelo menos um grupo muscular" message.
 
 ### 5.5 `WorkoutExerciseCard` (no new frame; existing editor frame)
 
@@ -342,12 +353,13 @@ Named so verification.md can look for them.
   "Tríceps"), `Own` (button present; click → `onEdit`), `NoVideo` ("—") — R28/D15.
 - `ExerciseDialog.stories.tsx` (new file, F15; seeds `["muscleGroups"]`): `Create` (title "Novo
   exercício", no Excluir), `EditOwn` (`remadaPropria`: Excluir present, trigger reads "Costas,
-  Bíceps"), `MissingGroup` (play: type a name, submit → "Selecione pelo menos um grupo muscular"
-  visible and `api.create` not called — R40/E13), `GroupsUnavailable` (`failing` seed → disabled
+  Bíceps"), `MissingGroup` (play: type a name → "Criar exercício" still disabled; check then uncheck a
+  group → "Selecione pelo menos um grupo muscular" visible, button disabled, `api.create` not
+  called — R40/E13), `SubmitEnabledWhenValid` (name + one group → button enabled), `GroupsUnavailable` (`failing` seed → disabled
   control + "Não foi possível carregar os grupos musculares"), `DeleteRefusedInUse` (`api.remove`
   rejects with `new ApiError({ code: "PRECONDITION_FAILED", message: "Exercise 7 is used by a
   workout and cannot be deleted" }, 409)` → play clicks Excluir → alert with "Não é possível
-  excluir este exercício" and the verbatim message; `onClose` not called — R34/E5, D16/F12),
+  excluir este exercício", and the English message is **not** in the document; `onClose` not called — R34/E5, D16/F12),
   `DeleteFailedGeneric` (`api.remove` rejects with a 404 `ApiError` → root error box, no refusal
   block).
 - `AddExerciseDialog.stories.tsx` (extend): `Default` and `CapReached` kept (seed key updated);
@@ -386,7 +398,7 @@ node-only) — its effect is observed in the walkthrough as "one request after t
 | PR1 | `MultiSelect` ui component with stories | 1 | §4 (MultiSelect), §6 | `Design: design-ok` in this spec | verification.md §1.1 |
 | PR2 | Switch the web to the new `Exercise`/`MuscleGroup` contract (api client, types, validation, fixtures, and the consumer edits that keep `main` building) | 1 | §1, §2, §4 (forms), §5.2, §5.5, §6 | PR1; on vertice-bff `main`: `GET /api/muscle-groups`, `GET /api/exercises` returning `{muscleGroups, isStarter}`, `POST /api/exercises` and `PATCH /api/exercises/:id` accepting `muscleGroupIds`, the composed endpoints (`GET /api/workouts/:id/full`, `POST /api/training-plans/:planId/workouts`, `PUT /api/workouts/:workoutId/exercises`) embedding the new shape; `design-ok` | verification.md §1.2 |
 | PR3 | `/exercicios`: group filter, server-side search, `ExerciseRow`, list error state | 1 | §3, §4 (catalog), §5.1, §6 | PR2; on vertice-bff `main`: `GET /api/exercises?muscleGroupId=&q=` (server-side filter/search, upstream order); `design-ok` | verification.md §1.3 |
-| PR4 | `ExerciseDialog`: in-use delete refusal (409) | 1 | §4 (delete), §5.3, §6 | PR2; on vertice-bff `main`: `DELETE /api/exercises/:id` → 409 `PRECONDITION_FAILED` with the verbatim message; `design-ok` | verification.md §1.4 |
+| PR4 | `ExerciseDialog`: in-use delete refusal (409) | 1 | §4 (delete), §5.3, §6 | PR2; on vertice-bff `main`: `DELETE /api/exercises/:id` → 409 `PRECONDITION_FAILED`; `design-ok` | verification.md §1.4 |
 | PR5 | `AddExerciseDialog`: group filter, server-side search, loading/error states | 1 | §4 (picker), §5.4, §6 | PR3 (shares `useDebouncedValue` and `exercisesQueryKey` usage patterns); `GET /api/exercises?muscleGroupId=&q=` on vertice-bff `main`; `design-ok` | verification.md §1.5 |
 
 Deploy: PR2 is the first PR whose `main` needs the new BFF; it goes out in the D9 coordinated
