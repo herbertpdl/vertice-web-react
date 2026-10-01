@@ -5,6 +5,7 @@ export * from "./Dialog";
 export * from "./Dropdown";
 export * from "./ListRowSkeleton";
 export * from "./MetricCard";
+export * from "./MultiSelect";
 export * from "./PageLoadingOverlay";
 export * from "./ProfileMenu";
 export * from "./Skeleton";
