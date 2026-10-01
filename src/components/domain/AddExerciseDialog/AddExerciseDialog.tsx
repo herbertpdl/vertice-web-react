@@ -1,14 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlert, CirclePlay, Search } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Dialog, DialogFooter, MultiSelect, TextField } from "@/components/ui";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Button,
+  Dialog,
+  DialogFooter,
+  Dropdown,
+  ListRowSkeleton,
+  MultiSelect,
+  TextField,
+} from "@/components/ui";
 import { createExercise, exercisesQueryKey, fetchExercises } from "@/lib/api/exercises";
 import { fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 import { exerciseSchema, type ExerciseFormInput } from "@/lib/validation/exercises";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { MAX_EXERCISES } from "@/lib/workoutEditor/model";
 import type { Exercise } from "@/lib/api/types";
 
@@ -23,11 +32,16 @@ interface AddExerciseDialogProps {
 export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExerciseDialogProps) {
   const [mode, setMode] = useState<"search" | "create">("search");
   const [search, setSearch] = useState("");
+  const [muscleGroupId, setMuscleGroupId] = useState<number | null>(null);
+  const q = useDebouncedValue(search.trim(), 300);
   const queryClient = useQueryClient();
 
-  const { data: exercises } = useQuery({
-    queryKey: exercisesQueryKey({}),
-    queryFn: () => fetchExercises(),
+  // Same key helper as the catalog, so either screen's list serves the other from cache.
+  // Filtering, search and ordering are server-side: rows render in array order.
+  const list = useQuery({
+    queryKey: exercisesQueryKey({ muscleGroupId, q }),
+    queryFn: () => fetchExercises({ muscleGroupId, q }),
+    placeholderData: keepPreviousData,
   });
   const groups = useQuery({
     queryKey: muscleGroupsQueryKey,
@@ -41,12 +55,12 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
     onClose();
   }
 
-  const filtered = useMemo(() => {
-    if (!exercises) return [];
-    const q = search.trim().toLowerCase();
-    if (!q) return exercises;
-    return exercises.filter((ex) => ex.name.toLowerCase().includes(q));
-  }, [exercises, search]);
+  const filterOptions = groups.isError
+    ? []
+    : [
+        { value: "", label: "Todos os grupos" },
+        ...(groups.data ?? []).map((g) => ({ value: String(g.id), label: g.name })),
+      ];
 
   const {
     register,
@@ -123,21 +137,48 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
 
       {mode === "search" ? (
         <div className="flex w-full flex-col gap-[var(--space-3)]">
-          <div className="relative w-full">
-            <Search
-              width={15}
-              height={15}
-              className="pointer-events-none absolute top-1/2 left-[14px] -translate-y-1/2 text-[color:var(--color-text-tertiary)]"
-            />
-            <TextField
-              placeholder="Buscar exercício por nome..."
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="[&_input]:pl-[22px]"
+          <div className="flex w-full items-center gap-[var(--space-3)]">
+            <div className="relative min-w-0 flex-1">
+              <Search
+                width={15}
+                height={15}
+                className="pointer-events-none absolute top-1/2 left-[14px] -translate-y-1/2 text-[color:var(--color-text-tertiary)]"
+              />
+              <TextField
+                placeholder="Buscar exercício por nome..."
+                aria-label="Buscar exercício por nome"
+                maxLength={100}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="[&_input]:pl-[22px]"
+              />
+            </div>
+            <Dropdown
+              size="compact"
+              className="w-[180px] shrink-0"
+              placeholder={groups.isError ? "Grupos indisponíveis" : "Todos os grupos"}
+              options={filterOptions}
+              value={groups.isError ? undefined : String(muscleGroupId ?? "")}
+              onChange={(value) => setMuscleGroupId(value ? Number(value) : null)}
+              disabled={groups.isError}
             />
           </div>
           <div className="flex max-h-[320px] flex-col gap-[var(--space-2)] overflow-y-auto">
-            {filtered.map((exercise) => (
+            {list.isPending &&
+              [0, 1, 2, 3].map((i) => <ListRowSkeleton key={i} className="!w-full" />)}
+            {list.isError && !list.data && (
+              <p className="py-[var(--space-4)] text-center text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
+                Não foi possível carregar os exercícios{" "}
+                <button
+                  type="button"
+                  onClick={() => list.refetch()}
+                  className="font-semibold text-[color:var(--color-primary)]"
+                >
+                  Tentar novamente
+                </button>
+              </p>
+            )}
+            {list.data?.map((exercise) => (
               <div
                 key={exercise.id}
                 className="flex w-full items-center justify-between gap-[var(--space-3)] rounded-[var(--radius-md)] bg-[var(--color-bg)] p-[var(--space-3)]"
@@ -176,7 +217,7 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
                 </Button>
               </div>
             ))}
-            {filtered.length === 0 && (
+            {list.isSuccess && list.data.length === 0 && (
               <p className="py-[var(--space-4)] text-center text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
                 Não encontrou o exercício?{" "}
                 <button
