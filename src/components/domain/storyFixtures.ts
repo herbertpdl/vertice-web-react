@@ -1,37 +1,75 @@
 import { ApiError } from "@/lib/api/client";
-import type { Exercise, FullWorkout, RecentWorkoutSummary } from "@/lib/api/types";
+import type { Exercise, FullWorkout, MuscleGroup, RecentWorkoutSummary } from "@/lib/api/types";
 import type { AutosaveTransport } from "@/lib/workoutEditor/autosave";
 import type { EditorExercise, EditorSet } from "@/lib/workoutEditor/model";
 
+/** What `GET /muscle-groups` answers at launch: the 14 groups, in id order. */
+export const muscleGroups: MuscleGroup[] = [
+  "Peito",
+  "Costas",
+  "Ombros",
+  "Bíceps",
+  "Tríceps",
+  "Antebraço",
+  "Quadríceps",
+  "Posteriores de coxa",
+  "Glúteos",
+  "Panturrilhas",
+  "Abdômen",
+  "Lombar",
+  "Trapézio",
+  "Cardio",
+].map((name, i) => ({ id: i + 1, name }));
+
+const groups = (...names: string[]) =>
+  names.map((name) => muscleGroups.find((g) => g.name === name)!);
+
+const DESCRIPTION = "Movimento composto para desenvolvimento de força e volume.";
+
+// Starter rows: primary group first.
 export const supino: Exercise = {
   id: 1,
   name: "Supino Reto com Barra",
-  description: "Movimento composto para desenvolvimento de força e volume.",
+  description: DESCRIPTION,
   videoUrl: "https://example.com/supino",
-  muscleGroup: "CHEST",
+  muscleGroups: groups("Peito", "Tríceps"),
+  isStarter: true,
 };
 export const puxada: Exercise = {
   id: 2,
   name: "Puxada Alta na Polia",
-  description: "Movimento composto para desenvolvimento de força e volume.",
+  description: DESCRIPTION,
   videoUrl: "",
-  muscleGroup: "BACK",
+  muscleGroups: groups("Costas", "Bíceps"),
+  isStarter: true,
 };
 export const agachamento: Exercise = {
   id: 3,
   name: "Agachamento Livre",
-  description: "Movimento composto para desenvolvimento de força e volume.",
+  description: DESCRIPTION,
   videoUrl: "https://example.com/agachamento",
-  muscleGroup: "LEGS",
+  muscleGroups: groups("Quadríceps", "Glúteos", "Posteriores de coxa"),
+  isStarter: true,
+};
+
+/** The trainer's own exercise (`isStarter: false`): no primary group, so its groups come in id order. */
+export const remadaPropria: Exercise = {
+  id: 7,
+  name: "Remada Unilateral no Banco",
+  description: "Minha variação com pausa de 2 s no topo.",
+  videoUrl: "",
+  muscleGroups: groups("Costas", "Bíceps"),
+  isStarter: false,
 };
 
 export const catalog: Exercise[] = [
   supino,
   puxada,
   agachamento,
-  { id: 4, name: "Supino Inclinado com Halteres", description: "Movimento composto para desenvolvimento de força e volume.", videoUrl: "https://example.com/inclinado", muscleGroup: "CHEST" },
-  { id: 5, name: "Crucifixo na Polia", description: "Movimento composto para desenvolvimento de força e volume.", videoUrl: "", muscleGroup: "CHEST" },
-  { id: 6, name: "Desenvolvimento Militar", description: "Movimento composto para desenvolvimento de força e volume.", videoUrl: "https://example.com/militar", muscleGroup: "SHOULDERS" },
+  { id: 4, name: "Supino Inclinado com Halteres", description: DESCRIPTION, videoUrl: "https://example.com/inclinado", muscleGroups: groups("Peito", "Ombros"), isStarter: true },
+  { id: 5, name: "Crucifixo na Polia", description: DESCRIPTION, videoUrl: "", muscleGroups: groups("Peito"), isStarter: true },
+  { id: 6, name: "Desenvolvimento Militar", description: DESCRIPTION, videoUrl: "https://example.com/militar", muscleGroups: groups("Ombros", "Tríceps"), isStarter: true },
+  remadaPropria,
 ];
 
 let n = 0;

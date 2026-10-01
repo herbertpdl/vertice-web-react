@@ -5,16 +5,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlert, CirclePlay, Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Dialog, DialogFooter, Dropdown, TextField } from "@/components/ui";
-import { fetchExercises, createExercise } from "@/lib/api/exercises";
-import { exerciseSchema, muscleGroupLabels, type ExerciseFormInput } from "@/lib/validation/exercises";
+import { Button, Dialog, DialogFooter, MultiSelect, TextField } from "@/components/ui";
+import { createExercise, exercisesQueryKey, fetchExercises } from "@/lib/api/exercises";
+import { fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
+import { exerciseSchema, type ExerciseFormInput } from "@/lib/validation/exercises";
 import { MAX_EXERCISES } from "@/lib/workoutEditor/model";
 import type { Exercise } from "@/lib/api/types";
-
-const groupOptions = Object.entries(muscleGroupLabels).map(([value, label]) => ({
-  value,
-  label,
-}));
 
 interface AddExerciseDialogProps {
   /** The workout already has 20 exercises: browsing stays possible, adding does not (R21, E5). */
@@ -29,7 +25,15 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
   const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: exercises } = useQuery({ queryKey: ["exercises"], queryFn: fetchExercises });
+  const { data: exercises } = useQuery({
+    queryKey: exercisesQueryKey({}),
+    queryFn: () => fetchExercises(),
+  });
+  const groups = useQuery({
+    queryKey: muscleGroupsQueryKey,
+    queryFn: fetchMuscleGroups,
+    staleTime: Infinity,
+  });
 
   function pick(exercise: Exercise) {
     if (atCap) return;
@@ -49,13 +53,15 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
     handleSubmit,
     watch,
     setValue,
-    setError,
-    formState: { errors },
+    formState: { errors, isValid },
   } = useForm<ExerciseFormInput>({
+    mode: "onChange",
     resolver: zodResolver(exerciseSchema),
-    defaultValues: { name: "", muscleGroup: "CHEST", description: "", videoUrl: "" },
+    defaultValues: { name: "", muscleGroupIds: [], description: "", videoUrl: "" },
   });
-  const muscleGroup = watch("muscleGroup");
+  const muscleGroupIds = watch("muscleGroupIds");
+  // Local state rather than `setError("root")`, which would force `isValid` to false.
+  const [rootError, setRootError] = useState<string | null>(null);
 
   // Creating from the picker adds to the catalog right away (R23); adding it
   // to the workout then follows the same path as a catalog pick.
@@ -65,11 +71,8 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
       pick(exercise);
     },
-    onError: (error) => {
-      setError("root", {
-        message: error instanceof Error ? error.message : "Não foi possível criar o exercício",
-      });
-    },
+    // The server's message is English: only fixed pt-BR copy reaches the screen.
+    onError: () => setRootError("Não foi possível criar o exercício"),
   });
 
   return (
@@ -144,9 +147,14 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
                     <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
                       {exercise.name}
                     </span>
-                    <span className="rounded-[var(--radius-full)] bg-[var(--color-surface-hover)] px-[8px] py-[2px] text-[10px] font-semibold text-[color:var(--color-text-secondary)]">
-                      {muscleGroupLabels[exercise.muscleGroup]}
-                    </span>
+                    {exercise.muscleGroups.map((group) => (
+                      <span
+                        key={group.id}
+                        className="rounded-[var(--radius-full)] bg-[var(--color-surface-hover)] px-[8px] py-[2px] text-[10px] font-semibold text-[color:var(--color-text-secondary)]"
+                      >
+                        {group.name}
+                      </span>
+                    ))}
                     {exercise.videoUrl && (
                       <CirclePlay width={12} height={12} className="text-[color:var(--color-primary)]" />
                     )}
@@ -184,12 +192,15 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
         </div>
       ) : (
         <form
-          onSubmit={handleSubmit((data) => createMutation.mutate(data))}
+          onSubmit={handleSubmit((data) => {
+            setRootError(null);
+            createMutation.mutate(data);
+          })}
           className="flex w-full flex-col gap-[var(--space-4)]"
         >
-          {errors.root && (
+          {rootError && (
             <div className="rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[var(--color-danger)]/10 px-[14px] py-[10px] text-[13px] text-[color:var(--color-danger)]">
-              {errors.root.message}
+              {rootError}
             </div>
           )}
           <TextField
@@ -198,12 +209,36 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
             error={errors.name?.message}
             {...register("name")}
           />
-          <Dropdown
-            label="Grupo muscular"
-            options={groupOptions}
-            value={muscleGroup}
-            onChange={(value) => setValue("muscleGroup", value as ExerciseFormInput["muscleGroup"])}
-          />
+          <div className="flex flex-col gap-[6px]">
+            <MultiSelect
+              label="Grupos musculares"
+              placeholder="Selecione os grupos"
+              options={(groups.data ?? []).map((g) => ({ value: String(g.id), label: g.name }))}
+              value={muscleGroupIds.map(String)}
+              onChange={(ids) =>
+                setValue("muscleGroupIds", ids.map(Number), {
+                  shouldValidate: true,
+                  shouldTouch: true,
+                })
+              }
+              disabled={!groups.isSuccess}
+              error={errors.muscleGroupIds?.message}
+            />
+            {groups.isError && (
+              <p className="flex items-center gap-[6px] text-[11px]">
+                <span className="text-[color:var(--color-danger)]">
+                  Não foi possível carregar os grupos musculares
+                </span>
+                <button
+                  type="button"
+                  onClick={() => groups.refetch()}
+                  className="font-semibold text-[color:var(--color-primary)]"
+                >
+                  Tentar novamente
+                </button>
+              </p>
+            )}
+          </div>
           <TextField
             label="Descrição"
             error={errors.description?.message}
@@ -219,7 +254,11 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" loading={createMutation.isPending} disabled={atCap}>
+            <Button
+              type="submit"
+              loading={createMutation.isPending}
+              disabled={atCap || !isValid || !groups.isSuccess}
+            >
               Criar e adicionar
             </Button>
           </DialogFooter>

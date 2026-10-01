@@ -4,8 +4,8 @@ import type { Exercise, FullWorkout, FullWorkoutExercise } from "@/lib/api/types
 import { createAutosaveEngine, type AutosaveTransport } from "./autosave";
 import { emptyWorkout, fromFullWorkout } from "./model";
 
-const supino: Exercise = { id: 1, name: "Supino Reto", description: "", videoUrl: "", muscleGroup: "CHEST" };
-const puxada: Exercise = { id: 2, name: "Puxada Alta", description: "", videoUrl: "", muscleGroup: "BACK" };
+const supino: Exercise = { id: 1, name: "Supino Reto", description: "", videoUrl: "", muscleGroups: [{ id: 1, name: "Peito" }], isStarter: true };
+const puxada: Exercise = { id: 2, name: "Puxada Alta", description: "", videoUrl: "", muscleGroups: [{ id: 2, name: "Costas" }], isStarter: true };
 
 let nextId = 100;
 

@@ -5,8 +5,7 @@ import { CirclePlay, Pencil, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, TableRowSkeleton, TextField } from "@/components/ui";
 import { ExerciseDialog } from "@/components/domain/ExerciseDialog";
-import { fetchExercises } from "@/lib/api/exercises";
-import { muscleGroupLabels } from "@/lib/validation/exercises";
+import { exercisesQueryKey, fetchExercises } from "@/lib/api/exercises";
 import type { Exercise } from "@/lib/api/types";
 
 const COLUMN_WIDTHS = { name: 260, description: 380, video: 90, edit: 60 };
@@ -17,19 +16,15 @@ export default function ExerciciosPage() {
   const [search, setSearch] = useState("");
 
   const { data, isPending } = useQuery({
-    queryKey: ["exercises"],
-    queryFn: fetchExercises,
+    queryKey: exercisesQueryKey({}),
+    queryFn: () => fetchExercises(),
   });
 
   const filtered = useMemo(() => {
     if (!data) return [];
     const q = search.trim().toLowerCase();
     if (!q) return data;
-    return data.filter(
-      (ex) =>
-        ex.name.toLowerCase().includes(q) ||
-        muscleGroupLabels[ex.muscleGroup].toLowerCase().includes(q),
-    );
+    return data.filter((ex) => ex.name.toLowerCase().includes(q));
   }, [data, search]);
 
   return (
@@ -53,7 +48,7 @@ export default function ExerciciosPage() {
           className="pointer-events-none absolute top-1/2 left-[14px] -translate-y-1/2 text-[color:var(--color-text-tertiary)]"
         />
         <TextField
-          placeholder="Buscar por nome ou grupo muscular..."
+          placeholder="Buscar por nome..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="[&_input]:pl-[22px]"
@@ -99,9 +94,16 @@ export default function ExerciciosPage() {
                 <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
                   {exercise.name}
                 </span>
-                <span className="w-fit rounded-[var(--radius-full)] bg-[var(--color-surface-hover)] px-[8px] py-[2px] text-[10px] font-semibold text-[color:var(--color-text-secondary)]">
-                  {muscleGroupLabels[exercise.muscleGroup]}
-                </span>
+                <div className="flex flex-wrap gap-[4px]">
+                  {exercise.muscleGroups.map((group) => (
+                    <span
+                      key={group.id}
+                      className="w-fit rounded-[var(--radius-full)] bg-[var(--color-surface-hover)] px-[8px] py-[2px] text-[10px] font-semibold text-[color:var(--color-text-secondary)]"
+                    >
+                      {group.name}
+                    </span>
+                  ))}
+                </div>
               </div>
               <p
                 style={{ width: COLUMN_WIDTHS.description }}
@@ -118,15 +120,20 @@ export default function ExerciciosPage() {
                   <span className="text-[12px] text-[color:var(--color-text-tertiary)]">—</span>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => setEditingExercise(exercise)}
-                aria-label="Editar exercício"
-                style={{ width: COLUMN_WIDTHS.edit }}
-                className="flex items-center justify-center text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]"
-              >
-                <Pencil width={16} height={16} />
-              </button>
+              {/* Starter-set exercises are read-only for every trainer (R28): no edit action. */}
+              {exercise.isStarter ? (
+                <span style={{ width: COLUMN_WIDTHS.edit }} />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingExercise(exercise)}
+                  aria-label="Editar exercício"
+                  style={{ width: COLUMN_WIDTHS.edit }}
+                  className="flex items-center justify-center text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)]"
+                >
+                  <Pencil width={16} height={16} />
+                </button>
+              )}
             </div>
           ))
         )}
