@@ -4,6 +4,7 @@ import { ExerciseDialog } from "./ExerciseDialog";
 import { muscleGroups, remadaPropria } from "../storyFixtures";
 import { withSeededQueries } from "../storyQuery";
 import { muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
+import { ApiError } from "@/lib/api/client";
 
 const groupsKey = JSON.stringify(muscleGroupsQueryKey);
 
@@ -123,5 +124,55 @@ export const SaveFailed: Story = {
     await userEvent.click(submit);
     await expect(await canvas.findByText("Não foi possível salvar o exercício")).toBeVisible();
     await expect(canvas.queryByText("Exercise 7 not found")).toBeNull();
+  },
+};
+
+const IN_USE_MESSAGE = "Exercise 7 is used by a workout and cannot be deleted";
+
+/** 409 on delete: a pt-BR refusal block, the dialog stays open (R34/E5). */
+export const DeleteRefusedInUse: Story = {
+  args: {
+    exercise: remadaPropria,
+    api: {
+      create: fn(),
+      update: fn(),
+      remove: fn(async () => {
+        throw new ApiError({ code: "PRECONDITION_FAILED", message: IN_USE_MESSAGE }, 409);
+      }),
+    },
+  },
+  play: async ({ canvas, userEvent, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Excluir" }));
+    const alert = await canvas.findByRole("alert");
+    await expect(alert).toHaveTextContent("Não é possível excluir este exercício");
+    await expect(alert).toHaveTextContent(
+      "Um treino usa este exercício. Remova-o dos treinos antes de excluí-lo.",
+    );
+    await expect(canvas.queryByText(IN_USE_MESSAGE, { exact: false })).toBeNull();
+    await expect(document.body).not.toHaveTextContent(IN_USE_MESSAGE);
+    await expect(canvas.queryByText("Não foi possível excluir o exercício")).toBeNull();
+    await expect(canvas.getByRole("button", { name: "Excluir" })).toBeEnabled();
+    await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};
+
+/** Any other delete failure: the fixed pt-BR root error, no refusal block. */
+export const DeleteFailedGeneric: Story = {
+  args: {
+    exercise: remadaPropria,
+    api: {
+      create: fn(),
+      update: fn(),
+      remove: fn(async () => {
+        throw new ApiError({ code: "NOT_FOUND", message: "Exercise 7 not found" }, 404);
+      }),
+    },
+  },
+  play: async ({ canvas, userEvent, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Excluir" }));
+    await expect(await canvas.findByText("Não foi possível excluir o exercício")).toBeVisible();
+    await expect(canvas.queryByRole("alert")).toBeNull();
+    await expect(canvas.queryByText("Exercise 7 not found")).toBeNull();
+    await expect(args.onClose).not.toHaveBeenCalled();
   },
 };

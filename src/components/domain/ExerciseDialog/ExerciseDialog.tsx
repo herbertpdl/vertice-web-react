@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { TriangleAlert } from "lucide-react";
 import { Button, Dialog, DialogFooter, MultiSelect, TextField } from "@/components/ui";
+import { ApiError } from "@/lib/api/client";
 import { createExercise, updateExercise, deleteExercise } from "@/lib/api/exercises";
 import { fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 import { exerciseSchema, type ExerciseFormInput } from "@/lib/validation/exercises";
@@ -67,6 +69,8 @@ export function ExerciseDialog({
   // Kept out of react-hook-form's `setError("root")`, which would force `isValid`
   // to false and lock the submit button until the next edit.
   const [rootError, setRootError] = useState<string | null>(null);
+  // Delete refused because a workout uses the exercise (409 PRECONDITION_FAILED, R34).
+  const [refused, setRefused] = useState(false);
 
   const saveMutation = useMutation({
     mutationFn: (data: ExerciseFormInput) =>
@@ -86,7 +90,12 @@ export function ExerciseDialog({
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
       onClose();
     },
-    onError: () => setRootError("Não foi possível excluir o exercício"),
+    onError: (error) => {
+      // Keyed on the code, not the status: 409 is also CONFLICT. The upstream
+      // message is English and is not rendered.
+      if (error instanceof ApiError && error.code === "PRECONDITION_FAILED") setRefused(true);
+      else setRootError("Não foi possível excluir o exercício");
+    },
   });
 
   return (
@@ -98,6 +107,26 @@ export function ExerciseDialog({
         })}
         className="flex w-full flex-col gap-[var(--space-4)]"
       >
+        {refused && (
+          <div
+            role="alert"
+            className="flex w-full items-start gap-[var(--space-3)] rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[#ff5c5c14] p-[var(--space-4)]"
+          >
+            <TriangleAlert
+              width={20}
+              height={20}
+              className="shrink-0 text-[color:var(--color-danger)]"
+            />
+            <div className="flex flex-1 flex-col gap-[4px]">
+              <span className="font-heading text-[length:var(--text-md)] font-semibold text-[color:var(--color-danger)]">
+                Não é possível excluir este exercício
+              </span>
+              <p className="text-[length:var(--text-sm)] text-[color:var(--color-text-primary)]">
+                Um treino usa este exercício. Remova-o dos treinos antes de excluí-lo.
+              </p>
+            </div>
+          </div>
+        )}
         {rootError && (
           <div className="rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[var(--color-danger)]/10 px-[14px] py-[10px] text-[13px] text-[color:var(--color-danger)]">
             {rootError}
@@ -159,6 +188,7 @@ export function ExerciseDialog({
               loading={deleteMutation.isPending}
               onClick={() => {
                 setRootError(null);
+                setRefused(false);
                 deleteMutation.mutate();
               }}
               className="mr-auto"
