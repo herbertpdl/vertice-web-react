@@ -221,6 +221,10 @@ export function fakeTransport(options: FakeTransportOptions = {}): FakeTransport
       calls.push("create");
       return delay(toFull(42, input.name, input.dayOfWeek, input.exercises ?? []));
     },
+    getFull(workoutId) {
+      calls.push("getFull");
+      return delay(toFull(workoutId, "Treino", "MONDAY", []));
+    },
     replace(workoutId, exercises) {
       calls.push("replace");
       if (refuseReplace) return refuse("Cannot replace exercises: a set under this workout has recorded workout data");

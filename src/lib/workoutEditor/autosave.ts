@@ -30,6 +30,7 @@ import { reduce, type EditorAction } from "./reducer";
 /** Everything the engine needs from the BFF, injectable so the engine is unit-testable without HTTP. */
 export interface AutosaveTransport {
   create(planId: number, input: WorkoutCreateInput): Promise<FullWorkout>;
+  getFull(workoutId: number): Promise<FullWorkout>;
   replace(workoutId: number, exercises: WorkoutExerciseEntry[]): Promise<FullWorkout>;
   patchWorkout(workoutId: number, input: WorkoutInput): Promise<unknown>;
   addExercise(workoutId: number, input: WorkoutExerciseCreateInput): Promise<WorkoutExercise>;
@@ -208,6 +209,12 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
   // Last server-confirmed state (null until a new workout is created).
   let snapshot: EditorWorkout | null = options.workoutId === null ? null : initial;
   let hasSaved = false;
+  // Id of a workout the create returned but whose response could not be
+  // processed (XREPO-001: a body the editor can't map threw after the insert,
+  // and every retry created another workout). A retry adopts it instead of
+  // creating again. Only an id the server returned counts — no guessing by
+  // name/weekday after a lost response (spec §0).
+  let createdButUnconfirmed: number | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   // One run at a time; a flush requested during a run waits behind it, and a
   // second request while one is already waiting coalesces into it (R8).
@@ -293,6 +300,10 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
   }
 
   async function runCreate(sent: EditorWorkout) {
+    if (createdButUnconfirmed !== null) {
+      await adoptWorkout(sent, createdButUnconfirmed);
+      return;
+    }
     let full: FullWorkout;
     try {
       full = await transport.create(planId, {
@@ -310,6 +321,9 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
       }
       throw error;
     }
+    // From here on the workout exists: never create it again, even if
+    // reading the response fails.
+    if (typeof full?.id === "number") createdButUnconfirmed = full.id;
     const confirmed = adoptIds(sent, fromFullWorkout(full));
     snapshot = { ...confirmed, name: full.name };
     hasSaved = true;
@@ -318,7 +332,28 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
       workoutId: full.id,
       draft: { ...draft, name: draft.name.trim() === "" ? full.name : draft.name },
     });
+    createdButUnconfirmed = null;
     onSaved?.({ workoutId: full.id, created: true });
+  }
+
+  /** Takes over the workout an earlier create returned, then saves `sent` onto it as a regular update. */
+  async function adoptWorkout(sent: EditorWorkout, workoutId: number) {
+    const server = fromFullWorkout(await transport.getFull(workoutId));
+    // Same tree as the draft (the usual case): keep the draft's keys with the
+    // server ids, so nothing is re-sent. Otherwise the update replaces it.
+    snapshot = sameTree(sent.exercises, server.exercises)
+      ? { ...adoptIds(sent, server), name: server.name, dayOfWeek: server.dayOfWeek }
+      : server;
+    createdButUnconfirmed = null;
+    hasSaved = true;
+    const draft = mergeIds(state.draft, snapshot);
+    setState({
+      workoutId,
+      draft: { ...draft, name: draft.name.trim() === "" ? server.name : draft.name },
+    });
+    // Reported now, so the URL switches even if the update below fails.
+    onSaved?.({ workoutId, created: true });
+    await runUpdate(sent, workoutId);
   }
 
   async function runUpdate(sent: EditorWorkout, workoutId: number) {

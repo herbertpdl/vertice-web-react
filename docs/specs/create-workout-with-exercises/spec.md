@@ -268,7 +268,14 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     ends up with two "Novo treino" entries. That is a visible, low-severity, trainer-fixable
     outcome (delete the extra one); silently editing the wrong workout's data is not, which is
     why this spec no longer trades one risk for the other. An idempotency key on the BFF/API
-    remains the real fix; tracked in §6.
+    remains the real fix; tracked in §6. What the engine *does* guarantee is identity-based: once
+    a 2xx create response carries the new workout's `id`, that id is kept even if mapping the rest
+    of the body throws (the XREPO-001 failure in the 2026-10-09 audit: a body without `exercises`
+    threw after the insert, and every retry created another empty workout). `retry()` then adopts
+    that workout — `GET /workouts/:id/full`, take its ids when its tree matches what was sent —
+    and continues as an ordinary update (`PATCH` + `PUT`) instead of re-sending the `POST`. Empty
+    workouts left by earlier failed attempts are listed by the read-only query in
+    [docs/runbooks/orphan-workouts.md](../../runbooks/orphan-workouts.md).
 - **Footer status is derived from the engine, nowhere else (R9, R13).** `idle` (never saved,
     nothing pending — "As alterações são salvas automaticamente" with the info icon, as in the
     empty-workout frame), `saving` (from the moment a change is made, through the debounce window
@@ -400,6 +407,9 @@ timer ──▶ flush():
    sent = draft; sinceSent = []   (every edit while in flight is appended)
    workoutId null → POST create(nested)
                     2xx        → workoutId = response id, ids by position → snapshot → done
+                                  (the id is kept even if mapping the body throws: retry()
+                                  then GETs /workouts/:id/full, adopts it and runs an update
+                                  instead of a second create — §0)
                     non-4xx    → status = error [terminal]; retry() re-sends the create as-is
                                   (accepted duplicate-on-retry risk, §0 — no reconciliation)
                     400        → draft tree = reduce(empty tree, sinceSent), banner(generic
@@ -572,6 +582,21 @@ inside the app should complete.
 - `NavigationBlockerContext` (component tests): `Header`'s nav links, `WorkoutEditor`'s breadcrumb
   links, and `AppHeader`'s "Sair" action all block with `window.confirm` while the mounted
   editor's status is `saving`/`error`, and let navigation/sign-out through otherwise.
+
+## Merge and deploy order
+
+1. `vertice-api` — `CreateWorkoutWithExercises` / `ReplaceWorkoutExercises` and
+   `FAILED_PRECONDITION` for the recorded-data refusal.
+2. `vertice-bff` — the nested `POST /training-plans/:planId/workouts`, `PUT
+   /workouts/:workoutId/exercises` and the 409 `PRECONDITION_FAILED` mapping
+   ([vertice-bff#17](https://github.com/herbertpdl/vertice-bff/pull/17),
+   [vertice-bff#18](https://github.com/herbertpdl/vertice-bff/pull/18)). Needs the API deployed
+   first: against an older API both endpoints fail with `UNIMPLEMENTED` (502).
+3. `vertice-web-react` (this spec) — the workout editor. Needs that BFF deployed first: against an
+   older BFF the nested create drops `exercises` and the `PUT` does not exist.
+
+The web editor merged before step 2 did, which is how XREPO-001 (2026-10-09 audit) happened. Roll
+back in reverse order (web, then BFF, then API).
 
 ## 6. Out of scope / follow-ups
 

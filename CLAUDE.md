@@ -71,7 +71,8 @@ student/plan/workout, or a deleted one).
   debounced-autosave workspace: local draft state (`src/lib/workoutEditor/model.ts` +
   `reducer.ts`) is the source of truth and `src/lib/workoutEditor/autosave.ts` syncs it to the
   BFF — first save of a new workout is a nested `POST /training-plans/:id/workouts` (then
-  `window.history.replaceState` to the workout URL, the editor stays mounted), later saves are
+  `window.history.replaceState` to the workout URL, the editor stays mounted; once that `POST`
+  returns an id, a retry adopts that workout instead of creating again), later saves are
   `PATCH /workouts/:id` + whole-list `PUT /workouts/:id/exercises`, and a 409
   `PRECONDITION_FAILED` (a client recorded data) flips that workout to per-item sync through the
   one-at-a-time endpoints. Exercises/sets reorder by native HTML5 drag and drop; the footer
@@ -115,6 +116,14 @@ contract in `vertice-bff/docs/`, and the web PRD points at both. **Cross-repo re
 docs are GitHub links** (`https://github.com/herbertpdl/<repo>/blob/main/<path>`), never
 `../<repo>/...` relative paths — the sibling checkouts are not guaranteed to sit next to each
 other. Same-repo references stay relative.
+
+Every spec that touches more than one repo has a **"Merge and deploy order"** section listing
+the repos in the order their PRs merge and deploy, and why (which side needs the other already
+live). The default is `vertice-api` → `vertice-bff` → `vertice-web-react` / `vertice-mobile`:
+the API adds RPCs before the BFF calls them, and the BFF exposes endpoints before the web uses
+them. State any deviation explicitly (e.g. a removal goes clients first, API last), plus the
+rollback order. There is no spec template in this repo; this rule is the template. Same rule as
+`vertice-bff`'s CLAUDE.md ("Reference docs").
 
 **Design gate:** a web PRD carries a `Design:` line in its header. Before implementing, update
 the pen.dev design file (`Vertice Web.pen`, via the `pencil` MCP tools) with every screen state
