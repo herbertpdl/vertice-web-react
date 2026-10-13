@@ -60,6 +60,7 @@ function makeTransport(): AutosaveTransport & { calls: string[] } {
       calls.push("create");
       return fullFromEntries(42, input.name, input.exercises ?? []);
     }),
+    getFull: vi.fn(async (workoutId) => fullFromEntries(workoutId, "Treino A", [])),
     replace: vi.fn(async (workoutId, exercises) => {
       calls.push("replace");
       return fullFromEntries(workoutId, "Treino A", exercises);
@@ -267,6 +268,141 @@ describe("new workout", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await settle();
     expect(transport.create).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * A stateful plan behind the transport, so a test can count the workouts that
+ * really exist. `create` writes first and then hands its result to
+ * `afterWrite`, which can throw or mangle it to simulate a failure after the
+ * server committed.
+ */
+function makePlanServer() {
+  const workouts = new Map<number, FullWorkout>();
+  let nextWorkoutId = 500;
+  const hooks = { afterWrite: (full: FullWorkout): FullWorkout => full };
+  const transport = makeTransport();
+  transport.create = vi.fn(async (planId, input) => {
+    transport.calls.push("create");
+    const full = { ...fullFromEntries(++nextWorkoutId, input.name, input.exercises ?? []), dayOfWeek: input.dayOfWeek };
+    workouts.set(full.id, full);
+    return hooks.afterWrite(full);
+  });
+  transport.getFull = vi.fn(async (workoutId) => workouts.get(workoutId)!);
+  transport.replace = vi.fn(async (workoutId, exercises) => {
+    transport.calls.push("replace");
+    const current = workouts.get(workoutId)!;
+    const full = { ...fullFromEntries(workoutId, current.name, exercises), dayOfWeek: current.dayOfWeek };
+    workouts.set(workoutId, full);
+    return full;
+  });
+  transport.patchWorkout = vi.fn(async (workoutId, input) => {
+    transport.calls.push("patch");
+    workouts.set(workoutId, { ...workouts.get(workoutId)!, ...input });
+    return {};
+  });
+  return { transport, workouts, hooks };
+}
+
+/** The XREPO-001 failure: a 2xx body the editor cannot map (no `exercises`), thrown after the insert. */
+const unreadableBody = (full: FullWorkout) => ({ ...full, exercises: undefined }) as unknown as FullWorkout;
+
+describe("create retried after its response failed (XREPO-001)", () => {
+  function newEngine(transport: AutosaveTransport, onSaved = vi.fn()) {
+    return createAutosaveEngine({ planId: 7, workoutId: null, initial: emptyWorkout("MONDAY"), transport, delayMs: 100, onSaved });
+  }
+
+  it("adopts the workout the first create returned instead of creating a second one", async () => {
+    const { transport, workouts, hooks } = makePlanServer();
+    hooks.afterWrite = unreadableBody;
+    const onSaved = vi.fn();
+    const engine = newEngine(transport, onSaved);
+    engine.dispatch({ type: "addExercise", exercise: supino });
+    engine.dispatch({ type: "addSet", exerciseKey: engine.getState().draft.exercises[0].key });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+    expect(engine.getState().status).toBe("error");
+    expect(workouts.size).toBe(1);
+
+    hooks.afterWrite = (full) => full;
+    await engine.retry();
+    // A second retry (or "Concluir") must not create either.
+    expect(await engine.finish()).toBe(true);
+
+    expect(transport.create).toHaveBeenCalledTimes(1);
+    expect(workouts.size).toBe(1);
+    const [only] = workouts.values();
+    const state = engine.getState();
+    expect(state.status).toBe("saved");
+    expect(state.workoutId).toBe(only.id);
+    // Same tree as the draft: server ids adopted, nothing re-sent.
+    expect(transport.replace).not.toHaveBeenCalled();
+    expect(state.draft.exercises[0].id).toBe(only.exercises[0].id);
+    expect(state.draft.exercises[0].sets[0].id).toBe(only.exercises[0].sets[0].id);
+    expect(onSaved).toHaveBeenCalledWith({ workoutId: only.id, created: true });
+  });
+
+  it("saves edits made while in error onto that same workout", async () => {
+    const { transport, workouts, hooks } = makePlanServer();
+    hooks.afterWrite = unreadableBody;
+    const engine = newEngine(transport);
+    engine.dispatch({ type: "addExercise", exercise: supino });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+    expect(engine.getState().status).toBe("error");
+
+    hooks.afterWrite = (full) => full;
+    engine.dispatch({ type: "setName", name: "Treino A" });
+    engine.dispatch({ type: "addExercise", exercise: puxada });
+    await engine.retry();
+
+    expect(transport.create).toHaveBeenCalledTimes(1);
+    expect(workouts.size).toBe(1);
+    const [only] = workouts.values();
+    expect(only.name).toBe("Treino A");
+    expect(only.exercises.map((we) => we.exerciseId)).toEqual([1, 2]);
+    expect(engine.getState().status).toBe("saved");
+    expect(engine.getState().draft.exercises.map((we) => we.id)).not.toContain(null);
+  });
+
+  it("stays in error, without creating, while the adopted workout cannot be read", async () => {
+    const { transport, workouts, hooks } = makePlanServer();
+    hooks.afterWrite = unreadableBody;
+    const engine = newEngine(transport);
+    engine.dispatch({ type: "setName", name: "Treino A" });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+
+    const getFull = transport.getFull;
+    transport.getFull = vi.fn(async () => { throw new TypeError("Failed to fetch"); });
+    await engine.retry();
+    expect(engine.getState().status).toBe("error");
+
+    transport.getFull = getFull;
+    await engine.retry();
+    expect(engine.getState().status).toBe("saved");
+    expect(transport.create).toHaveBeenCalledTimes(1);
+    expect(workouts.size).toBe(1);
+  });
+
+  it("re-sends the create when no response arrived at all (accepted risk, spec §0)", async () => {
+    const transport = makeTransport();
+    let fail = true;
+    transport.create = vi.fn(async (planId, input) => {
+      if (fail) throw new TypeError("Failed to fetch");
+      return fullFromEntries(42, input.name, input.exercises ?? []);
+    });
+    const engine = createAutosaveEngine({ planId: 7, workoutId: null, initial: emptyWorkout("MONDAY"), transport, delayMs: 100 });
+    engine.dispatch({ type: "setName", name: "Treino A" });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+    expect(engine.getState().status).toBe("error");
+
+    fail = false;
+    await engine.retry();
+    expect(transport.create).toHaveBeenCalledTimes(2);
+    expect(transport.getFull).not.toHaveBeenCalled();
+    expect(engine.getState().workoutId).toBe(42);
   });
 });
 

@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { createWorkout, replaceWorkoutExercises, updateWorkout } from "@/lib/api/workouts";
+import {
+  createWorkout,
+  fetchFullWorkout,
+  replaceWorkoutExercises,
+  updateWorkout,
+} from "@/lib/api/workouts";
 import {
   addWorkoutExercise,
   deleteWorkoutExercise,
@@ -19,6 +24,7 @@ import type { EditorWorkout } from "./model";
 /** The real BFF-backed transport; everything goes through src/lib/api. */
 export const bffTransport: AutosaveTransport = {
   create: createWorkout,
+  getFull: fetchFullWorkout,
   replace: replaceWorkoutExercises,
   patchWorkout: updateWorkout,
   addExercise: addWorkoutExercise,
