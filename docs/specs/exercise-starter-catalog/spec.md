@@ -388,6 +388,21 @@ node-only) — its effect is observed in the walkthrough as "one request after t
 - Showing *why* a 403 happened on save/delete: unreachable through the UI (R28), generic error is
   enough.
 
+## Merge and deploy order
+
+1. `vertice-api` — the starter-catalog stack (muscle groups, caller identity, exercise
+   authorization, list query, in-use delete refusal, seed, cleanup migration; landed as
+   [vertice-api#49](https://github.com/herbertpdl/vertice-api/pull/49)). Goes first: the BFF's
+   proto copy calls `ListMuscleGroups` and reads `muscle_groups`/`is_starter`, which an older API
+   answers with `UNIMPLEMENTED` (502) or silently empty fields.
+2. `vertice-bff` — the exercises module and composed endpoints on the new shape (§1). Needs that
+   API deployed first.
+3. `vertice-web-react` (this spec) — PR1 is additive and may merge at any time; PR2–PR5 need the
+   step-2 BFF deployed first (D9: one coordinated window, api → bff → web).
+
+Roll back in reverse order (web, then BFF, then API). The API's V23 cleanup migration is a
+one-way door, so an API rollback past it needs a forward fix, not a revert.
+
 ## 8. Delivery plan
 
 | PR | Title | Increment | Contains (spec §) | Depends on | Verified by |
