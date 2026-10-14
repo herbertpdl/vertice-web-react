@@ -28,8 +28,11 @@ The dev server is pinned to port `5173` (not Next's usual `3000`) since `3000` i
 `http://localhost:5173`. Override with `npm run dev -- -p <port>` if needed.
 
 Besides the Storybook story tests (every `src/**/*.stories.tsx`, per `.storybook/main.ts`),
-`vitest.config.ts` has a `unit` project (node environment, `src/lib/**/*.test.ts`) for pure
-modules — today the workout editor's autosave engine. Pages under `src/app/` have no tests.
+`vitest.config.ts` has a `unit` project (node environment, `src/lib/**/*.test.ts` and
+`src/app/api/**/*.test.ts`) for pure modules (the workout editor's autosave engine, validation
+schemas, `forwardedFor`) and for the route handlers, which tests call directly with a
+`NextRequest` (mock `fetch` and `@/lib/session`; `server-only` is aliased to a no-op). Pages
+under `src/app/` have no tests.
 
 ## Architecture
 
@@ -39,8 +42,14 @@ The browser never calls `vertice-bff` directly. `src/lib/api/client.ts` (`apiCli
 `/api/bff/<path>`, which `src/app/api/bff/[...path]/route.ts` forwards to `${BFF_URL}/api/<path>`
 (`src/lib/bff.ts`), attaching the JWT from the httpOnly `vertice_session` cookie
 (`src/lib/session.ts`). Login/register/logout have their own routes under `src/app/api/auth/*`
-that set/clear that cookie. `src/proxy.ts` is the edge guard: no cookie → `/login?redirect=`,
-cookie on an auth page → `/dashboard`. On any 401 `apiClient` logs out server-side and hard-
+that set/clear that cookie; they parse the body with the Zod schemas in
+`src/lib/validation/auth.ts` and build the upstream body explicitly (register hardcodes
+`role: "TRAINER"`). `/api/auth/password/setup` redeems a first-access token from the public
+`/definir-senha?token=` page. Every BFF call sends `bffHeaders(request, …)`, which adds
+`X-Forwarded-For` for the BFF's per-IP rate limits (README, "Deployment"; `TRUSTED_PROXY_HOPS`);
+use it, and `relayBffResponse` (keeps `Retry-After`, null body on 204), for any new route.
+`src/proxy.ts` is the edge guard: no cookie → `/login?redirect=`, cookie on an auth page →
+`/dashboard`, `/definir-senha` public either way. On any 401 `apiClient` logs out server-side and hard-
 navigates to `/login` (see the comment there for why it can't just `router.push`).
 
 BFF errors arrive as `ApiError {code, message, details, status}` — the same

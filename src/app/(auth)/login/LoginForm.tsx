@@ -7,6 +7,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Checkbox, TextField } from "@/components/ui";
 import { login } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
+import { rateLimitMessage } from "@/lib/api/rateLimit";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth";
 
 export function LoginForm() {
@@ -37,9 +39,7 @@ export function LoginForm() {
       router.push(redirect);
       router.refresh();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Não foi possível entrar";
-      setFormError(message);
+      setFormError(loginErrorMessage(error));
     }
   }
 
@@ -82,15 +82,13 @@ export function LoginForm() {
         />
       </div>
 
+      {/* "Esqueceu a senha?" comes back with password reset (audit plan P1-06). */}
       <div className="flex w-full items-center justify-between">
         <Checkbox
           label="Manter-me conectado"
           checked={remember}
           onChange={(event) => setValue("remember", event.target.checked)}
         />
-        <span className="text-[12px] font-semibold text-[color:var(--color-text-tertiary)]">
-          Esqueceu a senha?
-        </span>
       </div>
 
       <Button
@@ -114,4 +112,12 @@ export function LoginForm() {
       </div>
     </form>
   );
+}
+
+function loginErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 429) return rateLimitMessage(error.retryAfter);
+    if (error.status === 401) return "E-mail ou senha inválidos";
+  }
+  return error instanceof Error ? error.message : "Não foi possível entrar";
 }

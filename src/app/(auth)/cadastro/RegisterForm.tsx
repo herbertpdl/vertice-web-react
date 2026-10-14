@@ -7,7 +7,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Checkbox, TextField } from "@/components/ui";
 import { register as registerTrainer } from "@/lib/api/auth";
-import { registerSchema, type RegisterInput } from "@/lib/validation/auth";
+import { ApiError } from "@/lib/api/client";
+import { rateLimitMessage } from "@/lib/api/rateLimit";
+import {
+  PASSWORD_HELP_TEXT,
+  registerSchema,
+  type RegisterInput,
+} from "@/lib/validation/auth";
 import { maskCpf } from "@/lib/masks/cpf";
 import { onlyDigits } from "@/lib/validation/cpf";
 
@@ -55,9 +61,7 @@ export function RegisterForm() {
       router.push("/dashboard");
       router.refresh();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Não foi possível criar a conta";
-      setFormError(message);
+      setFormError(registerErrorMessage(error));
     }
   }
 
@@ -120,7 +124,7 @@ export function RegisterForm() {
           type="password"
           placeholder="••••••••••"
           autoComplete="new-password"
-          helpText="Mínimo de 6 caracteres."
+          helpText={PASSWORD_HELP_TEXT}
           error={errors.password?.message}
           {...register("password")}
         />
@@ -167,4 +171,12 @@ export function RegisterForm() {
       </div>
     </form>
   );
+}
+
+function registerErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 429) return rateLimitMessage(error.retryAfter);
+    if (error.status === 409) return "Já existe uma conta com este e-mail ou CPF";
+  }
+  return error instanceof Error ? error.message : "Não foi possível criar a conta";
 }
