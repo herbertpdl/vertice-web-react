@@ -26,4 +26,13 @@ describe("POST /api/auth/logout", () => {
     expect(res.status).toBe(403);
     expect(clearSession).not.toHaveBeenCalled();
   });
+
+  it("answers no-store, Vary: Cookie, refusals included", async () => {
+    const ok = await POST(post({ Origin: "http://web.test", "Sec-Fetch-Site": "same-origin" }));
+    const refused = await POST(post({ Origin: "https://evil.example", "Sec-Fetch-Site": "cross-site" }));
+    for (const res of [ok, refused]) {
+      expect(res.headers.get("Cache-Control")).toBe("no-store");
+      expect(res.headers.get("Vary")).toBe("Cookie");
+    }
+  });
 });

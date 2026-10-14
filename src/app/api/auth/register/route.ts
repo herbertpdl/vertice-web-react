@@ -3,10 +3,11 @@ import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from 
 import { guardApiRequest } from "@/lib/requestGuard";
 import { setSession } from "@/lib/session";
 import { registerRequestSchema } from "@/lib/validation/auth";
+import { withNoStore } from "@/lib/noStore";
 
 // Public sign-up is for trainers only: clients are created by their trainer (POST /clients).
 // The role is set here, never taken from the browser.
-export async function POST(request: NextRequest) {
+async function post(request: NextRequest) {
   const refused = guardApiRequest(request, "json");
   if (refused) return refused;
 
@@ -25,3 +26,5 @@ export async function POST(request: NextRequest) {
   await setSession(data.token, remember ?? false);
   return NextResponse.json({ user: data.user });
 }
+
+export const POST = withNoStore(post);

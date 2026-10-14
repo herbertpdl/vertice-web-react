@@ -196,4 +196,47 @@ describe("/api/bff/[...path] proxy", () => {
       expect(res.status).toBe(200);
     });
   });
+
+  describe("caching", () => {
+    function expectNoStore(res: Response) {
+      expect(res.headers.get("Cache-Control")).toBe("no-store");
+      expect(res.headers.get("Vary")).toBe("Cookie");
+    }
+
+    it("marks a relayed response no-store and Vary: Cookie, whatever the BFF sent", async () => {
+      fetchMock.mockResolvedValue(
+        Response.json(
+          { id: 4, cpf: "529.982.247-25" },
+          { headers: { "Cache-Control": "public, max-age=600" } },
+        ),
+      );
+      const request = new NextRequest("http://web.test/api/bff/clients/4?reveal=cpf", {
+        method: "GET",
+        headers: SAME_ORIGIN,
+      });
+      const res = await GET(request, { params: Promise.resolve({ path: ["clients", "4"] }) });
+      expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:3000/api/clients/4?reveal=cpf");
+      expectNoStore(res);
+    });
+
+    it("marks a relayed error and a 204 no-store", async () => {
+      fetchMock.mockResolvedValueOnce(
+        Response.json({ error: { code: "NOT_FOUND", message: "Resource not found" } }, { status: 404 }),
+      );
+      expectNoStore(await call(GET, ["clients", "4"], { method: "GET" }));
+      fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+      expectNoStore(await call(DELETE, ["clients", "4"], { method: "DELETE" }));
+    });
+
+    it("marks the proxy's own refusals no-store", async () => {
+      vi.mocked(getSessionToken).mockResolvedValueOnce(undefined);
+      expectNoStore(await call(GET, ["clients"], { method: "GET" }));
+      expectNoStore(await call(GET, ["..", "health"], { method: "GET" }));
+      const crossSite = new NextRequest("http://web.test/api/bff/clients", {
+        method: "GET",
+        headers: { "Sec-Fetch-Site": "cross-site" },
+      });
+      expectNoStore(await GET(crossSite, { params: Promise.resolve({ path: ["clients"] }) }));
+    });
+  });
 });

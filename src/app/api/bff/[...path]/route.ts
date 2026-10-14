@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bffHeaders, bffProxyPath, bffUrl, relayBffResponse } from "@/lib/bff";
 import { guardApiRequest, unsupportedMediaType } from "@/lib/requestGuard";
+import { withNoStore } from "@/lib/noStore";
 import { getSessionToken } from "@/lib/session";
 
 async function proxy(
@@ -45,10 +46,12 @@ async function proxy(
   return relayBffResponse(res);
 }
 
+const handler = withNoStore(proxy);
+
 export {
-  proxy as GET,
-  proxy as POST,
-  proxy as PATCH,
-  proxy as DELETE,
-  proxy as PUT,
+  handler as GET,
+  handler as POST,
+  handler as PATCH,
+  handler as DELETE,
+  handler as PUT,
 };
