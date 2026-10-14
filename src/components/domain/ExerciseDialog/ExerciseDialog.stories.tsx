@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, fn, waitFor, within } from "storybook/test";
+import { expect, fn, spyOn, waitFor, within, type MockInstance } from "storybook/test";
 import { ExerciseDialog } from "./ExerciseDialog";
 import { muscleGroups, remadaPropria, supino } from "../storyFixtures";
 import { withSeededQueries } from "../storyQuery";
@@ -7,6 +7,17 @@ import { muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 import { ApiError } from "@/lib/api/client";
 
 const groupsKey = JSON.stringify(muscleGroupsQueryKey);
+
+/** A story-level QueryClient whose `invalidateQueries` is spied on, read back in `play`. */
+let invalidateSpy: MockInstance | undefined;
+const withInvalidateSpy = withSeededQueries(
+  { [groupsKey]: muscleGroups },
+  {
+    onClient: (client) => {
+      invalidateSpy = spyOn(client, "invalidateQueries");
+    },
+  },
+);
 
 const meta = {
   component: ExerciseDialog,
@@ -149,6 +160,8 @@ export const DeleteConfirmCancel: Story = {
 
     await userEvent.click(canvas.getByRole("button", { name: "Cancelar" }));
     await expect(await canvas.findByRole("heading", { name: "Editar exercício" })).toBeVisible();
+    // Focus goes back to the Excluir that opened the step, not to "Fechar".
+    await waitFor(() => expect(canvas.getByRole("button", { name: "Excluir" })).toHaveFocus());
     // The form kept its values.
     await expect(canvas.getByLabelText("Nome do exercício")).toHaveValue("Remada Unilateral no Banco");
     await expect(args.api!.remove).not.toHaveBeenCalled();
@@ -159,6 +172,7 @@ export const DeleteConfirmCancel: Story = {
     await canvas.findByRole("heading", { name: "Excluir exercício?" });
     await userEvent.keyboard("{Escape}");
     await expect(await canvas.findByRole("heading", { name: "Editar exercício" })).toBeVisible();
+    await waitFor(() => expect(canvas.getByRole("button", { name: "Excluir" })).toHaveFocus());
     await expect(args.api!.remove).not.toHaveBeenCalled();
     await expect(args.onClose).not.toHaveBeenCalled();
   },
@@ -171,6 +185,29 @@ export const DeleteConfirmed: Story = {
     await confirmDelete(canvas, userEvent);
     await waitFor(() => expect(args.api!.remove).toHaveBeenCalledWith(remadaPropria.id));
     await waitFor(() => expect(args.onClose).toHaveBeenCalled());
+  },
+};
+
+/**
+ * While the delete is in flight the confirm button is disabled (not just `loading`, which leaves it
+ * keyboard-activatable), Cancelar too, and Escape doesn't leave the step.
+ */
+export const DeletePending: Story = {
+  args: {
+    exercise: remadaPropria,
+    api: { create: fn(), update: fn(), remove: fn(() => new Promise<void>(() => {})) },
+  },
+  play: async ({ canvas, userEvent, args }) => {
+    await confirmDelete(canvas, userEvent);
+    const confirm = canvas.getByRole("button", { name: "Excluir exercício" });
+    await waitFor(() => expect(confirm).toBeDisabled());
+    await expect(canvas.getByRole("button", { name: "Cancelar" })).toBeDisabled();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard("{Escape}");
+    await expect(canvas.getByRole("heading", { name: "Excluir exercício?" })).toBeVisible();
+    await expect(args.api!.remove).toHaveBeenCalledTimes(1);
+    await expect(args.onClose).not.toHaveBeenCalled();
   },
 };
 
@@ -237,6 +274,7 @@ const FORBIDDEN_MESSAGE = "You do not have access to exercise 7";
 
 /** 403 on delete (stale row): fixed pt-BR copy, no English, the dialog stays open. */
 export const DeleteForbidden: Story = {
+  decorators: [withInvalidateSpy],
   args: {
     exercise: remadaPropria,
     api: {
@@ -254,12 +292,14 @@ export const DeleteForbidden: Story = {
     ).toBeVisible();
     await expect(document.body).not.toHaveTextContent(FORBIDDEN_MESSAGE);
     await expect(canvas.queryByRole("alert")).toBeNull();
+    await expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["exercises"] });
     await expect(args.onClose).not.toHaveBeenCalled();
   },
 };
 
 /** 403 on save (stale row): fixed pt-BR copy, no English, the dialog stays open. */
 export const SaveForbidden: Story = {
+  decorators: [withInvalidateSpy],
   args: {
     exercise: remadaPropria,
     api: {
@@ -278,6 +318,7 @@ export const SaveForbidden: Story = {
       await canvas.findByText("Você não tem permissão para alterar este exercício"),
     ).toBeVisible();
     await expect(document.body).not.toHaveTextContent(FORBIDDEN_MESSAGE);
+    await expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["exercises"] });
     await expect(args.onClose).not.toHaveBeenCalled();
   },
 };

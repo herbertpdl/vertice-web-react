@@ -7,6 +7,8 @@ export interface SeedStates {
   pending?: string[];
   /** JSON query keys whose fetch has failed (error states). */
   failing?: string[];
+  /** Called with the story's QueryClient once seeded, e.g. to spy on `invalidateQueries`. */
+  onClient?: (client: QueryClient) => void;
 }
 
 /**
@@ -16,7 +18,7 @@ export interface SeedStates {
  */
 export function withSeededQueries(
   seed: Record<string, unknown>,
-  { pending = [], failing = [] }: SeedStates = {},
+  { pending = [], failing = [], onClient }: SeedStates = {},
 ): Decorator {
   return function SeededQueries(Story) {
     const client = new QueryClient({
@@ -39,6 +41,7 @@ export function withSeededQueries(
         errorUpdateCount: 1,
       });
     }
+    onClient?.(client);
     return (
       <QueryClientProvider client={client}>
         <Story />

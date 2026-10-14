@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -89,6 +89,21 @@ export function ExerciseDialog({
   const [refused, setRefused] = useState(false);
   // Excluir first asks for confirmation; the delete only runs from that step.
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // The form's Excluir, focused again when the confirmation step goes back to the form.
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const refocusDeleteRef = useRef(false);
+
+  // `Dialog` re-runs its focus effect (and so re-focuses "Fechar") whenever `onClose` changes
+  // identity, so both steps get a stable `onClose` that reads the latest values from refs. This is
+  // for correctness, not for memoization, which the React Compiler handles.
+  const onCloseRef = useRef(onClose);
+  const deletePendingRef = useRef(false);
+  const closeForm = useCallback(() => onCloseRef.current(), []);
+  const cancelDelete = useCallback(() => {
+    if (deletePendingRef.current) return;
+    refocusDeleteRef.current = true;
+    setConfirmingDelete(false);
+  }, []);
 
   const saveMutation = useMutation({
     mutationFn: (data: ExerciseFormInput) =>
@@ -115,6 +130,7 @@ export function ExerciseDialog({
     },
     onError: (error) => {
       // Back to the form, where the refusal or error is shown.
+      refocusDeleteRef.current = true;
       setConfirmingDelete(false);
       // Keyed on the code, not the status: 409 is also CONFLICT. The upstream
       // message is English and is not rendered.
@@ -126,10 +142,20 @@ export function ExerciseDialog({
     },
   });
 
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    deletePendingRef.current = deleteMutation.isPending;
+  });
+
+  // Runs after the remounted form `Dialog`'s own effect (child effects run first), which focused
+  // "Fechar": hand focus back to the Excluir that opened the confirmation step.
+  useEffect(() => {
+    if (confirmingDelete || !refocusDeleteRef.current) return;
+    refocusDeleteRef.current = false;
+    deleteButtonRef.current?.focus();
+  }, [confirmingDelete]);
+
   if (confirmingDelete && exercise) {
-    const cancelDelete = () => {
-      if (!deleteMutation.isPending) setConfirmingDelete(false);
-    };
     return (
       <Dialog key="confirm-delete" title="Excluir exercício?" onClose={cancelDelete}>
         <p className="text-[length:var(--text-base)] leading-[1.5] text-[color:var(--color-text-secondary)]">
@@ -151,6 +177,8 @@ export function ExerciseDialog({
             type="button"
             variant="danger"
             loading={deleteMutation.isPending}
+            // `loading` alone leaves the button keyboard-activatable: Enter/Space would delete twice.
+            disabled={deleteMutation.isPending}
             onClick={() => {
               setRootError(null);
               setRefused(false);
@@ -165,7 +193,11 @@ export function ExerciseDialog({
   }
 
   return (
-    <Dialog key="form" title={isEditing ? "Editar exercício" : "Novo exercício"} onClose={onClose}>
+    <Dialog
+      key="form"
+      title={isEditing ? "Editar exercício" : "Novo exercício"}
+      onClose={closeForm}
+    >
       <form
         onSubmit={handleSubmit((data) => {
           setRootError(null);
@@ -249,6 +281,7 @@ export function ExerciseDialog({
         <DialogFooter>
           {canDelete && (
             <Button
+              ref={deleteButtonRef}
               type="button"
               variant="danger"
               onClick={() => setConfirmingDelete(true)}
