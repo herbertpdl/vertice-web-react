@@ -144,8 +144,9 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
     produces: `PRECONDITION_FAILED` (409 — the BFF's `mapGrpcError` rendering of the gRPC
     `FAILED_PRECONDITION` that `vertice-api`'s delete RPCs will return once the §6 follow-up
     lands; the mapping is already generic in vertice-bff#17, so the web's check is on the BFF
-    code, never on an upstream status) and `UPSTREAM_ERROR` (502 — the FK violation today). A `NOT_FOUND` delete counts as
-    done (§3). Everything else — network failure, `UPSTREAM_UNAVAILABLE` (503), 403, 400, unknown
+    code, never on an upstream status) and `UPSTREAM_ERROR` (502 — the FK violation today). A `NOT_FOUND` delete — and a
+    `FORBIDDEN` one, the same event since vertice-api#60 (§3) — counts as done (§3). Everything
+    else — network failure, `UPSTREAM_UNAVAILABLE` (503), 400, unknown
     codes — is **not** a refusal: the per-item run stops there, the draft is kept and the footer
     goes to "Erro ao salvar — Tentar novamente" exactly as for any other failure ("Any other
     failure" bullet below);
@@ -208,11 +209,14 @@ pen.dev design `Vertice Web.pen`, root frame `Vertice — Editor de treino (salv
       (§3), shows no banner, and moves on. If that `POST` is itself rejected it follows the
       rejection rule above. Dropping the item and announcing it, the mirror of "`DELETE` 404
       counts as done", would have made the two modes observably different for one and the same
-      event, which the PRD's §7 rules out.
+      event, which the PRD's §7 rules out. Since [vertice-api#60](https://github.com/herbertpdl/vertice-api/pull/60)
+      the gone item answers 403 `FORBIDDEN` rather than 404 (§3, `DELETE`), so this rule must
+      treat a `PATCH`/set `POST` 403 the same as its 404. *Not implemented yet:* `autosave.ts`
+      routes both codes to the "any other failure" path today (§6).
     After either, remaining positions are re-derived per "restoring an item mid-run" above,
     which covers an undo or a re-create the same way. Like a restore, neither is a failure of
     the flush: with the rest of the run succeeding it ends in `saved`, because the screen once
-    again matches the server. `DELETE` is unaffected — its 404 already counts as done, and its
+    again matches the server. `DELETE` is unaffected — its 404 (or 403) already counts as done, and its
     400 stays in the not-a-refusal list above, since nothing about a delete payload can be
     invalid.
 - **Any other failure (network, 5xx, 503) leaves the draft on screen and sets the footer to
@@ -427,7 +431,7 @@ timer ──▶ flush():
                        other → status = error [terminal]
                     tree changed & mode=per-item → diff(snapshot, sent) as DELETE/POST/PATCH,
                        each op advancing the per-item snapshot on 2xx
-                       DELETE 404 → counts as done for that op
+                       DELETE 404 or 403 → counts as done for that op (403: vertice-api#60, §3 below)
                        DELETE 409 PRECONDITION_FAILED / 502 UPSTREAM_ERROR → restore item,
                                    banner(named), continue with the remaining ops
                        POST/PATCH 400 VALIDATION_ERROR, or POST workout-exercises 404 →
@@ -498,6 +502,15 @@ assigned by list position** (`adoptIds`), not the server's echo: the API normali
 edits made while the request was in flight keep their content and gain the new ids. In
 `per-item` mode a `DELETE` answered with 404 counts as done (already gone); the snapshot is
 advanced op by op so a retry after a mid-way failure does not repeat completed work.
+A `DELETE` answered 403 `FORBIDDEN` counts as done too. Since
+[vertice-api#60](https://github.com/herbertpdl/vertice-api/pull/60) the API answers a non-admin
+`PERMISSION_DENIED` (the BFF's 403), not `NOT_FOUND`, for a plan-tree id that does not exist, so
+that ids cannot be probed; an item another session already removed, or the retry of a `DELETE`
+whose response was lost, now arrives as 403. The trainer's session held that id (it came from
+this workout's own tree), so the 403 can only mean the item is gone. Treating it as a refusal
+would restore the item with a misleading "desempenho registrado" banner and keep a stale id that
+every later op on it would trip over. Only the `DELETE` is widened: a 403 on any other per-item
+op still ends the run in `error` (§0, "Any other failure").
 
 The engine is never torn down on unmount: React's dev StrictMode mount/cleanup/mount cycle must
 not kill it (a first version did, and `dispatch` went dead in the app while the Storybook tests,
@@ -614,6 +627,10 @@ back in reverse order (web, then BFF, then API).
   count, not just an ambiguous one. The same is true of the per-item `POST` endpoints
   (`workout-exercises`, `exercise-sets`) and the known duplicate-on-retry limitation in §3, where
   content-based reconciliation is not an option at all because duplicate items are allowed (R20).
+- Web: build §0's *Concurrent removal* rule (a per-item `PATCH` or set `POST` answered 404
+  re-creates the item). `autosave.ts` does not implement it yet; such an answer ends the run in
+  `error`. When it is built, a 403 must trigger it too, because vertice-api#60 made that the
+  answer for a gone plan-tree id (§3).
 - Touch/mobile drag and drop; keyboard reordering.
 - Conflict detection between concurrent editors (E19): a server-side version (ETag /
   `If-Match`) or transactional contract on the workout, so a session that edits a stale tree is
