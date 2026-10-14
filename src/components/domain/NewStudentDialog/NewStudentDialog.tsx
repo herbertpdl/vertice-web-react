@@ -11,7 +11,7 @@ import { studentSchema, type StudentInput } from "@/lib/validation/students";
 import { maskCpf } from "@/lib/masks/cpf";
 import { onlyDigits } from "@/lib/validation/cpf";
 import { ApiError } from "@/lib/api/client";
-import { rateLimitedMessage } from "@/lib/api/rateLimit";
+import { apiErrorMessage, errorMessages } from "@/lib/api/errorMessages";
 import { StudentAccessLink } from "../StudentAccessLink";
 
 export interface NewStudentDialogApi {
@@ -57,15 +57,12 @@ export function NewStudentDialog({
       setCreated(student);
     },
     onError: (error) => {
+      // The BFF answers a taken email and a taken CPF alike, so the copy names both.
       if (error instanceof ApiError && error.code === "CONFLICT") {
-        setError("email", { message: "Já existe um aluno com este e-mail ou CPF" });
+        setError("email", { message: errorMessages.CONFLICT });
         return;
       }
-      setError("root", {
-        message:
-          rateLimitedMessage(error) ??
-          (error instanceof Error ? error.message : "Não foi possível criar o aluno"),
-      });
+      setError("root", { message: apiErrorMessage(error, "Não foi possível criar o aluno") });
     },
   });
 

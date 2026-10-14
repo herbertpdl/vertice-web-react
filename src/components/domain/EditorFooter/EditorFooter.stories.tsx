@@ -23,7 +23,7 @@ export const Saved: Story = { args: { status: "saved" } };
 export const Finishing: Story = { args: { status: "saving", finishing: true } };
 
 export const Error: Story = {
-  args: { status: "error", errorMessage: "Failed to fetch" },
+  args: { status: "error", errorMessage: "Não foi possível salvar" },
   play: async ({ canvas, userEvent, args }) => {
     await expect(canvas.getByText("Erro ao salvar —")).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Tentar novamente" }));

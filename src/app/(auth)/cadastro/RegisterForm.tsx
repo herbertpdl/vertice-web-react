@@ -7,8 +7,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Checkbox, TextField } from "@/components/ui";
 import { register as registerTrainer } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/client";
-import { rateLimitedMessage } from "@/lib/api/rateLimit";
+import { apiErrorMessage } from "@/lib/api/errorMessages";
 import {
   PASSWORD_HELP_TEXT,
   registerSchema,
@@ -173,11 +172,7 @@ export function RegisterForm() {
   );
 }
 
+// A taken email or CPF is 409 CONFLICT: "E-mail ou CPF já cadastrado" (errorMessages.ts).
 function registerErrorMessage(error: unknown): string {
-  const rateLimited = rateLimitedMessage(error);
-  if (rateLimited) return rateLimited;
-  if (error instanceof ApiError && error.status === 409) {
-    return "Já existe uma conta com este e-mail ou CPF";
-  }
-  return error instanceof Error ? error.message : "Não foi possível criar a conta";
+  return apiErrorMessage(error, "Não foi possível criar a conta");
 }

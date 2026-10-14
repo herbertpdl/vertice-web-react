@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
+import { errorMessages } from "@/lib/api/errorMessages";
 import type { Exercise, FullWorkout, FullWorkoutExercise } from "@/lib/api/types";
 import { createAutosaveEngine, type AutosaveTransport } from "./autosave";
 import { emptyWorkout, fromFullWorkout } from "./model";
@@ -213,7 +214,7 @@ describe("new workout", () => {
     expect(engine.getState().offersClone).toBe(false);
   });
 
-  it("reverts the rejected batch on a 400 and keeps the message (E9)", async () => {
+  it("reverts the rejected batch on a 400 with fixed pt-BR copy, not upstream's text (E9)", async () => {
     const transport = makeTransport();
     transport.create = vi.fn(async () => { throw apiError("VALIDATION_ERROR", 400, "exercise_id: one or more referenced exercises do not exist"); });
     const engine = createAutosaveEngine({ planId: 7, workoutId: null, initial: emptyWorkout("MONDAY"), transport, delayMs: 100 });
@@ -223,7 +224,9 @@ describe("new workout", () => {
     const state = engine.getState();
     expect(state.draft.exercises).toHaveLength(0);
     expect(state.refusal?.kind).toBe("generic");
-    expect(state.refusal?.body).toContain("one or more referenced exercises do not exist");
+    expect(state.refusal?.body).toBe(
+      "A plataforma não aceitou esta alteração, então ela foi desfeita; o restante do treino continua sendo salvo automaticamente.",
+    );
     expect(state.status).toBe("idle");
   });
 
@@ -263,7 +266,7 @@ describe("new workout", () => {
     await vi.advanceTimersByTimeAsync(100);
     await settle();
     expect(engine.getState().status).toBe("error");
-    expect(engine.getState().errorMessage).toBe("day_of_week: invalid");
+    expect(engine.getState().errorMessage).toBe(errorMessages.VALIDATION_ERROR);
     expect(engine.getState().refusal).toBeNull();
     await vi.advanceTimersByTimeAsync(1000);
     await settle();
@@ -588,7 +591,7 @@ describe("existing workout", () => {
     const state = engine.getState();
     expect(transport.updateExercise).toHaveBeenCalledTimes(1);
     expect(state.status).toBe("error");
-    expect(state.errorMessage).toBe("Acesso negado");
+    expect(state.errorMessage).toBe(errorMessages.FORBIDDEN);
     expect(state.refusal).toBeNull();
     expect(state.draft.exercises[1].notes).toBe("Pegada aberta");
   });
@@ -606,7 +609,7 @@ describe("existing workout", () => {
     await vi.advanceTimersByTimeAsync(100);
     await settle();
     expect(engine.getState().status).toBe("error");
-    expect(engine.getState().errorMessage).toBe("Failed to fetch");
+    expect(engine.getState().errorMessage).toBe("Não foi possível salvar");
     expect(engine.getState().draft.exercises[0].sets).toHaveLength(3);
 
     // A further edit while in error just waits for the retry.
