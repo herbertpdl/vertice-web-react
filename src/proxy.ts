@@ -3,9 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 const SESSION_COOKIE = "vertice_session";
 const AUTH_PATHS = ["/login", "/cadastro"];
 const PROTECTED_PREFIXES = ["/dashboard", "/alunos", "/planos", "/exercicios"];
+// Reachable with or without a session: the first-access link a trainer shares may be opened in
+// a browser where someone (the trainer, testing it) is signed in.
+const PUBLIC_PATHS = ["/definir-senha"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (PUBLIC_PATHS.includes(pathname)) return NextResponse.next();
   const hasSession = request.cookies.has(SESSION_COOKIE);
 
   const isAuthPath = AUTH_PATHS.some((path) => pathname === path);
