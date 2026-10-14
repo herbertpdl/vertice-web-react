@@ -64,3 +64,6 @@ export function daysLeftLabel(daysLeft: number): string {
   if (daysLeft === 1) return "1 dia";
   return `${daysLeft} dias`;
 }
+
+// Deliberate type error to prove the CI gate fails (reverted in the next commit).
+export const ciGateProbe: number = "not a number";
