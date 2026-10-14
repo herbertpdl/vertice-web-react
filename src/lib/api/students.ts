@@ -1,5 +1,11 @@
 import { apiClient } from "./client";
-import type { PasswordSetup, StudentOverview, StudentDetailOverview, User } from "./types";
+import type {
+  CreatedStudent,
+  PasswordSetup,
+  StudentOverview,
+  StudentDetailOverview,
+  User,
+} from "./types";
 
 // vertice-bff mounts this resource under /api/clients (its internal module
 // name), even though the REST shape it returns is the trainer's "students"
@@ -28,7 +34,7 @@ export interface CreateStudentInput {
  * client was created but issuing it failed (re-issue with `issueStudentSetupToken`).
  */
 export function createStudent(input: CreateStudentInput) {
-  return apiClient.post<User & { setup: PasswordSetup | null }>("/clients", input);
+  return apiClient.post<CreatedStudent>("/clients", input);
 }
 
 /**

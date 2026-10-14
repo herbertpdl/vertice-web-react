@@ -26,3 +26,15 @@ export function rateLimitMessage(retryAfterSeconds?: number): string {
   const minutes = Math.ceil(retryAfterSeconds / 60);
   return `${prefix} Tente novamente em ${minutes} ${minutes === 1 ? "minuto" : "minutos"}.`;
 }
+
+/**
+ * The pt-BR message for a 429 RATE_LIMITED error (an ApiError with `retryAfter`), or `undefined`
+ * for any other error, so call sites can fall through to their own handling. Structural rather
+ * than `instanceof ApiError`: client.ts imports this module.
+ */
+export function rateLimitedMessage(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) return undefined;
+  const { status, retryAfter } = error as { status?: unknown; retryAfter?: unknown };
+  if (status !== 429) return undefined;
+  return rateLimitMessage(typeof retryAfter === "number" ? retryAfter : undefined);
+}

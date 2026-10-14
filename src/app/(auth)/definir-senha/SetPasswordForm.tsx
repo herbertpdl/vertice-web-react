@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, TextField } from "@/components/ui";
 import { setupPassword } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { rateLimitMessage } from "@/lib/api/rateLimit";
+import { rateLimitedMessage } from "@/lib/api/rateLimit";
 import {
   PASSWORD_HELP_TEXT,
   setPasswordSchema,
@@ -20,6 +20,15 @@ export function SetPasswordForm({ token }: { token: string }) {
   const [done, setDone] = useState(false);
   const [linkInvalid, setLinkInvalid] = useState(token === "");
   const [formError, setFormError] = useState<string | null>(null);
+
+  // The token is a live credential: drop it from the address bar (history, screenshots, shoulder
+  // surfing) once the page has it. Native replaceState syncs with the App Router without a
+  // navigation, so this server-rendered `token` prop is kept.
+  useEffect(() => {
+    if (window.location.search) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   const {
     register,
@@ -43,10 +52,10 @@ export function SetPasswordForm({ token }: { token: string }) {
     } catch (error) {
       if (error instanceof ApiError && error.code === "INVALID_SETUP_TOKEN") {
         setLinkInvalid(true);
-      } else if (error instanceof ApiError && error.status === 429) {
-        setFormError(rateLimitMessage(error.retryAfter));
       } else {
-        setFormError("Não foi possível definir a senha. Tente novamente.");
+        setFormError(
+          rateLimitedMessage(error) ?? "Não foi possível definir a senha. Tente novamente.",
+        );
       }
     }
   }

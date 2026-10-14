@@ -6,12 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Dialog, DialogFooter, TextField } from "@/components/ui";
 import { createStudent, issueStudentSetupToken } from "@/lib/api/students";
-import type { PasswordSetup, User } from "@/lib/api/types";
+import type { CreatedStudent } from "@/lib/api/types";
 import { studentSchema, type StudentInput } from "@/lib/validation/students";
 import { maskCpf } from "@/lib/masks/cpf";
 import { onlyDigits } from "@/lib/validation/cpf";
 import { ApiError } from "@/lib/api/client";
-import { rateLimitMessage } from "@/lib/api/rateLimit";
+import { rateLimitedMessage } from "@/lib/api/rateLimit";
 import { StudentAccessLink } from "../StudentAccessLink";
 
 export interface NewStudentDialogApi {
@@ -34,7 +34,7 @@ export function NewStudentDialog({
 }) {
   const queryClient = useQueryClient();
   // Once created, the dialog shows the client's first-access link instead of the form.
-  const [created, setCreated] = useState<(User & { setup: PasswordSetup | null }) | null>(null);
+  const [created, setCreated] = useState<CreatedStudent | null>(null);
   const {
     register,
     handleSubmit,
@@ -61,12 +61,10 @@ export function NewStudentDialog({
         setError("email", { message: "Já existe um aluno com este e-mail ou CPF" });
         return;
       }
-      if (error instanceof ApiError && error.status === 429) {
-        setError("root", { message: rateLimitMessage(error.retryAfter) });
-        return;
-      }
       setError("root", {
-        message: error instanceof Error ? error.message : "Não foi possível criar o aluno",
+        message:
+          rateLimitedMessage(error) ??
+          (error instanceof Error ? error.message : "Não foi possível criar o aluno"),
       });
     },
   });

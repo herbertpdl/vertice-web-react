@@ -15,6 +15,11 @@ export interface PasswordSetup {
   expiresAt: string;
 }
 
+/** `POST /clients`: the new client plus their first-access token (`null` if issuing it failed). */
+export interface CreatedStudent extends User {
+  setup: PasswordSetup | null;
+}
+
 export interface CurrentPlanInfo {
   id: number;
   name: string;

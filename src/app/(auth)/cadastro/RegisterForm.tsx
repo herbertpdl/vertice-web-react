@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Checkbox, TextField } from "@/components/ui";
 import { register as registerTrainer } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { rateLimitMessage } from "@/lib/api/rateLimit";
+import { rateLimitedMessage } from "@/lib/api/rateLimit";
 import {
   PASSWORD_HELP_TEXT,
   registerSchema,
@@ -174,9 +174,10 @@ export function RegisterForm() {
 }
 
 function registerErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 429) return rateLimitMessage(error.retryAfter);
-    if (error.status === 409) return "Já existe uma conta com este e-mail ou CPF";
+  const rateLimited = rateLimitedMessage(error);
+  if (rateLimited) return rateLimited;
+  if (error instanceof ApiError && error.status === 409) {
+    return "Já existe uma conta com este e-mail ou CPF";
   }
   return error instanceof Error ? error.message : "Não foi possível criar a conta";
 }

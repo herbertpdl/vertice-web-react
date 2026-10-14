@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseRetryAfter, rateLimitMessage } from "./rateLimit";
+import { ApiError } from "./client";
+import { parseRetryAfter, rateLimitedMessage, rateLimitMessage } from "./rateLimit";
 
 describe("parseRetryAfter", () => {
   it("reads delta-seconds", () => {
@@ -34,5 +35,22 @@ describe("rateLimitMessage", () => {
     expect(rateLimitMessage(60)).toBe("Muitas tentativas. Tente novamente em 1 minuto.");
     expect(rateLimitMessage(61)).toBe("Muitas tentativas. Tente novamente em 2 minutos.");
     expect(rateLimitMessage(900)).toBe("Muitas tentativas. Tente novamente em 15 minutos.");
+  });
+});
+
+describe("rateLimitedMessage", () => {
+  it("returns the message for a 429 ApiError, using its retryAfter", () => {
+    expect(
+      rateLimitedMessage(new ApiError({ code: "RATE_LIMITED", message: "x" }, 429, 120)),
+    ).toBe("Muitas tentativas. Tente novamente em 2 minutos.");
+    expect(rateLimitedMessage(new ApiError({ code: "RATE_LIMITED", message: "x" }, 429))).toBe(
+      "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    );
+  });
+
+  it("returns undefined for anything else", () => {
+    expect(rateLimitedMessage(new ApiError({ code: "CONFLICT", message: "x" }, 409))).toBeUndefined();
+    expect(rateLimitedMessage(new Error("boom"))).toBeUndefined();
+    expect(rateLimitedMessage(null)).toBeUndefined();
   });
 });
