@@ -25,7 +25,8 @@ function decoded(value: string): string | undefined {
  * `value` as a path on `origin` (pathname + search + hash), or `/dashboard` unless it is one:
  * exactly one leading `/` (not `//` or `/\`), no scheme, no control characters, and it resolves
  * to `origin`. The percent-decoded form must pass the same checks, so a consumer that decodes
- * once more (`/%2F%2Fevil.example`) can't turn it into another host either.
+ * once more (`/%2F%2Fevil.example`) can't turn it into another host either, and so must the
+ * resolved path that is returned (dot segments can collapse `/.//evil` into `//evil`).
  */
 export function safeRedirectPath(value: string | null | undefined, origin: string): string {
   if (!value) return DEFAULT_REDIRECT;
@@ -39,5 +40,12 @@ export function safeRedirectPath(value: string | null | undefined, origin: strin
     return DEFAULT_REDIRECT;
   }
   if (url.origin !== new URL(origin).origin) return DEFAULT_REDIRECT;
-  return `${url.pathname}${url.search}${url.hash}`;
+  // Check the output too: dot segments resolve away, so "/.//evil.example", "/a/..//evil" and
+  // "/%2e%2e/%2e%2e//evil" all come out as "//evil...", which the router reads as another host.
+  const result = `${url.pathname}${url.search}${url.hash}`;
+  const plainResult = decoded(url.pathname);
+  if (plainResult === undefined || !isLocalPath(url.pathname) || !isLocalPath(plainResult)) {
+    return DEFAULT_REDIRECT;
+  }
+  return result;
 }

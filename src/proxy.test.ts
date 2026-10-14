@@ -43,6 +43,9 @@ describe("proxy: route guard and redirect", () => {
     "/%2F%2Fevil.example",
     "/%09/evil.example",
     "javascript:alert(1)",
+    "/.//evil.example",
+    "/a/..//evil",
+    "/%2e%2e/%2e%2e//evil",
   ])("sends a signed-in visit to /login?redirect=%s to /dashboard", (redirect) => {
     const res = visit(`/login?redirect=${encodeURIComponent(redirect)}`, { session: true });
     expect(location(res)).toBe("https://app.vertice.test/dashboard");
