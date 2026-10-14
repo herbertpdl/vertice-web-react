@@ -1,8 +1,27 @@
 import { z } from "zod";
-import { isValidCpf } from "./cpf";
+import { isValidCpf, onlyDigits } from "./cpf";
+
+// vertice-api's password policy, mirrored by the BFF: at least 8 characters, at most 72 UTF-8
+// bytes (bcrypt's input limit), not blank. Applies wherever a password is chosen, not to login
+// (accounts may predate the policy).
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_BYTES = 72;
+
+const utf8Length = (value: string) => new TextEncoder().encode(value).length;
+
+export const newPasswordSchema = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, `A senha deve ter no mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
+  .refine((value) => utf8Length(value) <= PASSWORD_MAX_BYTES, "A senha é longa demais")
+  .refine((value) => value.trim().length > 0, "A senha não pode ser só espaços");
+
+export const PASSWORD_HELP_TEXT = `Mínimo de ${PASSWORD_MIN_LENGTH} caracteres.`;
+
+const emailSchema = z.string().min(1, "Informe o e-mail").email("E-mail inválido");
+const cpfSchema = z.string().min(1, "Informe o CPF").refine(isValidCpf, "CPF inválido");
 
 export const loginSchema = z.object({
-  email: z.string().min(1, "Informe o e-mail").email("E-mail inválido"),
+  email: emailSchema,
   password: z.string().min(1, "Informe a senha"),
   remember: z.boolean(),
 });
@@ -12,13 +31,10 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const registerSchema = z
   .object({
     name: z.string().min(1, "Informe o nome"),
-    email: z.string().min(1, "Informe o e-mail").email("E-mail inválido"),
-    cpf: z
-      .string()
-      .min(1, "Informe o CPF")
-      .refine(isValidCpf, "CPF inválido"),
+    email: emailSchema,
+    cpf: cpfSchema,
     cref: z.string().optional(),
-    password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
+    password: newPasswordSchema,
     confirmPassword: z.string().min(1, "Confirme a senha"),
     terms: z.literal(true, {
       message: "É necessário aceitar os termos de uso",
@@ -30,3 +46,34 @@ export const registerSchema = z
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+// What the browser posts to this app's /api/auth/* route handlers, re-checked server-side before
+// anything is sent to the BFF. Unknown keys (e.g. a `role`) are stripped.
+
+export const loginRequestSchema = loginSchema.extend({ remember: z.boolean().optional() });
+
+export const registerRequestSchema = z.object({
+  name: z.string().trim().min(1),
+  email: emailSchema,
+  cpf: cpfSchema.transform(onlyDigits),
+  cref: z.string().optional(),
+  password: newPasswordSchema,
+  remember: z.boolean().optional(),
+});
+
+export const setPasswordSchema = z
+  .object({
+    newPassword: newPasswordSchema,
+    confirmPassword: z.string().min(1, "Confirme a senha"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
+
+export type SetPasswordInput = z.infer<typeof setPasswordSchema>;
+
+export const passwordSetupRequestSchema = z.object({
+  token: z.string().min(1).max(512),
+  newPassword: newPasswordSchema,
+});

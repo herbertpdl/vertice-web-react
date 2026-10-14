@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { MetricCard } from "@/components/ui";
+import { Button, Dialog, DialogFooter, MetricCard } from "@/components/ui";
 import { Avatar } from "@/components/domain/Avatar";
+import { StudentAccessLink } from "@/components/domain/StudentAccessLink";
 import { fetchStudentOverview } from "@/lib/api/students";
 import { fetchFeedback } from "@/lib/api/feedback";
 import { planLevelLabels } from "@/lib/validation/trainingPlans";
@@ -19,6 +20,7 @@ type Tab = "plans" | "feedback" | "progress";
 
 export function StudentDetailContent({ studentId }: { studentId: number }) {
   const [tab, setTab] = useState<Tab>("plans");
+  const [accessLinkOpen, setAccessLinkOpen] = useState(false);
 
   const { data, isPending, error } = useQuery({
     queryKey: ["student", studentId, "overview"],
@@ -72,7 +74,24 @@ export function StudentDetailContent({ studentId }: { studentId: number }) {
             </div>
           </div>
         </div>
+        {/* For a client who hasn't set a password yet (or whose link expired). */}
+        <Button type="button" variant="outline" onClick={() => setAccessLinkOpen(true)}>
+          Link de acesso
+        </Button>
       </div>
+
+      {accessLinkOpen && (
+        <Dialog title="Link de acesso" onClose={() => setAccessLinkOpen(false)}>
+          <div className="flex w-full flex-col gap-[var(--space-4)]">
+            <StudentAccessLink studentId={studentId} setup={null} />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAccessLinkOpen(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </div>
+        </Dialog>
+      )}
 
       <div className="flex w-full gap-[var(--space-4)]">
         <MetricCard

@@ -1,5 +1,12 @@
 import { ApiError } from "@/lib/api/client";
-import type { Exercise, FullWorkout, MuscleGroup, RecentWorkoutSummary } from "@/lib/api/types";
+import type {
+  Exercise,
+  FullWorkout,
+  MuscleGroup,
+  PasswordSetup,
+  RecentWorkoutSummary,
+  User,
+} from "@/lib/api/types";
 import type { AutosaveTransport } from "@/lib/workoutEditor/autosave";
 import type { EditorExercise, EditorSet } from "@/lib/workoutEditor/model";
 
@@ -261,3 +268,17 @@ export function fakeTransport(options: FakeTransportOptions = {}): FakeTransport
     },
   };
 }
+
+/** A first-access token as `POST /clients` returns it (shown once, expires in 72h). */
+export const studentSetup: PasswordSetup = {
+  token: "q2Zt8kV0b1xWmN4pR7sYcE3hJ6uA9dLfG5oTiK8wBzM",
+  expiresAt: "2026-10-16T18:00:00Z",
+};
+
+export const newStudent: User = {
+  id: 42,
+  name: "Marina Costa",
+  email: "marina@email.com",
+  cpf: "52998224725",
+  role: "CLIENT",
+};

@@ -1,4 +1,5 @@
 import type { ApiErrorBody } from "./types";
+import { parseRetryAfter } from "./rateLimit";
 
 // Guards against every in-flight request independently kicking off its own
 // logout+redirect when a 401 arrives (e.g. auth/me and dashboard failing together).
@@ -8,14 +9,27 @@ export class ApiError extends Error {
   code: string;
   details?: unknown;
   status: number;
+  /** Seconds to wait, from `Retry-After` (sent with 429 RATE_LIMITED). */
+  retryAfter?: number;
 
-  constructor(body: ApiErrorBody["error"], status: number) {
+  constructor(body: ApiErrorBody["error"], status: number, retryAfter?: number) {
     super(body.message);
     this.name = "ApiError";
     this.code = body.code;
     this.details = body.details;
     this.status = status;
+    this.retryAfter = retryAfter;
   }
+}
+
+/** Builds the ApiError for a failed response whose (possibly empty) body is already parsed. */
+export function apiErrorFrom(res: Response, data: unknown): ApiError {
+  const body = data as ApiErrorBody | undefined;
+  return new ApiError(
+    body?.error ?? { code: "UNKNOWN_ERROR", message: "Something went wrong" },
+    res.status,
+    parseRetryAfter(res.headers.get("Retry-After")),
+  );
 }
 
 async function request<T>(
@@ -42,11 +56,7 @@ async function request<T>(
   const data = text ? JSON.parse(text) : undefined;
 
   if (!res.ok) {
-    const body = data as ApiErrorBody;
-    const error = new ApiError(
-      body?.error ?? { code: "UNKNOWN_ERROR", message: "Something went wrong" },
-      res.status,
-    );
+    const error = apiErrorFrom(res, data);
     if (res.status === 401 && typeof window !== "undefined" && !loggingOut) {
       loggingOut = true;
       // Plain module-level function, not a component - no router available.

@@ -15,14 +15,20 @@ export default defineConfig({
   test: {
     projects: [
       {
-        // Plain unit tests (no browser): pure modules under src/lib.
+        // Plain unit tests (no browser): pure modules under src/lib and route handlers under
+        // src/app/api (called directly with a Request; tests mock fetch and the session).
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/lib/**/*.test.ts'],
+          include: ['src/lib/**/*.test.ts', 'src/app/api/**/*.test.ts'],
         },
         resolve: {
-          alias: { '@': path.join(dirname, 'src') },
+          alias: {
+            '@': path.join(dirname, 'src'),
+            // Next resolves `server-only` to its own copy at build time; outside Next it would
+            // throw, so tests get the no-op version.
+            'server-only': path.join(dirname, 'node_modules/next/dist/compiled/server-only/empty.js'),
+          },
         },
       },
       {
