@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,8 +24,21 @@ const defaultApi: ExerciseDialogApi = {
   remove: deleteExercise,
 };
 
+/**
+ * 403 on an edit/delete the UI offered means the row was stale (e.g. the list predates a change
+ * made elsewhere): the caller refreshes the list so the affordance disappears, and says so in
+ * fixed pt-BR copy.
+ */
+function isForbidden(error: unknown) {
+  return error instanceof ApiError && error.code === "FORBIDDEN";
+}
+
 interface ExerciseDialogProps {
-  /** Only ever the trainer's own exercise (`isStarter: false`): the catalog row gates editing. */
+  /**
+   * Only ever the trainer's own exercise (`isStarter: false`): the catalog row gates editing.
+   * A trainer's list holds the starter set plus their own exercises only, so `!isStarter` means
+   * "owned by the caller"; the payload carries no owner id.
+   */
   exercise?: Exercise;
   onClose: () => void;
   onCreated?: (exercise: Exercise) => void;
@@ -41,6 +54,9 @@ export function ExerciseDialog({
 }: ExerciseDialogProps) {
   const queryClient = useQueryClient();
   const isEditing = Boolean(exercise);
+  // Defensive: a starter row never reaches this dialog through the UI (R28), but if it did, it
+  // gets no Excluir.
+  const canDelete = Boolean(exercise && !exercise.isStarter);
 
   const groups = useQuery({
     queryKey: muscleGroupsQueryKey,
@@ -71,6 +87,26 @@ export function ExerciseDialog({
   const [rootError, setRootError] = useState<string | null>(null);
   // Delete refused because a workout uses the exercise (409 PRECONDITION_FAILED, R34).
   const [refused, setRefused] = useState(false);
+  // Excluir first asks for confirmation; the delete only runs from that step.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // The form's Excluir, focused again when the confirmation step goes back to the form.
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const refocusDeleteRef = useRef(false);
+
+  // `Dialog` re-runs its focus effect (and so re-focuses "Fechar") whenever `onClose` changes
+  // identity, so both steps get a stable `onClose` that reads the latest values from refs. This is
+  // for correctness, not for memoization, which the React Compiler handles.
+  const onCloseRef = useRef(onClose);
+  const deletePendingRef = useRef(false);
+  // Set synchronously on the confirm click: `isPending` only shows up a render later, so a second
+  // activation in between would otherwise start a second delete.
+  const submittingRef = useRef(false);
+  const closeForm = useCallback(() => onCloseRef.current(), []);
+  const cancelDelete = useCallback(() => {
+    if (deletePendingRef.current) return;
+    refocusDeleteRef.current = true;
+    setConfirmingDelete(false);
+  }, []);
 
   const saveMutation = useMutation({
     mutationFn: (data: ExerciseFormInput) =>
@@ -81,25 +117,96 @@ export function ExerciseDialog({
       onClose();
     },
     // The server's message is English: the screen only ever shows fixed pt-BR copy.
-    onError: () => setRootError("Não foi possível salvar o exercício"),
+    onError: (error) => {
+      if (isEditing && isForbidden(error)) {
+        queryClient.invalidateQueries({ queryKey: ["exercises"] });
+        setRootError("Você não tem permissão para alterar este exercício");
+      } else setRootError("Não foi possível salvar o exercício");
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => api.remove(exercise!.id),
+    onSettled: () => {
+      submittingRef.current = false;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
       onClose();
     },
     onError: (error) => {
+      // Back to the form, where the refusal or error is shown.
+      refocusDeleteRef.current = true;
+      setConfirmingDelete(false);
       // Keyed on the code, not the status: 409 is also CONFLICT. The upstream
       // message is English and is not rendered.
       if (error instanceof ApiError && error.code === "PRECONDITION_FAILED") setRefused(true);
-      else setRootError("Não foi possível excluir o exercício");
+      else if (isForbidden(error)) {
+        queryClient.invalidateQueries({ queryKey: ["exercises"] });
+        setRootError("Você não tem permissão para excluir este exercício");
+      } else setRootError("Não foi possível excluir o exercício");
     },
   });
 
+  // Layout effect: the refs are current before any event can reach the committed DOM.
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+    deletePendingRef.current = deleteMutation.isPending;
+  });
+
+  // Runs after the remounted form `Dialog`'s own effect (child effects run first), which focused
+  // "Fechar": hand focus back to the Excluir that opened the confirmation step.
+  useEffect(() => {
+    if (confirmingDelete || !refocusDeleteRef.current) return;
+    refocusDeleteRef.current = false;
+    deleteButtonRef.current?.focus();
+  }, [confirmingDelete]);
+
+  if (confirmingDelete && exercise) {
+    return (
+      <Dialog key="confirm-delete" title="Excluir exercício?" onClose={cancelDelete}>
+        <p className="text-[length:var(--text-base)] leading-[1.5] text-[color:var(--color-text-secondary)]">
+          <span className="font-semibold text-[color:var(--color-text-primary)]">
+            {exercise.name}
+          </span>{" "}
+          será removido do seu catálogo. Esta ação não pode ser desfeita.
+        </p>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={cancelDelete}
+            disabled={deleteMutation.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            loading={deleteMutation.isPending}
+            // `loading` alone leaves the button keyboard-activatable: Enter/Space would delete twice.
+            disabled={deleteMutation.isPending}
+            onClick={() => {
+              if (submittingRef.current) return;
+              submittingRef.current = true;
+              setRootError(null);
+              setRefused(false);
+              deleteMutation.mutate();
+            }}
+          >
+            Excluir exercício
+          </Button>
+        </DialogFooter>
+      </Dialog>
+    );
+  }
+
   return (
-    <Dialog title={isEditing ? "Editar exercício" : "Novo exercício"} onClose={onClose}>
+    <Dialog
+      key="form"
+      title={isEditing ? "Editar exercício" : "Novo exercício"}
+      onClose={closeForm}
+    >
       <form
         onSubmit={handleSubmit((data) => {
           setRootError(null);
@@ -181,16 +288,12 @@ export function ExerciseDialog({
           {...register("videoUrl")}
         />
         <DialogFooter>
-          {isEditing && (
+          {canDelete && (
             <Button
+              ref={deleteButtonRef}
               type="button"
               variant="danger"
-              loading={deleteMutation.isPending}
-              onClick={() => {
-                setRootError(null);
-                setRefused(false);
-                deleteMutation.mutate();
-              }}
+              onClick={() => setConfirmingDelete(true)}
               className="mr-auto"
             >
               Excluir
