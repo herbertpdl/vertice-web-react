@@ -123,7 +123,9 @@ student/plan/workout, or a deleted one).
 
 This app runs natively only — there is no `Dockerfile` — since it's the piece of the stack most
 affected by slow Docker image rebuilds/caching. It runs on Node 22: `.nvmrc` says `22` (CI reads
-it) and `package.json` has `"engines": { "node": ">=22 <23" }` (npm warns on other versions). It needs `vertice-bff` on `:3000` (which in turn needs
+it) and `package.json` has `"engines": { "node": ">=22 <23" }` (npm warns on other versions).
+Update `package-lock.json` with Node 22's npm 10 (`npx npm@10 install …` on a newer Node): npm 11
+drops some optional wasm entries that npm 10's `npm ci` in CI then reports as missing. It needs `vertice-bff` on `:3000` (which in turn needs
 `vertice-api`); see the sibling `vertice-local` repo for bringing the rest of the stack up.
 `BFF_URL` overrides the BFF base URL (default `http://localhost:3000`).
 
