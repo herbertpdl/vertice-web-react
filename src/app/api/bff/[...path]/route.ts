@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { bffHeaders, bffUrl, relayBffResponse } from "@/lib/bff";
+import { bffHeaders, bffProxyPath, bffUrl, relayBffResponse } from "@/lib/bff";
+import { guardApiRequest, unsupportedMediaType } from "@/lib/requestGuard";
 import { getSessionToken } from "@/lib/session";
 
 async function proxy(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
-  const { path } = await params;
-  const token = await getSessionToken();
+  const refused = guardApiRequest(request, "optional-json");
+  if (refused) return refused;
 
+  const { path } = await params;
+  const upstream = bffProxyPath(path);
+  if (!upstream) {
+    return NextResponse.json(
+      { error: { code: "VALIDATION_ERROR", message: "Invalid path" } },
+      { status: 400 },
+    );
+  }
+
+  const token = await getSessionToken();
   if (!token) {
     return NextResponse.json(
       { error: { code: "UNAUTHENTICATED", message: "Not signed in" } },
@@ -16,8 +27,11 @@ async function proxy(
     );
   }
 
-  const target = `${bffUrl(`/${path.join("/")}`)}${request.nextUrl.search}`;
+  const target = `${bffUrl(upstream)}${request.nextUrl.search}`;
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
+  const body = hasBody ? await request.text() : undefined;
+  // A body with no Content-Type at all (a cross-site `fetch` of an untyped Blob) is not JSON either.
+  if (body && !request.headers.has("content-type")) return unsupportedMediaType();
 
   const res = await fetch(target, {
     method: request.method,
@@ -25,7 +39,7 @@ async function proxy(
       Authorization: `Bearer ${token}`,
       ...(hasBody ? { "Content-Type": "application/json" } : {}),
     }),
-    body: hasBody ? await request.text() : undefined,
+    body,
   });
 
   return relayBffResponse(res);

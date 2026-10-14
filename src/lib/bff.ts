@@ -7,6 +7,32 @@ export function bffUrl(path: string): string {
   return `${serverEnv().bffUrl}/api${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+function decoded(segment: string): string | undefined {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The upstream path for `segments` (`/clients/4`), each one percent-encoded, or `undefined` when a
+ * segment could step out of the path it names: empty, `.`, `..`, or containing `/` or `\` once
+ * decoded. Next hands the route already-decoded segments (`..%2Fhealth` arrives as `../health`);
+ * the second decode catches double-encoding (`..%252Fhealth`).
+ */
+export function bffProxyPath(segments: string[]): string | undefined {
+  const encoded: string[] = [];
+  for (const segment of segments) {
+    const plain = decoded(segment) ?? segment;
+    for (const form of [segment, plain]) {
+      if (form === "" || form === "." || form === ".." || /[/\\]/.test(form)) return undefined;
+    }
+    encoded.push(encodeURIComponent(segment));
+  }
+  return `/${encoded.join("/")}`;
+}
+
 /**
  * Headers every server-side BFF call carries: `extra` plus `X-Forwarded-For` with the browser's
  * address (one entry), so the BFF's per-IP rate limits see each web user rather than this server. See

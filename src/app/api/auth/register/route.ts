@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from "@/lib/bff";
+import { guardApiRequest } from "@/lib/requestGuard";
 import { setSession } from "@/lib/session";
 import { registerRequestSchema } from "@/lib/validation/auth";
 
 // Public sign-up is for trainers only: clients are created by their trainer (POST /clients).
 // The role is set here, never taken from the browser.
 export async function POST(request: NextRequest) {
+  const refused = guardApiRequest(request, "json");
+  if (refused) return refused;
+
   const parsed = registerRequestSchema.safeParse(await readJson(request));
   if (!parsed.success) return validationError();
   const { name, email, cpf, cref, password, remember } = parsed.data;

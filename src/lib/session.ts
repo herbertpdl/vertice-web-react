@@ -10,7 +10,11 @@ export async function setSession(token: string, remember: boolean) {
   store.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: serverEnv().isProduction,
-    sameSite: "lax",
+    // Strict: no cross-site request carries the session, not even a top-level navigation from a
+    // link in another site. Nothing needs it to: /definir-senha (the one link sent outside the
+    // app) is public, and the login that follows it is a same-site request. The cost is that a
+    // link to a signed-in page opened from another site (an email, a chat) shows /login once.
+    sameSite: "strict",
     path: "/",
     ...(remember ? { maxAge: REMEMBER_ME_MAX_AGE } : {}),
   });

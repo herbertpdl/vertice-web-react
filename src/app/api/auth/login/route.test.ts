@@ -9,10 +9,13 @@ import { resetServerEnvForTests } from "@/lib/env.server";
 
 const fetchMock = vi.fn<typeof fetch>();
 
+// What a browser sends on a fetch from this app's own pages (see src/lib/requestGuard.ts).
+const SAME_ORIGIN = { Origin: "http://web.test", "Sec-Fetch-Site": "same-origin" };
+
 function post(body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest("http://web.test/api/auth/login", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
+    headers: { ...SAME_ORIGIN, "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -116,5 +119,59 @@ describe("POST /api/auth/login", () => {
     await POST(post({ email: "ana@example.com", password: "x" }));
     const headers = fetchMock.mock.calls[0][1]!.headers as Record<string, string>;
     expect(headers).not.toHaveProperty("X-Forwarded-For");
+  });
+
+  it("refuses a cross-origin text/plain form post with 403 (login CSRF)", async () => {
+    // What `<form enctype="text/plain" action="https://app/api/auth/login">` on another site sends.
+    const res = await POST(
+      new NextRequest("http://web.test/api/auth/login", {
+        method: "POST",
+        headers: {
+          Origin: "https://evil.example",
+          "Sec-Fetch-Site": "cross-site",
+          "Content-Type": "text/plain",
+        },
+        body: '{"email":"attacker@example.com","password":"x","x":"="}',
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).error.code).toBe("FORBIDDEN");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("refuses a POST with no Origin with 403", async () => {
+    const res = await POST(
+      new NextRequest("http://web.test/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "ana@example.com", password: "x" }),
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a same-origin body that isn't JSON with 415", async () => {
+    const res = await POST(
+      post({ email: "ana@example.com", password: "x" }, { "Content-Type": "text/plain" }),
+    );
+    expect(res.status).toBe(415);
+    expect((await res.json()).error.code).toBe("UNSUPPORTED_MEDIA_TYPE");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("relays a non-JSON upstream error body as-is, without a session", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("<html>Bad Gateway</html>", {
+        status: 502,
+        headers: { "Content-Type": "text/html" },
+      }),
+    );
+    const res = await POST(post({ email: "ana@example.com", password: "x" }));
+    expect(res.status).toBe(502);
+    expect(res.headers.get("Content-Type")).toBe("text/html");
+    expect(await res.text()).toBe("<html>Bad Gateway</html>");
+    expect(setSession).not.toHaveBeenCalled();
   });
 });

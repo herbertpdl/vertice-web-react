@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from "@/lib/bff";
+import { guardApiRequest } from "@/lib/requestGuard";
 import { setSession } from "@/lib/session";
 import { loginRequestSchema } from "@/lib/validation/auth";
 
 export async function POST(request: NextRequest) {
+  const refused = guardApiRequest(request, "json");
+  if (refused) return refused;
+
   const parsed = loginRequestSchema.safeParse(await readJson(request));
   if (!parsed.success) return validationError();
   const { email, password, remember } = parsed.data;

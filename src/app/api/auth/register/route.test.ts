@@ -9,6 +9,9 @@ import { resetServerEnvForTests } from "@/lib/env.server";
 
 const fetchMock = vi.fn<typeof fetch>();
 
+// What a browser sends on a fetch from this app's own pages (see src/lib/requestGuard.ts).
+const SAME_ORIGIN = { Origin: "http://web.test", "Sec-Fetch-Site": "same-origin" };
+
 const validBody = {
   name: "Ana Ribeiro",
   email: "ana@example.com",
@@ -21,7 +24,7 @@ const validBody = {
 function post(body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest("http://web.test/api/auth/register", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
+    headers: { ...SAME_ORIGIN, "Content-Type": "application/json", ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
@@ -107,5 +110,33 @@ describe("POST /api/auth/register", () => {
     await POST(post(validBody, { "X-Forwarded-For": "6.6.6.6, 203.0.113.7" }));
     const headers = fetchMock.mock.calls[0][1]!.headers as Record<string, string>;
     expect(headers["X-Forwarded-For"]).toBe("203.0.113.7");
+  });
+
+  it("refuses a cross-origin request with 403 before calling the BFF", async () => {
+    const res = await POST(
+      new NextRequest("http://web.test/api/auth/register", {
+        method: "POST",
+        headers: {
+          Origin: "https://evil.example",
+          "Sec-Fetch-Site": "cross-site",
+          "Content-Type": "text/plain",
+        },
+        body: JSON.stringify(validBody),
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a body that isn't JSON with 415 before calling the BFF", async () => {
+    const res = await POST(
+      new NextRequest("http://web.test/api/auth/register", {
+        method: "POST",
+        headers: { ...SAME_ORIGIN, "Content-Type": "application/x-www-form-urlencoded" },
+        body: "token=tok",
+      }),
+    );
+    expect(res.status).toBe(415);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
