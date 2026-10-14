@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkBootConfig } from "./bootChecks";
+import { resetServerEnvForTests } from "@/lib/env.server";
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  resetServerEnvForTests();
   vi.restoreAllMocks();
 });
 

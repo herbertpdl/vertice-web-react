@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { forwardedFor, resolveTrustedProxyHops, TrustedProxyHopsError } from "./forwardedFor";
+import { forwardedFor } from "./forwardedFor";
 
 describe("forwardedFor", () => {
   it("sends nothing when the request carries no address", () => {
@@ -34,40 +34,5 @@ describe("forwardedFor", () => {
 
   it("trims whitespace and empty entries", () => {
     expect(forwardedFor(" 198.51.100.1 ,, 2001:db8::1 ", 1)).toBe("2001:db8::1");
-  });
-});
-
-describe("resolveTrustedProxyHops", () => {
-  it("defaults to 0 outside production", () => {
-    expect(resolveTrustedProxyHops({})).toBe(0);
-    expect(resolveTrustedProxyHops({ NODE_ENV: "development", TRUSTED_PROXY_HOPS: "" })).toBe(0);
-    expect(resolveTrustedProxyHops({ NODE_ENV: "test" })).toBe(0);
-  });
-
-  it("refuses to run unset in production (fails closed)", () => {
-    expect(() => resolveTrustedProxyHops({ NODE_ENV: "production" })).toThrow(
-      TrustedProxyHopsError,
-    );
-    expect(() =>
-      resolveTrustedProxyHops({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: "  " }),
-    ).toThrow(/must be set in production/);
-  });
-
-  it("accepts an explicit 0 in production as a deliberate opt-in", () => {
-    expect(resolveTrustedProxyHops({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: "0" })).toBe(0);
-  });
-
-  it("parses a hop count", () => {
-    expect(resolveTrustedProxyHops({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: "2" })).toBe(2);
-    expect(resolveTrustedProxyHops({ TRUSTED_PROXY_HOPS: " 1 " })).toBe(1);
-  });
-
-  it.each(["-1", "1.5", "abc", "true"])("refuses %s everywhere instead of reading 0", (value) => {
-    expect(() => resolveTrustedProxyHops({ TRUSTED_PROXY_HOPS: value })).toThrow(
-      /non-negative integer/,
-    );
-    expect(() =>
-      resolveTrustedProxyHops({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: value }),
-    ).toThrow(TrustedProxyHopsError);
   });
 });

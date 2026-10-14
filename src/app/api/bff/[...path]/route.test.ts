@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 vi.mock("@/lib/session", () => ({ getSessionToken: vi.fn(async () => "jwt") }));
 
 import { DELETE, GET, POST } from "./route";
+import { resetServerEnvForTests } from "@/lib/env.server";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -23,6 +24,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  resetServerEnvForTests();
   fetchMock.mockReset();
 });
 
