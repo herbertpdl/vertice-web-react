@@ -201,6 +201,8 @@ export const DeletePending: Story = {
     await confirmDelete(canvas, userEvent);
     const confirm = canvas.getByRole("button", { name: "Excluir exercício" });
     await waitFor(() => expect(confirm).toBeDisabled());
+    // `isPending` flipping must not re-run Dialog's focus effect (unstable `onClose`).
+    await expect(canvas.getByRole("button", { name: "Fechar" })).not.toHaveFocus();
     await expect(canvas.getByRole("button", { name: "Cancelar" })).toBeDisabled();
     await userEvent.keyboard("{Enter}");
     await userEvent.keyboard(" ");
@@ -245,6 +247,7 @@ export const DeleteRefusedInUse: Story = {
     await expect(document.body).not.toHaveTextContent(IN_USE_MESSAGE);
     await expect(canvas.queryByText("Não foi possível excluir o exercício")).toBeNull();
     await expect(canvas.getByRole("button", { name: "Excluir" })).toBeEnabled();
+    await waitFor(() => expect(canvas.getByRole("button", { name: "Excluir" })).toHaveFocus());
     await expect(args.onClose).not.toHaveBeenCalled();
   },
 };
@@ -264,6 +267,7 @@ export const DeleteFailedGeneric: Story = {
   play: async ({ canvas, userEvent, args }) => {
     await confirmDelete(canvas, userEvent);
     await expect(await canvas.findByText("Não foi possível excluir o exercício")).toBeVisible();
+    await waitFor(() => expect(canvas.getByRole("button", { name: "Excluir" })).toHaveFocus());
     await expect(canvas.queryByRole("alert")).toBeNull();
     await expect(canvas.queryByText("Exercise 7 not found")).toBeNull();
     await expect(args.onClose).not.toHaveBeenCalled();

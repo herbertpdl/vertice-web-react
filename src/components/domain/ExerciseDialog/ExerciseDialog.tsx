@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -98,6 +98,9 @@ export function ExerciseDialog({
   // for correctness, not for memoization, which the React Compiler handles.
   const onCloseRef = useRef(onClose);
   const deletePendingRef = useRef(false);
+  // Set synchronously on the confirm click: `isPending` only shows up a render later, so a second
+  // activation in between would otherwise start a second delete.
+  const submittingRef = useRef(false);
   const closeForm = useCallback(() => onCloseRef.current(), []);
   const cancelDelete = useCallback(() => {
     if (deletePendingRef.current) return;
@@ -124,6 +127,9 @@ export function ExerciseDialog({
 
   const deleteMutation = useMutation({
     mutationFn: () => api.remove(exercise!.id),
+    onSettled: () => {
+      submittingRef.current = false;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
       onClose();
@@ -142,7 +148,8 @@ export function ExerciseDialog({
     },
   });
 
-  useEffect(() => {
+  // Layout effect: the refs are current before any event can reach the committed DOM.
+  useLayoutEffect(() => {
     onCloseRef.current = onClose;
     deletePendingRef.current = deleteMutation.isPending;
   });
@@ -180,6 +187,8 @@ export function ExerciseDialog({
             // `loading` alone leaves the button keyboard-activatable: Enter/Space would delete twice.
             disabled={deleteMutation.isPending}
             onClick={() => {
+              if (submittingRef.current) return;
+              submittingRef.current = true;
               setRootError(null);
               setRefused(false);
               deleteMutation.mutate();
