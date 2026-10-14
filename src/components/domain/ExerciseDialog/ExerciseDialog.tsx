@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TriangleAlert } from "lucide-react";
@@ -51,7 +51,7 @@ export function ExerciseDialog({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors, isValid },
   } = useForm<ExerciseFormInput>({
@@ -65,7 +65,7 @@ export function ExerciseDialog({
     },
   });
 
-  const muscleGroupIds = watch("muscleGroupIds");
+  const muscleGroupIds = useWatch({ control, name: "muscleGroupIds" });
   // Kept out of react-hook-form's `setError("root")`, which would force `isValid`
   // to false and lock the submit button until the next edit.
   const [rootError, setRootError] = useState<string | null>(null);

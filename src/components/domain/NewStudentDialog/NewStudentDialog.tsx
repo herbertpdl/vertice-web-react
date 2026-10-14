@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Dialog, DialogFooter, TextField } from "@/components/ui";
@@ -38,7 +38,7 @@ export function NewStudentDialog({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     setError,
     formState: { errors },
@@ -47,7 +47,7 @@ export function NewStudentDialog({
     defaultValues: { name: "", email: "", cpf: "" },
   });
 
-  const cpf = watch("cpf");
+  const cpf = useWatch({ control, name: "cpf" });
 
   const mutation = useMutation({
     mutationFn: (input: Parameters<typeof createStudent>[0]) => api.create(input),

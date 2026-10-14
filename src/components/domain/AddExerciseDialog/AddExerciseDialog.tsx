@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlert, CirclePlay, Search } from "lucide-react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -65,7 +65,7 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors, isValid },
   } = useForm<ExerciseFormInput>({
@@ -73,7 +73,7 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
     resolver: zodResolver(exerciseSchema),
     defaultValues: { name: "", muscleGroupIds: [], description: "", videoUrl: "" },
   });
-  const muscleGroupIds = watch("muscleGroupIds");
+  const muscleGroupIds = useWatch({ control, name: "muscleGroupIds" });
   // Local state rather than `setError("root")`, which would force `isValid` to false.
   const [rootError, setRootError] = useState<string | null>(null);
 
