@@ -18,10 +18,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Starter-set rows offer no edit action and carry no marker (R28, D15). */
+/**
+ * Starter-set rows offer no edit action (so no way to delete either) and carry no marker
+ * (R28, D15). A trainer's list holds only starter rows and their own, so this is the
+ * "not owned" case.
+ */
 export const Starter: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button", { name: "Editar exercício" })).toBeNull();
+    await expect(canvas.queryAllByRole("button")).toHaveLength(0);
     await expect(canvas.getByText("Peito")).toBeVisible();
     await expect(canvas.getByText("Tríceps")).toBeVisible();
   },

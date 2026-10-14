@@ -167,7 +167,7 @@ empty), as it does today.
 | same | any failure of `GET /muscle-groups` | Filter `Dropdown` disabled with placeholder "Grupos indisponíveis"; the list still loads. |
 | `ExerciseDialog`, `AddExerciseDialog` create form | any failure of `GET /muscle-groups` | `MultiSelect` disabled, error line "Não foi possível carregar os grupos musculares" + "Tentar novamente" link (`refetch()`). |
 | `ExerciseDialog` save, `AddExerciseDialog` create | `VALIDATION_ERROR` (400) | Root error box with the fixed pt-BR text "Não foi possível salvar o exercício" — `error.message` (English, from the BFF or upstream) is never rendered (owner, 2026-09-23); the disabled submit normally prevents it. |
-| `ExerciseDialog` save/delete | `FORBIDDEN` (403 — starter-set or another trainer's exercise; unreachable through the UI, R28) | Generic root error box with the fixed pt-BR text ("Não foi possível salvar o exercício" / "Não foi possível excluir o exercício"); `error.message` is not rendered. |
+| `ExerciseDialog` save/delete | `FORBIDDEN` (403 — starter-set or another trainer's exercise; unreachable through the UI, R28, short of stale data) | Root error box with fixed pt-BR text ("Você não tem permissão para alterar este exercício" / "… para excluir este exercício") and `["exercises"]` invalidated so the stale row refreshes; `error.message` is not rendered. Changed by audit plan item P1-02 (PROD-WEB-004). |
 | `ExerciseDialog` save/delete | `NOT_FOUND` (404 — deleted meanwhile) | Same fixed pt-BR root error box. |
 | `ExerciseDialog` delete | `PRECONDITION_FAILED` (409) — message `Exercise <id> is used by a workout and cannot be deleted` | Refusal block (§5) with pt-BR title and body only (the English upstream message is not shown), dialog stays open. |
 | every call | `UNAUTHENTICATED`/401 | `apiClient` logs out and hard-navigates to `/login` (existing). |
@@ -380,13 +380,15 @@ node-only) — its effect is observed in the walkthrough as "one request after t
 
 - A shared floating-position hook for `Dropdown` and `MultiSelect` (D13's condition) — follow-up
   once `Dropdown`'s parity audit can be re-run cheaply.
-- A confirmation step before Excluir (today's dialog deletes on click; unchanged).
+- ~~A confirmation step before Excluir~~ — added later by audit plan item P1-02 (PROD-WEB-004):
+  Excluir opens an "Excluir exercício?" step naming the exercise (Cancelar / "Excluir
+  exercício"); only that step deletes.
 - Filter/search in the URL (`?grupo=`), persisted filter, pagination (api F17), accent-
   insensitive search (brief), platform-team surfaces (R25/R37/R38), starter-set videos/
   descriptions (PRD §6), client-side screens (R20–R24), a `CloneWorkout`-backed clone UI (R19),
   Increment 2 (no web change).
-- Showing *why* a 403 happened on save/delete: unreachable through the UI (R28), generic error is
-  enough.
+- ~~Showing *why* a 403 happened on save/delete~~ — P1-02 added fixed "sem permissão" copy (see
+  the error table).
 
 ## Merge and deploy order
 

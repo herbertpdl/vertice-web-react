@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, waitFor, within } from "storybook/test";
 import { ExerciseDialog } from "./ExerciseDialog";
-import { muscleGroups, remadaPropria } from "../storyFixtures";
+import { muscleGroups, remadaPropria, supino } from "../storyFixtures";
 import { withSeededQueries } from "../storyQuery";
 import { muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 import { ApiError } from "@/lib/api/client";
@@ -127,6 +127,62 @@ export const SaveFailed: Story = {
   },
 };
 
+/** Excluir, then the confirmation step's destructive button. */
+async function confirmDelete(
+  canvas: ReturnType<typeof within>,
+  userEvent: { click: (element: Element) => Promise<void> },
+) {
+  await userEvent.click(canvas.getByRole("button", { name: "Excluir" }));
+  await userEvent.click(await canvas.findByRole("button", { name: "Excluir exercício" }));
+}
+
+/** Excluir asks first: naming the exercise, a destructive confirm and Cancelar. Cancel deletes nothing. */
+export const DeleteConfirmCancel: Story = {
+  args: { exercise: remadaPropria },
+  play: async ({ canvas, userEvent, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Excluir" }));
+    await expect(await canvas.findByRole("heading", { name: "Excluir exercício?" })).toBeVisible();
+    await expect(canvas.getByRole("dialog")).toHaveTextContent(
+      "Remada Unilateral no Banco será removido do seu catálogo. Esta ação não pode ser desfeita.",
+    );
+    await expect(canvas.getByRole("button", { name: "Excluir exercício" })).toBeVisible();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Cancelar" }));
+    await expect(await canvas.findByRole("heading", { name: "Editar exercício" })).toBeVisible();
+    // The form kept its values.
+    await expect(canvas.getByLabelText("Nome do exercício")).toHaveValue("Remada Unilateral no Banco");
+    await expect(args.api!.remove).not.toHaveBeenCalled();
+    await expect(args.onClose).not.toHaveBeenCalled();
+
+    // Escape on the confirmation step also just goes back.
+    await userEvent.click(canvas.getByRole("button", { name: "Excluir" }));
+    await canvas.findByRole("heading", { name: "Excluir exercício?" });
+    await userEvent.keyboard("{Escape}");
+    await expect(await canvas.findByRole("heading", { name: "Editar exercício" })).toBeVisible();
+    await expect(args.api!.remove).not.toHaveBeenCalled();
+    await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};
+
+/** Confirming deletes the exercise and closes the dialog. */
+export const DeleteConfirmed: Story = {
+  args: { exercise: remadaPropria },
+  play: async ({ canvas, userEvent, args }) => {
+    await confirmDelete(canvas, userEvent);
+    await waitFor(() => expect(args.api!.remove).toHaveBeenCalledWith(remadaPropria.id));
+    await waitFor(() => expect(args.onClose).toHaveBeenCalled());
+  },
+};
+
+/** A starter row never reaches the dialog through the UI (R28); if it does, it has no Excluir. */
+export const StarterHasNoDelete: Story = {
+  args: { exercise: supino },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("heading", { name: "Editar exercício" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Excluir" })).toBeNull();
+  },
+};
+
 const IN_USE_MESSAGE = "Exercise 7 is used by a workout and cannot be deleted";
 
 /** 409 on delete: a pt-BR refusal block, the dialog stays open (R34/E5). */
@@ -142,7 +198,7 @@ export const DeleteRefusedInUse: Story = {
     },
   },
   play: async ({ canvas, userEvent, args }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Excluir" }));
+    await confirmDelete(canvas, userEvent);
     const alert = await canvas.findByRole("alert");
     await expect(alert).toHaveTextContent("Não é possível excluir este exercício");
     await expect(alert).toHaveTextContent(
@@ -169,10 +225,59 @@ export const DeleteFailedGeneric: Story = {
     },
   },
   play: async ({ canvas, userEvent, args }) => {
-    await userEvent.click(canvas.getByRole("button", { name: "Excluir" }));
+    await confirmDelete(canvas, userEvent);
     await expect(await canvas.findByText("Não foi possível excluir o exercício")).toBeVisible();
     await expect(canvas.queryByRole("alert")).toBeNull();
     await expect(canvas.queryByText("Exercise 7 not found")).toBeNull();
+    await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};
+
+const FORBIDDEN_MESSAGE = "You do not have access to exercise 7";
+
+/** 403 on delete (stale row): fixed pt-BR copy, no English, the dialog stays open. */
+export const DeleteForbidden: Story = {
+  args: {
+    exercise: remadaPropria,
+    api: {
+      create: fn(),
+      update: fn(),
+      remove: fn(async () => {
+        throw new ApiError({ code: "FORBIDDEN", message: FORBIDDEN_MESSAGE }, 403);
+      }),
+    },
+  },
+  play: async ({ canvas, userEvent, args }) => {
+    await confirmDelete(canvas, userEvent);
+    await expect(
+      await canvas.findByText("Você não tem permissão para excluir este exercício"),
+    ).toBeVisible();
+    await expect(document.body).not.toHaveTextContent(FORBIDDEN_MESSAGE);
+    await expect(canvas.queryByRole("alert")).toBeNull();
+    await expect(args.onClose).not.toHaveBeenCalled();
+  },
+};
+
+/** 403 on save (stale row): fixed pt-BR copy, no English, the dialog stays open. */
+export const SaveForbidden: Story = {
+  args: {
+    exercise: remadaPropria,
+    api: {
+      create: fn(),
+      update: fn(async () => {
+        throw new ApiError({ code: "FORBIDDEN", message: FORBIDDEN_MESSAGE }, 403);
+      }),
+      remove: fn(),
+    },
+  },
+  play: async ({ canvas, userEvent, args }) => {
+    const submit = canvas.getByRole("button", { name: "Salvar alterações" });
+    await waitFor(() => expect(submit).toBeEnabled());
+    await userEvent.click(submit);
+    await expect(
+      await canvas.findByText("Você não tem permissão para alterar este exercício"),
+    ).toBeVisible();
+    await expect(document.body).not.toHaveTextContent(FORBIDDEN_MESSAGE);
     await expect(args.onClose).not.toHaveBeenCalled();
   },
 };

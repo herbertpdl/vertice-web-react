@@ -24,8 +24,21 @@ const defaultApi: ExerciseDialogApi = {
   remove: deleteExercise,
 };
 
+/**
+ * 403 on an edit/delete the UI offered means the row was stale (e.g. the list predates a change
+ * made elsewhere): the caller refreshes the list so the affordance disappears, and says so in
+ * fixed pt-BR copy.
+ */
+function isForbidden(error: unknown) {
+  return error instanceof ApiError && error.code === "FORBIDDEN";
+}
+
 interface ExerciseDialogProps {
-  /** Only ever the trainer's own exercise (`isStarter: false`): the catalog row gates editing. */
+  /**
+   * Only ever the trainer's own exercise (`isStarter: false`): the catalog row gates editing.
+   * A trainer's list holds the starter set plus their own exercises only, so `!isStarter` means
+   * "owned by the caller"; the payload carries no owner id.
+   */
   exercise?: Exercise;
   onClose: () => void;
   onCreated?: (exercise: Exercise) => void;
@@ -41,6 +54,9 @@ export function ExerciseDialog({
 }: ExerciseDialogProps) {
   const queryClient = useQueryClient();
   const isEditing = Boolean(exercise);
+  // Defensive: a starter row never reaches this dialog through the UI (R28), but if it did, it
+  // gets no Excluir.
+  const canDelete = Boolean(exercise && !exercise.isStarter);
 
   const groups = useQuery({
     queryKey: muscleGroupsQueryKey,
@@ -71,6 +87,8 @@ export function ExerciseDialog({
   const [rootError, setRootError] = useState<string | null>(null);
   // Delete refused because a workout uses the exercise (409 PRECONDITION_FAILED, R34).
   const [refused, setRefused] = useState(false);
+  // Excluir first asks for confirmation; the delete only runs from that step.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const saveMutation = useMutation({
     mutationFn: (data: ExerciseFormInput) =>
@@ -81,7 +99,12 @@ export function ExerciseDialog({
       onClose();
     },
     // The server's message is English: the screen only ever shows fixed pt-BR copy.
-    onError: () => setRootError("Não foi possível salvar o exercício"),
+    onError: (error) => {
+      if (isEditing && isForbidden(error)) {
+        queryClient.invalidateQueries({ queryKey: ["exercises"] });
+        setRootError("Você não tem permissão para alterar este exercício");
+      } else setRootError("Não foi possível salvar o exercício");
+    },
   });
 
   const deleteMutation = useMutation({
@@ -91,15 +114,58 @@ export function ExerciseDialog({
       onClose();
     },
     onError: (error) => {
+      // Back to the form, where the refusal or error is shown.
+      setConfirmingDelete(false);
       // Keyed on the code, not the status: 409 is also CONFLICT. The upstream
       // message is English and is not rendered.
       if (error instanceof ApiError && error.code === "PRECONDITION_FAILED") setRefused(true);
-      else setRootError("Não foi possível excluir o exercício");
+      else if (isForbidden(error)) {
+        queryClient.invalidateQueries({ queryKey: ["exercises"] });
+        setRootError("Você não tem permissão para excluir este exercício");
+      } else setRootError("Não foi possível excluir o exercício");
     },
   });
 
+  if (confirmingDelete && exercise) {
+    const cancelDelete = () => {
+      if (!deleteMutation.isPending) setConfirmingDelete(false);
+    };
+    return (
+      <Dialog key="confirm-delete" title="Excluir exercício?" onClose={cancelDelete}>
+        <p className="text-[length:var(--text-base)] leading-[1.5] text-[color:var(--color-text-secondary)]">
+          <span className="font-semibold text-[color:var(--color-text-primary)]">
+            {exercise.name}
+          </span>{" "}
+          será removido do seu catálogo. Esta ação não pode ser desfeita.
+        </p>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={cancelDelete}
+            disabled={deleteMutation.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            loading={deleteMutation.isPending}
+            onClick={() => {
+              setRootError(null);
+              setRefused(false);
+              deleteMutation.mutate();
+            }}
+          >
+            Excluir exercício
+          </Button>
+        </DialogFooter>
+      </Dialog>
+    );
+  }
+
   return (
-    <Dialog title={isEditing ? "Editar exercício" : "Novo exercício"} onClose={onClose}>
+    <Dialog key="form" title={isEditing ? "Editar exercício" : "Novo exercício"} onClose={onClose}>
       <form
         onSubmit={handleSubmit((data) => {
           setRootError(null);
@@ -181,16 +247,11 @@ export function ExerciseDialog({
           {...register("videoUrl")}
         />
         <DialogFooter>
-          {isEditing && (
+          {canDelete && (
             <Button
               type="button"
               variant="danger"
-              loading={deleteMutation.isPending}
-              onClick={() => {
-                setRootError(null);
-                setRefused(false);
-                deleteMutation.mutate();
-              }}
+              onClick={() => setConfirmingDelete(true)}
               className="mr-auto"
             >
               Excluir
