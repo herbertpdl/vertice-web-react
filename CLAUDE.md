@@ -15,20 +15,31 @@ exercises and sets). Client-side screens (do-a-workout session, progress) are no
 ## Commands
 
 ```bash
-npm run dev              # dev server on http://localhost:5173 (scripts/dev-open-browser.js wraps `next dev` and opens the browser)
+npm run dev              # dev server on http://localhost:5173 (scripts/dev-open-browser.mjs wraps `next dev` and opens the browser)
 npm run build            # production build
 npm run start            # run the production build
-npm run lint             # ESLint (flat config, eslint-config-next core-web-vitals + typescript)
+npm run lint             # ESLint (flat config, eslint-config-next core-web-vitals + typescript); CI expects 0 errors and 0 warnings
+npm run typecheck        # tsc --noEmit
+npm run test:unit        # vitest `unit` project (node), the fast run
+npm run test:storybook   # vitest `storybook` project: every story as a headless Chromium test (@storybook/addon-vitest + playwright)
+npm test                 # both projects
 npm run storybook        # Storybook on :6006 (stories live next to each src/components/ui/* component)
-npx vitest               # all tests: `unit` project (node) + Storybook stories as browser tests (@storybook/addon-vitest + playwright); `--project unit` for the fast node-only run
 ```
+
+CI (`.github/workflows/ci.yml`, on every PR and push to `main`) runs two jobs: `build-and-test`
+(`npm ci` → lint → typecheck → `test:unit` → build → `npm audit --omit=dev --audit-level=high`)
+and `storybook` (Playwright Chromium, then `test:storybook`). Run the same commands locally
+before pushing. The build needs no BFF and no env.
+
+Read form values with `useWatch({ control, name })`, not `useForm().watch()`: `watch` makes the
+React Compiler skip the whole component (`react-hooks/incompatible-library` warning).
 
 The dev server is pinned to port `5173` (not Next's usual `3000`) since `3000` is
 `vertice-bff`'s default port and `vertice-bff`'s `CORS_ORIGIN` already defaults to
 `http://localhost:5173`. Override with `npm run dev -- -p <port>` if needed.
 
 Besides the Storybook story tests (every `src/**/*.stories.tsx`, per `.storybook/main.ts`),
-`vitest.config.ts` has a `unit` project (node environment, `src/lib/**/*.test.ts` and
+`vitest.config.mts` has a `unit` project (node environment, `src/lib/**/*.test.ts` and
 `src/app/api/**/*.test.ts`) for pure modules (the workout editor's autosave engine, validation
 schemas, `forwardedFor`) and for the route handlers, which tests call directly with a
 `NextRequest` (mock `fetch` and `@/lib/session`; `server-only` is aliased to a no-op). Pages
@@ -111,8 +122,8 @@ student/plan/workout, or a deleted one).
 ## Running
 
 This app runs natively only — there is no `Dockerfile` — since it's the piece of the stack most
-affected by slow Docker image rebuilds/caching. Match Node 22 locally; there's no `engines` field
-in `package.json` to enforce it. It needs `vertice-bff` on `:3000` (which in turn needs
+affected by slow Docker image rebuilds/caching. It runs on Node 22: `.nvmrc` says `22` (CI reads
+it) and `package.json` has `"engines": { "node": ">=22 <23" }` (npm warns on other versions). It needs `vertice-bff` on `:3000` (which in turn needs
 `vertice-api`); see the sibling `vertice-local` repo for bringing the rest of the stack up.
 `BFF_URL` overrides the BFF base URL (default `http://localhost:3000`).
 

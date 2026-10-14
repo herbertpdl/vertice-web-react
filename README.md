@@ -13,6 +13,8 @@ Trainer-side features are implemented (see `CLAUDE.md`, "Project status").
 
 ## Getting started
 
+Requires Node 22 (`.nvmrc`; `package.json` `engines` is `>=22 <23`), e.g. `nvm use`.
+
 ```bash
 npm install
 npm run dev
@@ -27,7 +29,25 @@ stack" below.)
 - `npm run dev` — start the dev server (port `5173`; override with `npm run dev -- -p <port>`)
 - `npm run build` — production build
 - `npm run start` — run the production build
-- `npm run lint` — run ESLint
+- `npm run lint` — run ESLint (must pass with 0 errors and 0 warnings)
+- `npm run typecheck` — `tsc --noEmit`
+- `npm run test:unit` — fast node-only tests (vitest `unit` project: `src/lib/**`, `src/app/api/**`)
+- `npm run test:storybook` — every story rendered and played in headless Chromium (vitest
+  `storybook` project; run `npx playwright install chromium` once first)
+- `npm test` — both vitest projects
+- `npm run storybook` — Storybook on `:6006`
+
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`, on the Node
+version in `.nvmrc`:
+
+- **`build-and-test`** — `npm ci`, lint, typecheck, `test:unit`, `build` (no BFF or env needed)
+  and `npm audit --omit=dev --audit-level=high`.
+- **`storybook`** — installs Playwright's Chromium (cached per Playwright version) and runs
+  `test:storybook`.
+
+Dependabot (`.github/dependabot.yml`) opens weekly npm and GitHub Actions updates.
 
 ## Running the full stack
 
