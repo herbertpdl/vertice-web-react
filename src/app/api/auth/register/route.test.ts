@@ -139,4 +139,17 @@ describe("POST /api/auth/register", () => {
     expect(res.status).toBe(415);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("answers no-store, Vary: Cookie on success and on a 409", async () => {
+    const ok = await POST(post(validBody));
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ error: { code: "CONFLICT", message: "Email or CPF already in use" } }, { status: 409 }),
+    );
+    const conflict = await POST(post(validBody));
+    expect(conflict.status).toBe(409);
+    for (const res of [ok, conflict]) {
+      expect(res.headers.get("Cache-Control")).toBe("no-store");
+      expect(res.headers.get("Vary")).toBe("Cookie");
+    }
+  });
 });

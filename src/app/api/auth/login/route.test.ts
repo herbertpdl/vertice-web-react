@@ -174,4 +174,17 @@ describe("POST /api/auth/login", () => {
     expect(await res.text()).toBe("<html>Bad Gateway</html>");
     expect(setSession).not.toHaveBeenCalled();
   });
+
+  it("answers no-store, Vary: Cookie on success, on a relayed error and on a refusal", async () => {
+    const ok = await POST(post({ email: "ana@example.com", password: "x" }));
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ error: { code: "UNAUTHORIZED", message: "Invalid email or password" } }, { status: 401 }),
+    );
+    const failed = await POST(post({ email: "ana@example.com", password: "x" }));
+    const invalid = await POST(post({ email: "not-an-email" }));
+    for (const res of [ok, failed, invalid]) {
+      expect(res.headers.get("Cache-Control")).toBe("no-store");
+      expect(res.headers.get("Vary")).toBe("Cookie");
+    }
+  });
 });

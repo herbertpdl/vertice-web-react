@@ -4,6 +4,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Dialog, DialogFooter, Dropdown, TextField } from "@/components/ui";
+import { apiErrorMessage } from "@/lib/api/errorMessages";
 import { createTrainingPlan, updateTrainingPlan } from "@/lib/api/trainingPlans";
 import {
   trainingPlanSchema,
@@ -62,9 +63,7 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
       onClose();
     },
     onError: (error) => {
-      setError("root", {
-        message: error instanceof Error ? error.message : "Não foi possível salvar o plano",
-      });
+      setError("root", { message: apiErrorMessage(error, "Não foi possível salvar o plano") });
     },
   });
 

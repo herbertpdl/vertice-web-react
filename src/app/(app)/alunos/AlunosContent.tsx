@@ -48,12 +48,10 @@ export function AlunosContent() {
         return true;
       })
       .filter((student) => {
+        // Name only: the roster carries no email or CPF (P1-03).
         const q = search.trim().toLowerCase();
         if (!q) return true;
-        return (
-          student.name.toLowerCase().includes(q) ||
-          student.email.toLowerCase().includes(q)
-        );
+        return student.name.toLowerCase().includes(q);
       });
   }, [data, filter, search]);
 
@@ -79,7 +77,7 @@ export function AlunosContent() {
             className="pointer-events-none absolute top-1/2 left-[14px] -translate-y-1/2 text-[color:var(--color-text-tertiary)]"
           />
           <TextField
-            placeholder="Buscar por nome ou email..."
+            placeholder="Buscar por nome..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="[&_input]:pl-[22px]"
@@ -156,14 +154,9 @@ export function AlunosContent() {
             >
               <div style={{ width: COLUMN_WIDTHS.student }} className="flex items-center gap-[10px]">
                 <Avatar name={student.name} />
-                <div className="flex flex-col gap-[1px]">
-                  <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
-                    {student.name}
-                  </span>
-                  <span className="text-[11px] text-[color:var(--color-text-tertiary)]">
-                    {student.email}
-                  </span>
-                </div>
+                <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
+                  {student.name}
+                </span>
               </div>
               <div style={{ width: COLUMN_WIDTHS.plan }} className="flex flex-col gap-[1px]">
                 {student.currentPlan ? (

@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/client";
+import { apiErrorMessage } from "@/lib/api/errorMessages";
 import type {
   ExerciseSet,
   FullWorkout,
@@ -112,8 +113,9 @@ function isPreconditionFailed(error: unknown) {
 function isValidationError(error: unknown) {
   return error instanceof ApiError && error.code === "VALIDATION_ERROR";
 }
+// pt-BR copy per code: the BFF's message (and a network TypeError's) is English.
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Não foi possível salvar";
+  return apiErrorMessage(error, "Não foi possível salvar");
 }
 
 function headerDirty(draft: EditorWorkout, base: EditorWorkout) {
@@ -322,7 +324,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
       // a rejected header-only payload has nothing to undo — surface it as
       // the error state instead of reverting and re-arming forever.
       if (isValidationError(error) && sent.exercises.length > 0) {
-        revertTree(error);
+        revertTree();
         return;
       }
       throw error;
@@ -388,7 +390,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
             setState({ mode: "per-item" });
             await runPerItem(sent, workoutId);
           } else if (isValidationError(error)) {
-            revertTree(error);
+            revertTree();
             return;
           } else {
             throw error;
@@ -401,8 +403,11 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
     onSaved?.({ workoutId, created: false });
   }
 
-  /** E9: the whole rejected batch is undone (upstream changed nothing) and the platform's message shown. */
-  function revertTree(error: unknown) {
+  /**
+   * E9: the whole rejected batch is undone (upstream changed nothing) and a generic message shown.
+   * Fixed pt-BR copy: upstream's validation text is English and does not name the entry anyway.
+   */
+  function revertTree() {
     const base = baseline();
     const draft = { ...state.draft, exercises: base.exercises };
     setState({
@@ -410,7 +415,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
       refusal: {
         kind: "generic",
         title: "Alteração não aplicada",
-        body: `${errorMessage(error)} A alteração foi desfeita; o restante do treino continua sendo salvo automaticamente.`,
+        body: "A plataforma não aceitou esta alteração, então ela foi desfeita; o restante do treino continua sendo salvo automaticamente.",
         exerciseKeys: [],
         setKeys: [],
       },

@@ -2,11 +2,12 @@ import { NextRequest } from "next/server";
 import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from "@/lib/bff";
 import { guardApiRequest } from "@/lib/requestGuard";
 import { passwordSetupRequestSchema } from "@/lib/validation/auth";
+import { withNoStore } from "@/lib/noStore";
 
 // First access from the trainer's setup link (/definir-senha). Public: no session is read or
 // set; the client logs in normally afterwards. 204 on success, 400 INVALID_SETUP_TOKEN for an
 // unknown, expired or used token.
-export async function POST(request: NextRequest) {
+async function post(request: NextRequest) {
   const refused = guardApiRequest(request, "json");
   if (refused) return refused;
 
@@ -21,3 +22,5 @@ export async function POST(request: NextRequest) {
   });
   return relayBffResponse(res);
 }
+
+export const POST = withNoStore(post);

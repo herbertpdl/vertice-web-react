@@ -4,8 +4,9 @@ import type {
   FullWorkout,
   MuscleGroup,
   PasswordSetup,
+  ClientDetail,
+  ClientSummary,
   RecentWorkoutSummary,
-  User,
 } from "@/lib/api/types";
 import type { AutosaveTransport } from "@/lib/workoutEditor/autosave";
 import type { EditorExercise, EditorSet } from "@/lib/workoutEditor/model";
@@ -275,10 +276,39 @@ export const studentSetup: PasswordSetup = {
   expiresAt: "2026-10-16T18:00:00Z",
 };
 
-export const newStudent: User = {
+/** A client as the BFF returns one: CPF masked (P1-03). */
+export const newStudent: ClientDetail = {
   id: 42,
   name: "Marina Costa",
   email: "marina@email.com",
-  cpf: "52998224725",
+  cpf: "***.***.***-25",
   role: "CLIENT",
 };
+
+/** `newStudent`'s full CPF, as `GET /clients/42?reveal=cpf` returns it. */
+export const newStudentFullCpf = "529.982.247-25";
+
+/**
+ * Roster rows (`GET /clients`). The BFF still sends a deprecated `email`; it is included here so
+ * the stories prove the roster neither shows nor searches it.
+ */
+export const roster: (ClientSummary & { email: string })[] = [
+  {
+    id: 42,
+    name: "Marina Costa",
+    email: "marina@email.com",
+    activePlanCount: 1,
+    currentPlan: { id: 7, name: "Hipertrofia A", endDate: "2026-12-20" },
+    lastWorkoutAt: null,
+    weekActivity: [],
+  },
+  {
+    id: 43,
+    name: "Rafael Souza",
+    email: "rafa.souza@email.com",
+    activePlanCount: 0,
+    currentPlan: null,
+    lastWorkoutAt: null,
+    weekActivity: [],
+  },
+];

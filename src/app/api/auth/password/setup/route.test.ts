@@ -100,4 +100,11 @@ describe("POST /api/auth/password/setup", () => {
     expect(res.status).toBe(415);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("answers no-store, Vary: Cookie", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    const res = await POST(post({ token: "tok", newPassword: "senha-forte-123" }));
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(res.headers.get("Vary")).toBe("Cookie");
+  });
 });

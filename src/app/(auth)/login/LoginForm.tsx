@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Checkbox, TextField } from "@/components/ui";
 import { login } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { rateLimitedMessage } from "@/lib/api/rateLimit";
+import { apiErrorMessage } from "@/lib/api/errorMessages";
 import { safeRedirectPath } from "@/lib/safeRedirect";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth";
 
@@ -116,8 +116,6 @@ export function LoginForm() {
 }
 
 function loginErrorMessage(error: unknown): string {
-  const rateLimited = rateLimitedMessage(error);
-  if (rateLimited) return rateLimited;
   if (error instanceof ApiError && error.status === 401) return "E-mail ou senha inválidos";
-  return error instanceof Error ? error.message : "Não foi possível entrar";
+  return apiErrorMessage(error, "Não foi possível entrar");
 }
