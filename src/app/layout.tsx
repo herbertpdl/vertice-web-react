@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -18,7 +19,10 @@ export const metadata: Metadata = {
   description: "Vertice Coach web application",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Render every page per request: `src/proxy.ts` puts a fresh CSP nonce on each one, and Next
+  // can only stamp it on its scripts at request time (a prerendered page has none).
+  await connection();
   return (
     <html
       lang="en"

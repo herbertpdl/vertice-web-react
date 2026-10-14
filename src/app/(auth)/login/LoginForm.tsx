@@ -9,6 +9,7 @@ import { Button, Checkbox, TextField } from "@/components/ui";
 import { login } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { rateLimitedMessage } from "@/lib/api/rateLimit";
+import { safeRedirectPath } from "@/lib/safeRedirect";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth";
 
 export function LoginForm() {
@@ -35,8 +36,8 @@ export function LoginForm() {
     try {
       await login(data);
       setIsRedirecting(true);
-      const redirect = searchParams.get("redirect") || "/dashboard";
-      router.push(redirect);
+      // `?redirect=` is attacker-controllable: only a same-origin path, else /dashboard.
+      router.push(safeRedirectPath(searchParams.get("redirect"), window.location.origin));
       router.refresh();
     } catch (error) {
       setFormError(loginErrorMessage(error));
