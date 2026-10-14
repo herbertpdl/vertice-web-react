@@ -38,7 +38,16 @@ describe("/api/bff/[...path] proxy", () => {
     expect(url).toBe("http://localhost:3000/api/clients");
     const headers = init!.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer jwt");
-    expect(headers["X-Forwarded-For"]).toBe("6.6.6.6, 203.0.113.7");
+    expect(headers["X-Forwarded-For"]).toBe("203.0.113.7");
+  });
+
+  it("refuses to proxy in production without TRUSTED_PROXY_HOPS", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "");
+    await expect(call(GET, ["clients"], { method: "GET" })).rejects.toThrow(
+      /TRUSTED_PROXY_HOPS/,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("relays a 204 with no body", async () => {

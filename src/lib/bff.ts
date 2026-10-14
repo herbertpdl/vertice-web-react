@@ -1,6 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { forwardedFor, parseTrustedProxyHops } from "./forwardedFor";
+import { forwardedFor, resolveTrustedProxyHops } from "./forwardedFor";
 
 export function bffUrl(path: string): string {
   const base = process.env.BFF_URL ?? "http://localhost:3000";
@@ -9,16 +9,18 @@ export function bffUrl(path: string): string {
 
 /**
  * Headers every server-side BFF call carries: `extra` plus `X-Forwarded-For` with the browser's
- * address, so the BFF's per-IP rate limits see each web user rather than this server. See
+ * address (one entry), so the BFF's per-IP rate limits see each web user rather than this server. See
  * `forwardedFor.ts` for which entry that is and `TRUSTED_PROXY_HOPS` in `.env.local.example`.
  */
 export function bffHeaders(
   request: Request,
   extra: Record<string, string> = {},
 ): Record<string, string> {
+  // Throws in production when TRUSTED_PROXY_HOPS is unset: no BFF call goes out with an
+  // address a browser may have chosen.
   const xff = forwardedFor(
     request.headers.get("x-forwarded-for"),
-    parseTrustedProxyHops(process.env.TRUSTED_PROXY_HOPS),
+    resolveTrustedProxyHops(process.env),
   );
   return xff ? { ...extra, "X-Forwarded-For": xff } : extra;
 }

@@ -78,7 +78,7 @@ describe("POST /api/auth/login", () => {
     expect(headers["X-Forwarded-For"]).toBe("203.0.113.7");
   });
 
-  it("behind two proxies, makes the client the right-most entry", async () => {
+  it("behind two proxies, forwards only the client the outer proxy observed", async () => {
     vi.stubEnv("TRUSTED_PROXY_HOPS", "2");
     await POST(
       post(
@@ -87,7 +87,27 @@ describe("POST /api/auth/login", () => {
       ),
     );
     const headers = fetchMock.mock.calls[0][1]!.headers as Record<string, string>;
-    expect(headers["X-Forwarded-For"]).toBe("6.6.6.6, 203.0.113.7");
+    expect(headers["X-Forwarded-For"]).toBe("203.0.113.7");
+  });
+
+  it("refuses to call the BFF in production without TRUSTED_PROXY_HOPS", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "");
+    await expect(
+      POST(post({ email: "ana@example.com", password: "x" }, { "X-Forwarded-For": "6.6.6.6" })),
+    ).rejects.toThrow(/TRUSTED_PROXY_HOPS must be set in production/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("calls the BFF in production with an explicit TRUSTED_PROXY_HOPS", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    const res = await POST(
+      post({ email: "ana@example.com", password: "x" }, { "X-Forwarded-For": "6.6.6.6, 203.0.113.7" }),
+    );
+    expect(res.status).toBe(200);
+    const headers = fetchMock.mock.calls[0][1]!.headers as Record<string, string>;
+    expect(headers["X-Forwarded-For"]).toBe("203.0.113.7");
   });
 
   it("sends no X-Forwarded-For when the request has no address", async () => {

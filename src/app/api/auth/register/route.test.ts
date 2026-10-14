@@ -104,6 +104,6 @@ describe("POST /api/auth/register", () => {
     vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
     await POST(post(validBody, { "X-Forwarded-For": "6.6.6.6, 203.0.113.7" }));
     const headers = fetchMock.mock.calls[0][1]!.headers as Record<string, string>;
-    expect(headers["X-Forwarded-For"]).toBe("6.6.6.6, 203.0.113.7");
+    expect(headers["X-Forwarded-For"]).toBe("203.0.113.7");
   });
 });
