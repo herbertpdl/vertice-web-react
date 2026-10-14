@@ -15,20 +15,63 @@ import {
 } from "@/lib/validation/auth";
 
 const INVALID_LINK_MESSAGE = "Link inválido ou expirado — peça um novo ao seu treinador.";
+const MISSING_TOKEN_MESSAGE = "Link incompleto — abra o link completo enviado pelo seu treinador.";
 
-export function SetPasswordForm({ token }: { token: string }) {
+/** Where the token survives a reload of this tab once it's gone from the URL. */
+export const SETUP_TOKEN_STORAGE_KEY = "vertice:setup-token";
+
+function readStoredToken(): string {
+  try {
+    return window.sessionStorage.getItem(SETUP_TOKEN_STORAGE_KEY) ?? "";
+  } catch {
+    return ""; // storage disabled
+  }
+}
+
+function storeToken(token: string | null) {
+  try {
+    if (token) window.sessionStorage.setItem(SETUP_TOKEN_STORAGE_KEY, token);
+    else window.sessionStorage.removeItem(SETUP_TOKEN_STORAGE_KEY);
+  } catch {
+    // storage disabled: a reload then shows the "link incompleto" message
+  }
+}
+
+export function SetPasswordForm({
+  token: tokenFromUrl,
+  submit = setupPassword,
+}: {
+  token: string;
+  /** Injectable for stories (no BFF in Storybook); defaults to the real API call. */
+  submit?: typeof setupPassword;
+}) {
+  // `undefined` until the mount effect has looked in sessionStorage (no flash of "incompleto").
+  const [token, setToken] = useState<string | undefined>(tokenFromUrl || undefined);
   const [done, setDone] = useState(false);
-  const [linkInvalid, setLinkInvalid] = useState(token === "");
+  const [tokenRejected, setTokenRejected] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   // The token is a live credential: drop it from the address bar (history, screenshots, shoulder
-  // surfing) once the page has it. Native replaceState syncs with the App Router without a
-  // navigation, so this server-rendered `token` prop is kept.
+  // surfing) once the page has it. It moves to sessionStorage, so a reload of this tab (mobile
+  // browsers reload backgrounded tabs, e.g. while the user is in a password manager) still has
+  // it instead of reporting a working link as invalid. Native replaceState syncs with the App
+  // Router without a navigation.
   useEffect(() => {
-    if (window.location.search) {
-      window.history.replaceState(null, "", window.location.pathname);
+    if (tokenFromUrl) {
+      storeToken(tokenFromUrl);
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("token")) {
+        url.searchParams.delete("token");
+        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+      }
+    } else {
+      // Reading storage after hydration: the server can't know it.
+      setToken(readStoredToken());
     }
-  }, []);
+  }, [tokenFromUrl]);
+
+  const tokenMissing = token === "";
+  const linkUnusable = tokenMissing || tokenRejected;
 
   const {
     register,
@@ -47,11 +90,13 @@ export function SetPasswordForm({ token }: { token: string }) {
   async function onSubmit(data: SetPasswordInput) {
     setFormError(null);
     try {
-      await setupPassword({ token, newPassword: data.newPassword });
+      await submit({ token: token!, newPassword: data.newPassword });
+      storeToken(null);
       setDone(true);
     } catch (error) {
       if (error instanceof ApiError && error.code === "INVALID_SETUP_TOKEN") {
-        setLinkInvalid(true);
+        storeToken(null);
+        setTokenRejected(true);
       } else {
         setFormError(
           rateLimitedMessage(error) ?? "Não foi possível definir a senha. Tente novamente.",
@@ -95,12 +140,12 @@ export function SetPasswordForm({ token }: { token: string }) {
         </p>
       </div>
 
-      {(linkInvalid || formError) && (
+      {(linkUnusable || formError) && (
         <div
           role="alert"
           className="rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[var(--color-danger)]/10 px-[14px] py-[10px] text-[13px] text-[color:var(--color-danger)]"
         >
-          {linkInvalid ? INVALID_LINK_MESSAGE : formError}
+          {tokenRejected ? INVALID_LINK_MESSAGE : tokenMissing ? MISSING_TOKEN_MESSAGE : formError}
         </div>
       )}
 
@@ -112,7 +157,7 @@ export function SetPasswordForm({ token }: { token: string }) {
           autoComplete="new-password"
           helpText={PASSWORD_HELP_TEXT}
           error={errors.newPassword?.message}
-          disabled={linkInvalid}
+          disabled={token === undefined || linkUnusable}
           {...register("newPassword")}
         />
         <TextField
@@ -122,7 +167,7 @@ export function SetPasswordForm({ token }: { token: string }) {
           autoComplete="new-password"
           helpText={confirmMatches ? "✓ As senhas coincidem" : undefined}
           error={errors.confirmPassword?.message}
-          disabled={linkInvalid}
+          disabled={token === undefined || linkUnusable}
           {...register("confirmPassword")}
         />
       </div>
@@ -130,7 +175,7 @@ export function SetPasswordForm({ token }: { token: string }) {
       <Button
         type="submit"
         loading={isSubmitting}
-        disabled={linkInvalid}
+        disabled={token === undefined || linkUnusable}
         className="w-full justify-center"
       >
         Definir senha
