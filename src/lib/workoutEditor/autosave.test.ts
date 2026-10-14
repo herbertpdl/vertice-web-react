@@ -549,6 +549,50 @@ describe("existing workout", () => {
     expect(transport.updateExercise).not.toHaveBeenCalled();
   });
 
+  it("counts a per-item DELETE answered 403 as done: the item is already gone (spec §3, vertice-api#60)", async () => {
+    const { transport, engine } = setup({
+      replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
+      deleteSet: vi.fn(async () => { throw apiError("FORBIDDEN", 403); }),
+      deleteExercise: vi.fn(async () => { throw apiError("FORBIDDEN", 403); }),
+    });
+    const [first, second] = engine.getState().draft.exercises;
+    const goneSet = first.sets[1];
+    engine.dispatch({ type: "removeSet", exerciseKey: first.key, setKey: goneSet.key });
+    engine.dispatch({ type: "removeExercise", exerciseKey: second.key });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+
+    const state = engine.getState();
+    expect(transport.deleteSet).toHaveBeenCalledWith(goneSet.id);
+    expect(transport.deleteExercise).toHaveBeenCalledWith(second.id);
+    expect(state.refusal).toBeNull();
+    expect(state.status).toBe("saved");
+    expect(state.draft.exercises.map((we) => we.key)).toEqual([first.key]);
+    expect(state.draft.exercises[0].sets.map((s) => s.key)).toEqual([first.sets[0].key]);
+    // Nothing restored, so nothing left to send: the deletes are not retried.
+    expect(await engine.finish()).toBe(true);
+    expect(transport.deleteSet).toHaveBeenCalledTimes(1);
+    expect(transport.deleteExercise).toHaveBeenCalledTimes(1);
+  });
+
+  it("still surfaces a 403 on a per-item non-DELETE op as an error", async () => {
+    const { transport, engine } = setup({
+      replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
+      updateExercise: vi.fn(async () => { throw apiError("FORBIDDEN", 403, "Acesso negado"); }),
+    });
+    const [, second] = engine.getState().draft.exercises;
+    engine.dispatch({ type: "updateExercise", exerciseKey: second.key, patch: { notes: "Pegada aberta" } });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+
+    const state = engine.getState();
+    expect(transport.updateExercise).toHaveBeenCalledTimes(1);
+    expect(state.status).toBe("error");
+    expect(state.errorMessage).toBe("Acesso negado");
+    expect(state.refusal).toBeNull();
+    expect(state.draft.exercises[1].notes).toBe("Pegada aberta");
+  });
+
   it("shows the error state on a network failure and retries with the current draft (R10, E16)", async () => {
     let fail = true;
     const { transport, engine } = setup({

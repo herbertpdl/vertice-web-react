@@ -97,8 +97,14 @@ export interface AutosaveEngine {
 
 export const DEFAULT_DELAY_MS = 800;
 
-function isNotFound(error: unknown) {
-  return error instanceof ApiError && error.code === "NOT_FOUND";
+/**
+ * A per-item DELETE answered this way means the item is already gone (spec §3). 404 is the
+ * classic answer; 403 is what vertice-api answers a non-admin since vertice-api#60 for a
+ * plan-tree id that does not exist (so ids cannot be probed). The trainer held this id, so a 403
+ * here is "removed by another session / by a DELETE whose response was lost", not a refusal.
+ */
+function isGoneOnDelete(error: unknown) {
+  return error instanceof ApiError && (error.code === "NOT_FOUND" || error.code === "FORBIDDEN");
 }
 function isPreconditionFailed(error: unknown) {
   return error instanceof ApiError && error.code === "PRECONDITION_FAILED";
@@ -439,7 +445,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
             await transport.deleteExercise(we.id);
             working = working.filter((w) => w.key !== we.key);
           } catch (error) {
-            if (isNotFound(error)) {
+            if (isGoneOnDelete(error)) {
               working = working.filter((w) => w.key !== we.key);
             } else if (error instanceof ApiError) {
               restoredExercises.push({ exercise: we, index: i });
@@ -458,7 +464,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
               w.key === we.key ? { ...w, sets: w.sets.filter((s) => s.key !== set.key) } : w,
             );
           } catch (error) {
-            if (isNotFound(error)) {
+            if (isGoneOnDelete(error)) {
               working = working.map((w) =>
                 w.key === we.key ? { ...w, sets: w.sets.filter((s) => s.key !== set.key) } : w,
               );
