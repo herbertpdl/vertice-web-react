@@ -9,7 +9,7 @@
     "dev": "node scripts/dev-open-browser.mjs -p 5173",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint --max-warnings 0",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",

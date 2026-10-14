@@ -29,7 +29,7 @@ stack" below.)
 - `npm run dev` — start the dev server (port `5173`; override with `npm run dev -- -p <port>`)
 - `npm run build` — production build
 - `npm run start` — run the production build
-- `npm run lint` — run ESLint (must pass with 0 errors and 0 warnings)
+- `npm run lint` — run ESLint with `--max-warnings 0` (any warning fails it)
 - `npm run typecheck` — `next typegen` (route types such as `LayoutProps`) then `tsc --noEmit`
 - `npm run test:unit` — fast node-only tests (vitest `unit` project: `src/lib/**`, `src/app/api/**`)
 - `npm run test:storybook` — every story rendered and played in headless Chromium (vitest

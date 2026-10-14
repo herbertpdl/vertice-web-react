@@ -18,7 +18,7 @@ exercises and sets). Client-side screens (do-a-workout session, progress) are no
 npm run dev              # dev server on http://localhost:5173 (scripts/dev-open-browser.mjs wraps `next dev` and opens the browser)
 npm run build            # production build
 npm run start            # run the production build
-npm run lint             # ESLint (flat config, eslint-config-next core-web-vitals + typescript); CI expects 0 errors and 0 warnings
+npm run lint             # ESLint (flat config, eslint-config-next core-web-vitals + typescript), `--max-warnings 0`: any warning fails it
 npm run typecheck        # next typegen (generates LayoutProps/PageProps into .next/types) + tsc --noEmit
 npm run test:unit        # vitest `unit` project (node), the fast run
 npm run test:storybook   # vitest `storybook` project: every story as a headless Chromium test (@storybook/addon-vitest + playwright)
