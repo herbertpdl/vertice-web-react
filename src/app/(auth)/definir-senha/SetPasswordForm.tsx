@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, TextField } from "@/components/ui";
 import { setupPassword } from "@/lib/api/auth";
@@ -66,6 +66,7 @@ export function SetPasswordForm({
       }
     } else {
       // Reading storage after hydration: the server can't know it.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only value (sessionStorage), can't be known during SSR
       setToken(readStoredToken());
     }
   }, [tokenFromUrl]);
@@ -76,15 +77,15 @@ export function SetPasswordForm({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<SetPasswordInput>({
     resolver: zodResolver(setPasswordSchema),
     defaultValues: { newPassword: "", confirmPassword: "" },
   });
 
-  const newPassword = watch("newPassword");
-  const confirmPassword = watch("confirmPassword");
+  const newPassword = useWatch({ control, name: "newPassword" });
+  const confirmPassword = useWatch({ control, name: "confirmPassword" });
   const confirmMatches = confirmPassword.length > 0 && confirmPassword === newPassword;
 
   async function onSubmit(data: SetPasswordInput) {

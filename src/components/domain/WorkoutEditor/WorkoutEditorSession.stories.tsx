@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, waitFor, within } from "storybook/test";
+import { useRouter } from "@storybook/nextjs-vite/navigation.mock";
+import { expect, fn, waitFor, within } from "storybook/test";
 import { WorkoutEditorSession, type WorkoutEditorSessionProps } from "./WorkoutEditor";
 import {
   agachamentoCard,
@@ -41,7 +42,24 @@ const meta = {
       </div>
     ),
   ],
-  parameters: { layout: "fullscreen", nextjs: { appDirectory: true } },
+  // Not `nextjs: { appDirectory: true }`: Storybook 10.6's app-router decorator provides a
+  // LayoutRouterContext without the `parentRenderTree` that Next 16.4's `useRouter` reads, so
+  // every story crashed with "Cannot read properties of undefined (reading 'data')". The default
+  // (pages-router) decorator plus a stubbed `next/navigation` `useRouter` is enough here: the
+  // editor only calls `router.push` on "Concluir". Go back to `appDirectory` once Storybook's
+  // mock catches up with Next 16.4.
+  parameters: { layout: "fullscreen" },
+  beforeEach: () => {
+    useRouter.mockReturnValue({
+      back: fn(),
+      forward: fn(),
+      refresh: fn(),
+      hmrRefresh: fn(),
+      push: fn(),
+      replace: fn(),
+      prefetch: fn(),
+    } as unknown as ReturnType<typeof useRouter>);
+  },
 } satisfies Meta<typeof WorkoutEditorSession>;
 
 export default meta;

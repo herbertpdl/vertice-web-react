@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Checkbox, TextField } from "@/components/ui";
 import { register as registerTrainer } from "@/lib/api/auth";
@@ -24,7 +24,7 @@ export function RegisterForm() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<RegisterInput>({
@@ -40,10 +40,10 @@ export function RegisterForm() {
     },
   });
 
-  const cpf = watch("cpf");
-  const terms = watch("terms");
-  const password = watch("password");
-  const confirmPassword = watch("confirmPassword");
+  const cpf = useWatch({ control, name: "cpf" });
+  const terms = useWatch({ control, name: "terms" });
+  const password = useWatch({ control, name: "password" });
+  const confirmPassword = useWatch({ control, name: "confirmPassword" });
   const confirmMatches =
     confirmPassword.length > 0 && confirmPassword === password;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Dialog, DialogFooter, Dropdown, TextField } from "@/components/ui";
@@ -31,7 +31,7 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     setError,
     formState: { errors },
@@ -46,7 +46,7 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
     },
   });
 
-  const level = watch("level");
+  const level = useWatch({ control, name: "level" });
 
   const mutation = useMutation({
     mutationFn: (data: TrainingPlanFormInput) =>

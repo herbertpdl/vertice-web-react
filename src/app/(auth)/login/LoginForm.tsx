@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Checkbox, TextField } from "@/components/ui";
 import { login } from "@/lib/api/auth";
@@ -20,7 +20,7 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
@@ -28,7 +28,7 @@ export function LoginForm() {
     defaultValues: { email: "", password: "", remember: false },
   });
 
-  const remember = watch("remember");
+  const remember = useWatch({ control, name: "remember" });
 
   async function onSubmit(data: LoginInput) {
     setFormError(null);
