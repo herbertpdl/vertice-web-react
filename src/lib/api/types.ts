@@ -9,6 +9,12 @@ export interface User {
   role: Role;
 }
 
+/** A first-access token (`POST /clients`, `POST /clients/:id/setup-token`). Shown once. */
+export interface PasswordSetup {
+  token: string;
+  expiresAt: string;
+}
+
 export interface CurrentPlanInfo {
   id: number;
   name: string;

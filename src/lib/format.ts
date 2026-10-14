@@ -9,6 +9,19 @@ const longDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   year: "numeric",
 });
 
+const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** A full timestamp in local time, e.g. "16 de out. de 2026, 15:00". */
+export function formatDateTime(isoTimestamp: string): string {
+  return dateTimeFormatter.format(new Date(isoTimestamp));
+}
+
 export function formatDateShort(isoDate: string): string {
   return shortDateFormatter.format(new Date(`${isoDate}T00:00:00`)).replace(".", "");
 }
