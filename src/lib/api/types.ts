@@ -1,11 +1,28 @@
 export type Role = "TRAINER" | "CLIENT" | "ADMIN";
 
-export interface User {
+/** `GET /auth/me`: the caller's own account. No CPF (no screen shows it; P1-03). */
+export interface Me {
+  id: number;
+  name: string;
+  email: string;
+  /** `""` for anyone but a trainer who set one. */
+  cref: string;
+  role: Role;
+}
+
+/** The `user` in the login and register responses. */
+export type SessionUser = Pick<Me, "id" | "name" | "email" | "role">;
+
+/**
+ * `GET /clients/:id`, the overview's `student`, and the `POST`/`PATCH /clients` responses. `cpf`
+ * is masked (`***.***.***-25`, `""` when the client has none) except in the response to
+ * `GET /clients/:id?reveal=cpf`. Never send a masked value back as a CPF.
+ */
+export interface ClientDetail {
   id: number;
   name: string;
   email: string;
   cpf: string;
-  cref?: string;
   role: Role;
 }
 
@@ -16,7 +33,7 @@ export interface PasswordSetup {
 }
 
 /** `POST /clients`: the new client plus their first-access token (`null` if issuing it failed). */
-export interface CreatedStudent extends User {
+export interface CreatedStudent extends ClientDetail {
   setup: PasswordSetup | null;
 }
 
@@ -34,7 +51,13 @@ export interface WeekActivityDay {
   completed: boolean;
 }
 
-export interface StudentOverview extends User {
+/**
+ * One roster row (`GET /clients`). No CPF, CREF or role. The BFF still sends a deprecated `email`
+ * until this web stops reading it (P1-03); it is left out of the type so nothing does.
+ */
+export interface ClientSummary {
+  id: number;
+  name: string;
   activePlanCount: number;
   currentPlan: CurrentPlanInfo | null;
   lastWorkoutAt: string | null;
@@ -44,7 +67,7 @@ export interface StudentOverview extends User {
 export type PlanLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
 
 export interface StudentDetailOverview {
-  student: User;
+  student: ClientDetail;
   activePlan: {
     id: number;
     name: string;

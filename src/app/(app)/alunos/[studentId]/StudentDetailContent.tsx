@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button, Dialog, DialogFooter, MetricCard } from "@/components/ui";
 import { Avatar } from "@/components/domain/Avatar";
 import { StudentAccessLink } from "@/components/domain/StudentAccessLink";
+import { StudentCpf } from "@/components/domain/StudentCpf";
 import { fetchStudentOverview } from "@/lib/api/students";
 import { fetchFeedback } from "@/lib/api/feedback";
 import { planLevelLabels } from "@/lib/validation/trainingPlans";
@@ -69,8 +70,13 @@ export function StudentDetailContent({ studentId }: { studentId: number }) {
             </h1>
             <div className="flex items-center gap-2 text-[length:var(--text-sm)] text-[color:var(--color-text-secondary)]">
               <span>{student.email}</span>
-              <span className="text-[color:var(--color-text-tertiary)]">·</span>
-              <span>{student.cpf}</span>
+              {student.cpf && (
+                <>
+                  <span className="text-[color:var(--color-text-tertiary)]">·</span>
+                  {/* Masked; the full CPF is fetched on "mostrar" and kept in StudentCpf only. */}
+                  <StudentCpf key={studentId} studentId={studentId} maskedCpf={student.cpf} />
+                </>
+              )}
             </div>
           </div>
         </div>
