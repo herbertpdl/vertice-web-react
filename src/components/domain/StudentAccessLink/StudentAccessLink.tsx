@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { Button, TextField } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { rateLimitMessage } from "@/lib/api/rateLimit";
+import { rateLimitedMessage } from "@/lib/api/rateLimit";
 import { issueStudentSetupToken, setupLink } from "@/lib/api/students";
 import type { PasswordSetup } from "@/lib/api/types";
 import { formatDateTime } from "@/lib/format";
@@ -39,13 +39,16 @@ export function StudentAccessLink({
 
   if (!setup) {
     const error = mutation.error;
+    // 409: the client has a password. Not necessarily one they know: clients created before
+    // setup links existed have a random one (ops issues their links), so the copy stays neutral.
     const alreadyHasPassword =
       error instanceof ApiError && error.code === "PRECONDITION_FAILED";
     return (
       <div className="flex w-full flex-col gap-[var(--space-3)]">
         {alreadyHasPassword ? (
           <p className="text-[13px] leading-[1.5] text-[color:var(--color-text-secondary)]">
-            Este aluno já definiu a senha e pode entrar normalmente. Não é preciso um novo link.
+            Este aluno já tem uma senha cadastrada, então não é possível gerar um novo link. Se
+            ele não consegue entrar, fale com o suporte.
           </p>
         ) : (
           <>
@@ -58,9 +61,7 @@ export function StudentAccessLink({
                 role="alert"
                 className="rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[var(--color-danger)]/10 px-[14px] py-[10px] text-[13px] text-[color:var(--color-danger)]"
               >
-                {error instanceof ApiError && error.status === 429
-                  ? rateLimitMessage(error.retryAfter)
-                  : "Não foi possível gerar o link. Tente novamente."}
+                {rateLimitedMessage(error) ?? "Não foi possível gerar o link. Tente novamente."}
               </div>
             )}
             <Button

@@ -38,7 +38,7 @@ export const Generate: Story = {
   },
 };
 
-/** 409 PRECONDITION_FAILED: the client already chose a password. */
+/** 409 PRECONDITION_FAILED: the client has a password (possibly a legacy random one). */
 export const AlreadyHasPassword: Story = {
   args: {
     setup: null,
@@ -51,7 +51,7 @@ export const AlreadyHasPassword: Story = {
   },
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("button", { name: "Gerar link de acesso" }));
-    await expect(await canvas.findByText(/Este aluno já definiu a senha/)).toBeVisible();
+    await expect(await canvas.findByText(/Este aluno já tem uma senha cadastrada/)).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Gerar link de acesso" })).toBeNull();
   },
 };
