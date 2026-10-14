@@ -75,7 +75,8 @@ browser ──▶ reverse proxy(s) ──▶ Next server (this app) ──▶ ve
   [password-lifecycle spec](https://github.com/herbertpdl/vertice-bff/blob/main/docs/specs/password-lifecycle/spec.md#client-ips-and-the-rate-limits).
 - **`TRUSTED_PROXY_HOPS`** (this app) is the number of reverse proxies in front of the Next
   server that append to `X-Forwarded-For`. **It must be set when `NODE_ENV=production`**: if it
-  is unset, every BFF call throws (500) instead of going out. The web forwards a single entry,
+  is unset, `next start` exits at boot with one `[vertice] TRUSTED_PROXY_HOPS must be set…` line
+  (`src/instrumentation.ts`), and every BFF call would throw (500) instead of going out. The web forwards a single entry,
   the one the outermost trusted proxy wrote; the browser-supplied part of the chain never
   reaches the BFF.
 - **Why `0` is dangerous in production.** Next 16 doesn't expose the socket address to route
@@ -91,6 +92,7 @@ browser ──▶ reverse proxy(s) ──▶ Next server (this app) ──▶ ve
 - **Setup tokens in access logs.** The first-access link is `/definir-senha?token=<token>`, and
   the token is a live credential for 72h. Reverse proxies log request URLs, so configure them to
   redact the `token` query parameter on `/definir-senha`. The page itself strips it from the
-  address bar after loading and sends no `Referer`.
+  address bar after loading (keeping it in the tab's `sessionStorage`, so a reload still works)
+  and sends no `Referer`.
 
 Local dev needs none of this: one developer sharing a bucket with themselves is fine.
