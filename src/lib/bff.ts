@@ -1,10 +1,10 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { forwardedFor, resolveTrustedProxyHops } from "./forwardedFor";
+import { serverEnv } from "./env.server";
+import { forwardedFor } from "./forwardedFor";
 
 export function bffUrl(path: string): string {
-  const base = process.env.BFF_URL ?? "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}/api${path.startsWith("/") ? path : `/${path}`}`;
+  return `${serverEnv().bffUrl}/api${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 /**
@@ -16,12 +16,9 @@ export function bffHeaders(
   request: Request,
   extra: Record<string, string> = {},
 ): Record<string, string> {
-  // Throws in production when TRUSTED_PROXY_HOPS is unset: no BFF call goes out with an
-  // address a browser may have chosen.
-  const xff = forwardedFor(
-    request.headers.get("x-forwarded-for"),
-    resolveTrustedProxyHops(process.env),
-  );
+  // `serverEnv()` throws in production when TRUSTED_PROXY_HOPS is unset: no BFF call goes out
+  // with an address a browser may have chosen.
+  const xff = forwardedFor(request.headers.get("x-forwarded-for"), serverEnv().trustedProxyHops);
   return xff ? { ...extra, "X-Forwarded-For": xff } : extra;
 }
 

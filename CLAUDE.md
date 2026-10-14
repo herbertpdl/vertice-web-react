@@ -128,6 +128,7 @@ Update `package-lock.json` with Node 22's npm 10 (`npx npm@10 install …` on a 
 drops some optional wasm entries that npm 10's `npm ci` in CI then reports as missing. It needs `vertice-bff` on `:3000` (which in turn needs
 `vertice-api`); see the sibling `vertice-local` repo for bringing the rest of the stack up.
 `BFF_URL` overrides the BFF base URL (default `http://localhost:3000`).
+Server config is read only via `src/lib/env.server.ts` (`serverEnv()`, parsed with Zod once).
 
 ## Feature workflow: PRD → design → spec → code
 

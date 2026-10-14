@@ -1,5 +1,6 @@
 // Which client address the BFF should rate-limit on, given the X-Forwarded-For header this
-// server received. Pure (no `server-only`) so it can be unit-tested; `src/lib/bff.ts` wires it up.
+// server received. Pure (no `server-only`) so it can be unit-tested; `src/lib/bff.ts` wires it up
+// with the hop count from `TRUSTED_PROXY_HOPS`, parsed and validated in `src/lib/env.server.ts`.
 //
 // The BFF sees this Next server as the peer of every web call, so without help every web user
 // shares one rate-limit bucket. We send `X-Forwarded-For` and the BFF (`TRUST_PROXY` = this
@@ -19,41 +20,6 @@
 //
 // We forward only that one entry. The browser-supplied part to its left is dropped, so nothing
 // the browser wrote ever reaches the BFF, whatever its TRUST_PROXY says.
-
-export class TrustedProxyHopsError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "TrustedProxyHopsError";
-  }
-}
-
-/**
- * `TRUSTED_PROXY_HOPS` as a hop count. Fails closed: in production it must be set explicitly
- * (`0` is a deliberate opt-in to "Next is reached directly"), and a value that isn't a
- * non-negative integer is refused everywhere rather than read as 0.
- */
-export function resolveTrustedProxyHops(env: {
-  NODE_ENV?: string;
-  TRUSTED_PROXY_HOPS?: string;
-}): number {
-  const value = env.TRUSTED_PROXY_HOPS?.trim();
-  if (!value) {
-    if (env.NODE_ENV === "production") {
-      throw new TrustedProxyHopsError(
-        "TRUSTED_PROXY_HOPS must be set in production: the number of reverse proxies in front " +
-          "of this server that append to X-Forwarded-For (0 only if Next is reached directly " +
-          "and you accept that browsers can choose their rate-limit IP). See README, Deployment.",
-      );
-    }
-    return 0;
-  }
-  if (!/^\d+$/.test(value)) {
-    throw new TrustedProxyHopsError(
-      `TRUSTED_PROXY_HOPS must be a non-negative integer, got "${env.TRUSTED_PROXY_HOPS}"`,
-    );
-  }
-  return Number(value);
-}
 
 export function forwardedFor(
   incoming: string | null | undefined,

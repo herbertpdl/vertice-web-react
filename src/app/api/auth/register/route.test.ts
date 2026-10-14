@@ -5,6 +5,7 @@ vi.mock("@/lib/session", () => ({ setSession: vi.fn() }));
 
 import { setSession } from "@/lib/session";
 import { POST } from "./route";
+import { resetServerEnvForTests } from "@/lib/env.server";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -39,6 +40,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  resetServerEnvForTests();
   fetchMock.mockReset();
   vi.mocked(setSession).mockReset();
 });
