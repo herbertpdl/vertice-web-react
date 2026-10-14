@@ -116,3 +116,17 @@ browser ──▶ reverse proxy(s) ──▶ Next server (this app) ──▶ ve
   and sends no `Referer`.
 
 Local dev needs none of this: one developer sharing a bucket with themselves is fine.
+
+### Deployment: HTTPS, Host and security headers
+
+- **Serve over HTTPS.** In production the session cookie is `Secure` and the app sends
+  `Strict-Transport-Security: max-age=31536000` (this host only, no `includeSubDomains`).
+- **Keep the `Host` header** when proxying (nginx: `proxy_set_header Host $host;`). The `/api/*`
+  handlers refuse cross-origin requests (`src/lib/requestGuard.ts`). Current browsers are judged
+  by `Sec-Fetch-Site`, but for browsers that don't send it the `Origin` host is compared with the
+  `Host` the server sees, and a rewritten `Host` would refuse every POST from them.
+- **CSP is report-only for now.** Pages carry a nonce-based
+  `Content-Security-Policy-Report-Only` (`src/lib/csp.ts`); violations only appear in the
+  browser console. Once a release shows none, switch `CSP_HEADER` there to
+  `Content-Security-Policy`. Clickjacking is already blocked (`X-Frame-Options: DENY` plus an
+  enforced `frame-ancestors 'none'`).

@@ -39,9 +39,10 @@ The dev server is pinned to port `5173` (not Next's usual `3000`) since `3000` i
 `http://localhost:5173`. Override with `npm run dev -- -p <port>` if needed.
 
 Besides the Storybook story tests (every `src/**/*.stories.tsx`, per `.storybook/main.ts`),
-`vitest.config.mts` has a `unit` project (node environment, `src/lib/**/*.test.ts` and
-`src/app/api/**/*.test.ts`) for pure modules (the workout editor's autosave engine, validation
-schemas, `forwardedFor`) and for the route handlers, which tests call directly with a
+`vitest.config.mts` has a `unit` project (node environment, `src/lib/**/*.test.ts`,
+`src/app/api/**/*.test.ts` and `src/proxy.test.ts`) for pure modules (the workout editor's
+autosave engine, validation schemas, `forwardedFor`) and for the route handlers and the proxy,
+which tests call directly with a
 `NextRequest` (mock `fetch` and `@/lib/session`; `server-only` is aliased to a no-op). Pages
 under `src/app/` have no tests.
 
@@ -60,8 +61,19 @@ that set/clear that cookie; they parse the body with the Zod schemas in
 `X-Forwarded-For` for the BFF's per-IP rate limits (README, "Deployment"; `TRUSTED_PROXY_HOPS`,
 required in production: unset, `src/instrumentation.ts` exits at boot and the call throws);
 use it, and `relayBffResponse` (keeps `Retry-After`, null body on 204), for any new route.
-`src/proxy.ts` is the edge guard: no cookie → `/login?redirect=`, cookie on an auth page →
-`/dashboard`, `/definir-senha` public either way. On any 401 `apiClient` logs out server-side and hard-
+Every `/api/*` handler starts with `guardApiRequest(request, "json" | "optional-json" | "none")`
+(`src/lib/requestGuard.ts`): 403 unless `Sec-Fetch-Site`/`Origin` say same-origin (unsafe methods
+must carry `Origin`), 415 for a non-JSON body. The BFF proxy encodes each path segment and 400s
+`.`, `..`, empty or slash-carrying ones (`bffProxyPath` in `src/lib/bff.ts`). The session cookie
+is `HttpOnly`, `SameSite=Strict`, `Secure` when the server runs with `NODE_ENV=production`.
+`src/proxy.ts` is the edge guard: no cookie → `/login?redirect=<path>`, cookie on an auth page →
+the `redirect` path or `/dashboard`, `/definir-senha` public either way. A `redirect` value only
+ever goes through `safeRedirectPath` (`src/lib/safeRedirect.ts`, same-origin paths only), here and
+in `LoginForm`. The proxy also sends the page CSP, per request with a nonce
+(`src/lib/csp.ts`, `Content-Security-Policy-Report-Only` for now), which is why the root layout
+calls `connection()` and every page renders dynamically; the static security headers (HSTS
+outside `next dev`, `X-Frame-Options`, `nosniff`, Referrer-/Permissions-Policy) are in
+`next.config.ts`. On any 401 `apiClient` logs out server-side and hard-
 navigates to `/login` (see the comment there for why it can't just `router.push`).
 
 BFF errors arrive as `ApiError {code, message, details, status}` — the same
