@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Runs `next dev` and opens the local dev URL in the default browser once
 // the server reports it's ready, so `npm run dev` opens itself.
-const { spawn } = require("node:child_process");
+import { spawn } from "node:child_process";
 
 const args = process.argv.slice(2);
 const child = spawn("next", ["dev", ...args], {
