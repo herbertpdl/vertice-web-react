@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { bffUrl } from "@/lib/bff";
+import { bffHeaders, bffUrl, relayBffResponse } from "@/lib/bff";
 import { getSessionToken } from "@/lib/session";
 
 async function proxy(
@@ -21,18 +21,14 @@ async function proxy(
 
   const res = await fetch(target, {
     method: request.method,
-    headers: {
+    headers: bffHeaders(request, {
       Authorization: `Bearer ${token}`,
       ...(hasBody ? { "Content-Type": "application/json" } : {}),
-    },
+    }),
     body: hasBody ? await request.text() : undefined,
   });
 
-  const text = await res.text();
-  return new NextResponse(text, {
-    status: res.status,
-    headers: { "Content-Type": res.headers.get("Content-Type") ?? "application/json" },
-  });
+  return relayBffResponse(res);
 }
 
 export {
