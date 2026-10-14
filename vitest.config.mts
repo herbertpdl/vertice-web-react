@@ -14,11 +14,12 @@ export default defineConfig({
     projects: [
       {
         // Plain unit tests (no browser): pure modules under src/lib and route handlers under
-        // src/app/api (called directly with a Request; tests mock fetch and the session).
+        // src/app/api (called directly with a Request; tests mock fetch and the session), plus the
+        // edge guard in src/proxy.ts.
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/lib/**/*.test.ts', 'src/app/api/**/*.test.ts'],
+          include: ['src/lib/**/*.test.ts', 'src/app/api/**/*.test.ts', 'src/proxy.test.ts'],
         },
         resolve: {
           alias: {
