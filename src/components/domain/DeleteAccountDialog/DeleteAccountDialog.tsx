@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import { Button, Dialog, DialogFooter, TextField } from "@/components/ui";
@@ -51,17 +51,10 @@ export function DeleteAccountDialog({ role, onClose, api = defaultApi }: DeleteA
   const [pending, setPending] = useState(false);
   // `pending` is state: a second Enter in the same tick would still see it false.
   const submittingRef = useRef(false);
-  // `Dialog` re-runs its focus effect whenever `onClose` changes (focusing its first control), so
-  // it gets one stable function; the latest props are read through refs.
-  const onCloseRef = useRef(onClose);
-  const pendingRef = useRef(pending);
-  useLayoutEffect(() => {
-    onCloseRef.current = onClose;
-    pendingRef.current = pending;
-  });
-  const close = useCallback(() => {
-    if (!pendingRef.current) onCloseRef.current();
-  }, []);
+  // No closing while the delete is in flight. (`Dialog` reads the latest `onClose` itself.)
+  function close() {
+    if (!pending) onClose();
+  }
 
   const confirmed = phrase.trim() === DELETE_CONFIRMATION_PHRASE;
   const canSubmit = confirmed && password.length > 0 && !pending;

@@ -93,9 +93,8 @@ export function ExerciseDialog({
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const refocusDeleteRef = useRef(false);
 
-  // `Dialog` re-runs its focus effect (and so re-focuses "Fechar") whenever `onClose` changes
-  // identity, so both steps get a stable `onClose` that reads the latest values from refs. This is
-  // for correctness, not for memoization, which the React Compiler handles.
+  // Both steps get an `onClose` that reads the latest values from refs (a pending delete must not
+  // be cancelled by Escape). `Dialog` itself no longer cares about `onClose`'s identity.
   const onCloseRef = useRef(onClose);
   const deletePendingRef = useRef(false);
   // Set synchronously on the confirm click: `isPending` only shows up a render later, so a second
