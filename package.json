@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "node scripts/dev-open-browser.mjs -p 5173",
+    "api:types": "node scripts/sync-api-types.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
@@ -44,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "eslint-plugin-storybook": "^10.6.0",
+    "openapi-typescript": "7.13.0",
     "playwright": "1.62.1",
     "storybook": "^10.6.0",
     "tailwindcss": "^4",
