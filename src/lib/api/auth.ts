@@ -1,5 +1,5 @@
 import { apiClient, apiErrorFrom } from "./client";
-import type { Me, SessionUser } from "./types";
+import type { Consent, ConsentType, Me, SessionUser } from "./types";
 
 // These go to this app's own /api/auth/* route handlers (not the /api/bff proxy): they set or
 // clear the session cookie, or need no session at all. Failures throw an ApiError, so callers
@@ -36,6 +36,8 @@ export function register(input: {
   password: string;
   cpf: string;
   cref?: string;
+  /** The Terms / Privacy Policy version the user accepted on the form (`LEGAL_VERSIONS.terms`). */
+  acceptedTermsVersion: string;
   remember: boolean;
 }) {
   return authRequest<{ user: SessionUser }>("/api/auth/register", input);
@@ -52,4 +54,9 @@ export async function logout(): Promise<void> {
 
 export function fetchMe() {
   return apiClient.get<Me>("/auth/me");
+}
+
+/** Records the caller's own consent (self only: no user id). Returns the new consent state. */
+export function recordConsent(input: { type: ConsentType; version: string }) {
+  return apiClient.post<Consent>("/auth/me/consent", input);
 }

@@ -18,6 +18,7 @@ const validBody = {
   cpf: "529.982.247-25",
   cref: "",
   password: "senha-forte-123",
+  acceptedTermsVersion: "2026-10-draft",
   remember: true,
 };
 
@@ -61,15 +62,21 @@ describe("POST /api/auth/register", () => {
       password: "senha-forte-123",
       cpf: "52998224725",
       role: "TRAINER",
+      acceptedTermsVersion: "2026-10-draft",
     });
     expect(setSession).toHaveBeenCalledWith("jwt", true);
     expect(await res.json()).toEqual({ user: { id: 1, role: "TRAINER" } });
   });
 
+  it("forwards the accepted Terms version as given, with role TRAINER", async () => {
+    await POST(post({ ...validBody, acceptedTermsVersion: "2027-01" }));
+    expect(sentBody()).toMatchObject({ acceptedTermsVersion: "2027-01", role: "TRAINER" });
+  });
+
   it("sends only known fields upstream", async () => {
     await POST(post({ ...validBody, cref: "012345-G/SP", isAdmin: true, role: "ADMIN" }));
     expect(Object.keys(sentBody()).sort()).toEqual(
-      ["cpf", "cref", "email", "name", "password", "role"].sort(),
+      ["acceptedTermsVersion", "cpf", "cref", "email", "name", "password", "role"].sort(),
     );
     expect(sentBody().role).toBe("TRAINER");
   });
@@ -78,6 +85,8 @@ describe("POST /api/auth/register", () => {
     ["a password under 8 characters", { ...validBody, password: "1234567" }],
     ["an invalid CPF", { ...validBody, cpf: "111.111.111-11" }],
     ["a missing email", { ...validBody, email: undefined }],
+    ["a missing acceptedTermsVersion", { ...validBody, acceptedTermsVersion: undefined }],
+    ["a malformed acceptedTermsVersion", { ...validBody, acceptedTermsVersion: "v 1/2" }],
   ])("rejects %s with 400 before calling the BFF", async (_, body) => {
     const res = await POST(post(body));
     expect(res.status).toBe(400);

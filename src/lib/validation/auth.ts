@@ -58,6 +58,8 @@ export const registerRequestSchema = z.object({
   cpf: cpfSchema.transform(onlyDigits),
   cref: z.string().optional(),
   password: newPasswordSchema,
+  // The Terms / Privacy Policy version accepted on the form (P1-04), vertice-api's format.
+  acceptedTermsVersion: z.string().regex(/^[A-Za-z0-9._-]{1,32}$/),
   remember: z.boolean().optional(),
 });
 

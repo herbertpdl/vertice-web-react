@@ -8,7 +8,22 @@ export interface Me {
   /** `""` for anyone but a trainer who set one. */
   cref: string;
   role: Role;
+  consent: Consent;
 }
+
+/**
+ * The caller's recorded consents (`GET /auth/me`'s `consent`, `POST /auth/me/consent`'s response).
+ * Each pair is `null` when never given. Compare the versions with `src/lib/legal/versions.ts`:
+ * null or different means "show the text and ask".
+ */
+export interface Consent {
+  termsVersion: string | null;
+  termsAcceptedAt: string | null;
+  healthDataVersion: string | null;
+  healthDataConsentAt: string | null;
+}
+
+export type ConsentType = "TERMS" | "HEALTH_DATA";
 
 /** The `user` in the login and register responses. */
 export type SessionUser = Pick<Me, "id" | "name" | "email" | "role">;
