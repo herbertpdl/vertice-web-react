@@ -98,12 +98,19 @@ export interface DownloadedFile {
   filename: string;
 }
 
-/** The `filename` of a `Content-Disposition: attachment; filename="…"` header, if any. */
+// A plain file name: word characters, dots and dashes, not starting with a dot, no `..`.
+const SAFE_FILENAME = /^[\w-][\w.-]*$/;
+
+/**
+ * The `filename` of a `Content-Disposition: attachment; filename="…"` header, or `undefined` when
+ * there is none or it is anything but a plain name (a path, `..`, spaces, non-ASCII), so the
+ * caller falls back to its fixed name.
+ */
 export function attachmentFilename(disposition: string | null): string | undefined {
   const match = disposition?.match(/filename\s*=\s*(?:"([^"]*)"|([^;\s]+))/i);
   const name = (match?.[1] ?? match?.[2])?.trim();
-  // Only the last path segment: a file name, never a path.
-  return name ? name.split(/[\\/]/).pop() || undefined : undefined;
+  if (!name || !SAFE_FILENAME.test(name) || name.includes("..")) return undefined;
+  return name;
 }
 
 async function download(path: string, fallbackName: string): Promise<DownloadedFile> {

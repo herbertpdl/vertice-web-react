@@ -112,7 +112,11 @@ describe("attachmentFilename", () => {
   it.each([
     ['attachment; filename="vertice-dados-2026-10-15.json"', "vertice-dados-2026-10-15.json"],
     ["attachment; filename=dados.json", "dados.json"],
-    ['attachment; filename="../../etc/passwd"', "passwd"],
+    ['attachment; filename="../../etc/passwd"', undefined],
+    ['attachment; filename="dados..json"', undefined],
+    ['attachment; filename=".bashrc"', undefined],
+    ['attachment; filename="meus dados.json"', undefined],
+    ['attachment; filename="C:\\dados.json"', undefined],
     ["attachment", undefined],
     [null, undefined],
   ])("reads %s as %s", (header, expected) => {

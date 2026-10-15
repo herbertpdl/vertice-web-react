@@ -1,5 +1,7 @@
 import type { DownloadedFile } from "@/lib/api/client";
 
+export const REVOKE_DELAY_MS = 1500;
+
 /**
  * Hands a fetched file to the browser as a download (`a[download]` on an object URL). The file is
  * fetched first, not navigated to, so a 413 or 429 can be shown on the page instead of as a JSON
@@ -14,6 +16,6 @@ export function saveFile({ blob, filename }: DownloadedFile): void {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  // Revoked on the next task: the click has started the download by then.
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  // Revoked a little later, not right away: some browsers read the URL after `click()` returns.
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
 }

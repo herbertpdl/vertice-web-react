@@ -151,6 +151,19 @@ describe("/api/bff/[...path] proxy", () => {
     expect(await res.text()).toBe(file);
   });
 
+  it("does not relay Content-Disposition on an error", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json(
+        { error: { code: "TOO_LARGE", message: "Too large" } },
+        { status: 413, headers: { "Content-Disposition": 'attachment; filename="x.json"' } },
+      ),
+    );
+    const res = await call(GET, ["auth", "me", "export"], { method: "GET" });
+    expect(res.status).toBe(413);
+    expect(res.headers.get("Content-Disposition")).toBeNull();
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   it("forwards DELETE /auth/me's JSON body (the password)", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
     const res = await call(DELETE, ["auth", "me"], {
