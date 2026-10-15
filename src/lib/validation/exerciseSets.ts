@@ -1,4 +1,17 @@
 import { z } from "zod";
+import {
+  LOAD_PERCENTAGE_PATTERN,
+  NOTES_MAX,
+  WEIGHT_PATTERN,
+  boundedText,
+  durationSeconds,
+  loadPercentageMessage,
+  optionalDecimal,
+  orderNumber,
+  repsCount,
+  restSeconds,
+  weightMessage,
+} from "./bounds";
 
 export const setStrategySchema = z.enum([
   "STRAIGHT",
@@ -27,23 +40,23 @@ export const setStrategyLabels: Record<SetStrategyFormInput, string> = {
 };
 
 export const exerciseSetSchema = z.object({
-  setNumber: z.number().int().positive(),
-  reps: z.number().int().min(0).optional(),
-  durationSeconds: z.number().int().min(0).optional(),
-  weight: z.string().optional(),
-  loadPercentage: z.string().optional(),
+  setNumber: orderNumber,
+  reps: repsCount.optional(),
+  durationSeconds: durationSeconds.optional(),
+  weight: optionalDecimal(WEIGHT_PATTERN, weightMessage),
+  loadPercentage: optionalDecimal(LOAD_PERCENTAGE_PATTERN, loadPercentageMessage),
   strategy: setStrategySchema,
-  restSeconds: z.number().int().min(0).optional(),
-  notes: z.string().optional(),
+  restSeconds: restSeconds.optional(),
+  notes: boundedText(NOTES_MAX).optional(),
 });
 
 export type ExerciseSetFormInput = z.infer<typeof exerciseSetSchema>;
 
 export const workoutExerciseSchema = z.object({
   exerciseId: z.number().int().positive(),
-  order: z.number().int().min(0),
-  restSecondsBetweenSets: z.number().int().min(0),
-  notes: z.string(),
+  order: orderNumber,
+  restSecondsBetweenSets: restSeconds,
+  notes: boundedText(NOTES_MAX),
 });
 
 export type WorkoutExerciseFormInput = z.infer<typeof workoutExerciseSchema>;

@@ -6,9 +6,10 @@ import type {
   SetStrategy,
   WorkoutExerciseEntry,
 } from "@/lib/api/types";
+import { MAX_EXERCISES_PER_WORKOUT, MAX_SETS_PER_EXERCISE } from "@/lib/validation/bounds";
 
-export const MAX_EXERCISES = 20;
-export const MAX_SETS = 10;
+export const MAX_EXERCISES = MAX_EXERCISES_PER_WORKOUT;
+export const MAX_SETS = MAX_SETS_PER_EXERCISE;
 export const DEFAULT_WORKOUT_NAME = "Novo treino";
 export const DEFAULT_REST_BETWEEN_SETS = 60;
 

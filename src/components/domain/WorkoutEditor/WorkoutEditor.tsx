@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowDownToLine, ChevronRight, CircleAlert, Dumbbell, TriangleAlert } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Dropdown, PageLoadingOverlay, TextField } from "@/components/ui";
+import { NAME_MAX } from "@/lib/validation/bounds";
 import { AddExerciseDialog } from "../AddExerciseDialog";
 import { CloneWorkoutDialog } from "../CloneWorkoutDialog";
 import { DeleteWorkoutDialog } from "../DeleteWorkoutDialog";
@@ -316,6 +317,7 @@ export function WorkoutEditorSession({
               label="Nome do treino"
               placeholder="Treino A — Superior"
               value={draft.name}
+              maxLength={NAME_MAX}
               onChange={(event) => engine.dispatch({ type: "setName", name: event.target.value })}
               className="w-[360px]"
             />

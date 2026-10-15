@@ -2,10 +2,11 @@ import { z } from "zod";
 import type { UpdateStudentInput } from "@/lib/api/students";
 import type { ClientDetail } from "@/lib/api/types";
 import { isValidCpf, onlyDigits } from "./cpf";
+import { NAME_MAX, emailField, requiredText } from "./bounds";
 
 export const studentSchema = z.object({
-  name: z.string().min(1, "Informe o nome"),
-  email: z.string().min(1, "Informe o e-mail").email("E-mail inválido"),
+  name: requiredText(NAME_MAX, "Informe o nome"),
+  email: emailField(),
   cpf: z
     .string()
     .min(1, "Informe o CPF")
@@ -20,8 +21,8 @@ export type StudentInput = z.infer<typeof studentSchema>;
  * `removeCpf` clears it (`null`).
  */
 export const editStudentSchema = z.object({
-  name: z.string().trim().min(1, "Informe o nome"),
-  email: z.string().trim().min(1, "Informe o e-mail").email("E-mail inválido"),
+  name: requiredText(NAME_MAX, "Informe o nome"),
+  email: emailField(),
   newCpf: z.string().refine((value) => value === "" || isValidCpf(value), "CPF inválido"),
   removeCpf: z.boolean(),
 });

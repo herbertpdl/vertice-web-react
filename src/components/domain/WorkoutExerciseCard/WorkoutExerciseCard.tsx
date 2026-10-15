@@ -4,6 +4,7 @@ import { useState, type DragEvent } from "react";
 import { Ban, CircleAlert, CirclePlay, GripVertical, Info, Move, Trash2 } from "lucide-react";
 import { Button, TextField } from "@/components/ui";
 import { MAX_SETS, type EditorExercise, type ExerciseFields, type SetFields } from "@/lib/workoutEditor/model";
+import { NOTES_MAX, REST_SECONDS_MAX, safeHttpUrl } from "@/lib/validation/bounds";
 import { SET_GRID, SetRow } from "../SetRow";
 
 export type CardDragState = "idle" | "dragging" | "not-allowed";
@@ -49,7 +50,7 @@ function RestField({ value, onCommit }: { value: number; onCommit: (value: numbe
         inputMode="numeric"
         onChange={(event) => {
           const next = event.target.value;
-          if (!INTEGER.test(next)) return;
+          if (!INTEGER.test(next) || Number(next) > REST_SECONDS_MAX) return;
           setLocal(next);
           if (next !== "") onCommit(Number(next));
         }}
@@ -98,6 +99,7 @@ export function WorkoutExerciseCard({
   // Insertion index for the set being dragged inside this card.
   const [setOverIndex, setSetOverIndex] = useState<number | null>(null);
   const atSetCap = exercise.sets.length >= MAX_SETS;
+  const videoUrl = safeHttpUrl(exercise.exercise.videoUrl);
   const draggingOwnSet = draggingSetKey != null;
   const notAllowed = dragState === "not-allowed";
 
@@ -193,9 +195,9 @@ export function WorkoutExerciseCard({
                   {group.name}
                 </span>
               ))}
-              {exercise.exercise.videoUrl && (
+              {videoUrl && (
                 <a
-                  href={exercise.exercise.videoUrl}
+                  href={videoUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center gap-[4px] text-[12px] text-[color:var(--color-primary)] hover:opacity-80"
@@ -232,6 +234,7 @@ export function WorkoutExerciseCard({
         label="Notas"
         placeholder="Adicione observações para este exercício..."
         value={exercise.notes}
+        maxLength={NOTES_MAX}
         onChange={(event) => onUpdate({ notes: event.target.value })}
         className="[&>div]:bg-[var(--color-bg)]"
       />

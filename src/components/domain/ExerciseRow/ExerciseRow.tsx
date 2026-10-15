@@ -1,5 +1,6 @@
 import { CirclePlay, Pencil } from "lucide-react";
 import type { Exercise } from "@/lib/api/types";
+import { safeHttpUrl } from "@/lib/validation/bounds";
 
 /** Column widths shared by the catalog's header row and every `ExerciseRow`. */
 export const EXERCISE_COLUMN_WIDTHS = { name: 260, description: 380, video: 90, edit: 60 };
@@ -11,6 +12,8 @@ interface ExerciseRowProps {
 
 /** One `/exercicios` row. A starter-set exercise is read-only (R28): no edit action, no marker. */
 export function ExerciseRow({ exercise, onEdit }: ExerciseRowProps) {
+  // Only an http(s) URL becomes a link: a stored `javascript:`/`data:` one gets nothing to click.
+  const videoUrl = safeHttpUrl(exercise.videoUrl);
   return (
     <div className="flex w-full items-center gap-[var(--space-4)] border-t border-[var(--color-border)] px-[var(--space-5)] py-[var(--space-4)]">
       <div style={{ width: EXERCISE_COLUMN_WIDTHS.name }} className="flex flex-col gap-[4px]">
@@ -38,9 +41,9 @@ export function ExerciseRow({ exercise, onEdit }: ExerciseRowProps) {
         style={{ width: EXERCISE_COLUMN_WIDTHS.video }}
         className="flex items-center justify-center"
       >
-        {exercise.videoUrl ? (
+        {videoUrl ? (
           <a
-            href={exercise.videoUrl}
+            href={videoUrl}
             target="_blank"
             rel="noreferrer"
             aria-label={`Vídeo de ${exercise.name}`}

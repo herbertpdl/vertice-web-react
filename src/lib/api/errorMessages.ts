@@ -1,4 +1,5 @@
 import { ApiError } from "./client";
+import { MAX_EXERCISES_PER_WORKOUT, MAX_FEEDBACK_PER_LOG, MAX_SETS_PER_EXERCISE } from "@/lib/validation/bounds";
 import { rateLimitedMessage } from "./rateLimit";
 
 /**
@@ -27,12 +28,35 @@ export const errorMessages: Readonly<Record<string, string>> = {
 };
 
 /**
+ * The per-item caps vertice-api enforces and the web UI also blocks up front. The 400 carries the
+ * API's English text (`exercises: must not exceed 20 entries`, `sets: must not exceed 10 entries`,
+ * `workoutLogId: a workout session takes at most 10 feedback entries`); the code is the generic
+ * `VALIDATION_ERROR`, so these are told apart by that text and given their own copy.
+ */
+export function limitMessage(error: unknown): string | null {
+  if (!(error instanceof ApiError) || error.code !== "VALIDATION_ERROR") return null;
+  const text = error.message;
+  if (/exercises: must not exceed \d+ entries/.test(text)) {
+    return `Um treino pode ter no máximo ${MAX_EXERCISES_PER_WORKOUT} exercícios.`;
+  }
+  if (/sets: must not exceed \d+ entries/.test(text)) {
+    return `Um exercício pode ter no máximo ${MAX_SETS_PER_EXERCISE} séries.`;
+  }
+  if (/at most \d+ feedback entries/.test(text)) {
+    return `Cada treino realizado aceita no máximo ${MAX_FEEDBACK_PER_LOG} comentários de feedback.`;
+  }
+  return null;
+}
+
+/**
  * The pt-BR message for a failed call: the rate-limit copy for a 429, the copy for the error's
  * `code`, or `fallback` for an unknown code or a non-API error (a network `TypeError`, ...).
  */
 export function apiErrorMessage(error: unknown, fallback: string): string {
   const rateLimited = rateLimitedMessage(error);
   if (rateLimited) return rateLimited;
+  const limit = limitMessage(error);
+  if (limit) return limit;
   if (error instanceof ApiError && Object.hasOwn(errorMessages, error.code)) {
     return errorMessages[error.code];
   }

@@ -3,6 +3,7 @@
 import { useState, type DragEvent } from "react";
 import { Copy, GripVertical, Lock, X } from "lucide-react";
 import { Dropdown } from "@/components/ui";
+import { REPS_MAX, REST_SECONDS_MAX } from "@/lib/validation/bounds";
 import { setStrategyLabels, type SetStrategyFormInput } from "@/lib/validation/exerciseSets";
 import type { EditorSet, SetFields } from "@/lib/workoutEditor/model";
 
@@ -22,6 +23,16 @@ const DECIMAL = /^\d*([.,]\d*)?$/;
 const COMPLETE_DECIMAL = /^(\d+([.,]\d+)?|[.,]\d+)$/;
 const INTEGER = /^\d*$/;
 
+/** What the platform stores (vertice-api): weight `NUMERIC(6,2)`, % `NUMERIC(5,2)`, reps/rest capped. */
+type Bounds = { max: number } | { intDigits: number; decDigits: number };
+
+/** Whether `text` (already matching DECIMAL / INTEGER) is within `bounds`; a dangling separator is. */
+function withinBounds(text: string, bounds: Bounds): boolean {
+  if ("max" in bounds) return text === "" || Number(text) <= bounds.max;
+  const [int = "", dec = ""] = text.replace(",", ".").split(".");
+  return int.replace(/^0+(?=\d)/, "").length <= bounds.intDigits && dec.length <= bounds.decDigits;
+}
+
 /** Wire form of a complete decimal: dot separator, leading zero. */
 function toWireDecimal(text: string): string {
   const dotted = text.replace(",", ".");
@@ -33,12 +44,14 @@ function Cell({
   onCommit,
   placeholder,
   kind,
+  bounds,
   ariaLabel,
 }: {
   value: string;
   onCommit: (value: string) => void;
   placeholder?: string;
   kind: "integer" | "decimal";
+  bounds: Bounds;
   ariaLabel: string;
 }) {
   const [local, setLocal] = useState(value);
@@ -49,7 +62,7 @@ function Cell({
     setLocal(value);
   }
   const pattern = kind === "integer" ? INTEGER : DECIMAL;
-  const valid = pattern.test(local);
+  const valid = pattern.test(local) && withinBounds(local, bounds);
 
   return (
     <input
@@ -61,13 +74,16 @@ function Cell({
       onChange={(event) => {
         const next = event.target.value;
         setLocal(next);
-        if (!pattern.test(next)) return;
+        // Out of range is flagged (above) and never committed, so it can't undo the pending batch.
+        if (!pattern.test(next) || !withinBounds(next, bounds)) return;
         if (kind === "integer" || next === "") onCommit(next);
         else if (COMPLETE_DECIMAL.test(next)) onCommit(toWireDecimal(next));
       }}
       onBlur={() => {
         // Left on a dangling separator: show what was actually committed.
-        if (kind === "decimal" && local !== "" && !COMPLETE_DECIMAL.test(local)) setLocal(value);
+        if (!valid || (kind === "decimal" && local !== "" && !COMPLETE_DECIMAL.test(local))) {
+          setLocal(value);
+        }
       }}
       className={`w-full rounded-[var(--radius-sm)] border bg-[var(--color-bg)] px-[10px] py-[7px] text-[12px] text-[color:var(--color-text-primary)] outline-none transition-colors placeholder:text-[color:var(--color-text-tertiary)] focus:border-[var(--color-primary)] ${
         valid ? "border-[var(--color-border)]" : "border-[var(--color-danger)]"
@@ -154,6 +170,7 @@ export function SetRow({
       />
       <Cell
         kind="integer"
+        bounds={{ max: REPS_MAX }}
         ariaLabel={`Reps da série ${setNumber}`}
         value={set.reps !== undefined ? String(set.reps) : ""}
         placeholder="reps"
@@ -161,6 +178,7 @@ export function SetRow({
       />
       <Cell
         kind="decimal"
+        bounds={{ intDigits: 4, decDigits: 2 }}
         ariaLabel={`Peso da série ${setNumber}`}
         value={set.weight ?? ""}
         placeholder="kg"
@@ -168,6 +186,7 @@ export function SetRow({
       />
       <Cell
         kind="decimal"
+        bounds={{ intDigits: 3, decDigits: 2 }}
         ariaLabel={`%1RM da série ${setNumber}`}
         value={set.loadPercentage ?? ""}
         placeholder="%"
@@ -175,6 +194,7 @@ export function SetRow({
       />
       <Cell
         kind="integer"
+        bounds={{ max: REST_SECONDS_MAX }}
         ariaLabel={`Descanso da série ${setNumber}`}
         value={set.restSeconds !== undefined ? String(set.restSeconds) : ""}
         placeholder="s"

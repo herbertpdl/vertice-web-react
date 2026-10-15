@@ -40,6 +40,22 @@ export const Own: Story = {
   },
 };
 
+export const WithVideo: Story = {
+  play: async ({ canvas }) => {
+    const link = canvas.getByRole("link", { name: "Vídeo de Supino Reto com Barra" });
+    await expect(link).toHaveAttribute("href", "https://example.com/supino");
+  },
+};
+
+/** A stored `javascript:` URL (from before the http(s)-only rule) renders no link at all. */
+export const UnsafeVideoUrl: Story = {
+  args: { exercise: { ...supino, videoUrl: "javascript:alert(1)" } },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("link")).toBeNull();
+    await expect(canvas.getByText("—")).toBeVisible();
+  },
+};
+
 export const NoVideo: Story = {
   args: { exercise: puxada },
   play: async ({ canvas }) => {

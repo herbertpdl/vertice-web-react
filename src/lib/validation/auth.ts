@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidCpf, onlyDigits } from "./cpf";
+import { CREF_MAX, NAME_MAX, boundedText, emailField, requiredText, tooLong } from "./bounds";
 
 // vertice-api's password policy, mirrored by the BFF: at least 8 characters, at most 72 UTF-8
 // bytes (bcrypt's input limit), not blank. Applies wherever a password is chosen, not to login
@@ -17,8 +18,8 @@ export const newPasswordSchema = z
 
 export const PASSWORD_HELP_TEXT = `Mínimo de ${PASSWORD_MIN_LENGTH} caracteres.`;
 
-const emailSchema = z.string().min(1, "Informe o e-mail").email("E-mail inválido");
-const cpfSchema = z.string().min(1, "Informe o CPF").refine(isValidCpf, "CPF inválido");
+const emailSchema = emailField();
+const cpfSchema = z.string().min(1, "Informe o CPF").max(20, tooLong(20)).refine(isValidCpf, "CPF inválido");
 
 export const loginSchema = z.object({
   email: emailSchema,
@@ -30,10 +31,10 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 export const registerSchema = z
   .object({
-    name: z.string().min(1, "Informe o nome"),
+    name: requiredText(NAME_MAX, "Informe o nome"),
     email: emailSchema,
     cpf: cpfSchema,
-    cref: z.string().optional(),
+    cref: boundedText(CREF_MAX).optional(),
     password: newPasswordSchema,
     confirmPassword: z.string().min(1, "Confirme a senha"),
     terms: z.literal(true, {
@@ -53,10 +54,10 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export const loginRequestSchema = loginSchema.extend({ remember: z.boolean().optional() });
 
 export const registerRequestSchema = z.object({
-  name: z.string().trim().min(1),
+  name: requiredText(NAME_MAX, "Informe o nome"),
   email: emailSchema,
   cpf: cpfSchema.transform(onlyDigits),
-  cref: z.string().optional(),
+  cref: z.string().max(CREF_MAX).trim().optional(),
   password: newPasswordSchema,
   // The Terms / Privacy Policy version accepted on the form (P1-04), vertice-api's format.
   acceptedTermsVersion: z.string().regex(/^[A-Za-z0-9._-]{1,32}$/),
