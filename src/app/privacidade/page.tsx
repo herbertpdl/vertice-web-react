@@ -41,8 +41,8 @@ export default function PrivacyPage() {
       <LegalSection title="2. Dados que coletamos e para quê">
         <ul>
           <li>
-            <strong>Cadastro:</strong> nome e e-mail, para identificar você, permitir o login e
-            enviar o link de primeiro acesso.
+            <strong>Cadastro:</strong> nome e e-mail, para identificar você e permitir o login.
+            No caso do aluno, o treinador compartilha com ele o link de primeiro acesso.
           </li>
           <li>
             <strong>CPF:</strong> obrigatório para treinadores (identificação, verificação do CREF
@@ -96,10 +96,10 @@ export default function PrivacyPage() {
       <LegalSection title="4. Dados relacionados à saúde">
         <p>
           Cargas, registros de treino e o texto de feedback (que pode mencionar dor, lesão ou
-          esforço) revelam a condição física do aluno e são tratados como dados sensíveis. Pedimos
-          o consentimento do aluno para esse tratamento no primeiro acesso ao aplicativo do aluno,
-          e registramos a versão consentida e a data. O aluno pode revogar o consentimento pelo
-          e-mail de contato; sem ele, não é possível registrar treinos na plataforma.
+          esforço) revelam a condição física do aluno e são tratados como dados sensíveis. O
+          consentimento do aluno para esse tratamento será pedido no primeiro acesso dele ao
+          aplicativo, antes de qualquer registro de treino, e a versão consentida e a data ficarão
+          registradas. O aluno pode revogar o consentimento pelo e-mail de contato.
         </p>
       </LegalSection>
 
@@ -164,7 +164,8 @@ export default function PrivacyPage() {
           <li>a revogação do consentimento.</li>
         </ul>
         <p>
-          Para exercer esses direitos, use a página Meu perfil ou o e-mail de contato. Se você é
+          Para exercer esses direitos, escreva para o e-mail de contato (uma página de perfil para
+          fazer esses pedidos no próprio aplicativo virá em breve). Se você é
           aluno, também pode fazer o pedido ao seu treinador, que é o controlador dos seus dados;
           nós o apoiaremos no atendimento.
         </p>

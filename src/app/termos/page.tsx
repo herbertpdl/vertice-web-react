@@ -89,8 +89,8 @@ export default function TermsPage() {
 
       <LegalSection title="8. Encerramento da conta">
         <p>
-          Você pode pedir o encerramento da sua conta a qualquer momento, pela página Meu perfil ou
-          pelo e-mail de contato. Ao encerrar a conta, os dados pessoais dela são excluídos ou
+          Você pode pedir o encerramento da sua conta a qualquer momento pelo e-mail de contato
+          (uma página de perfil para fazer isso no próprio aplicativo virá em breve). Ao encerrar a conta, os dados pessoais dela são excluídos ou
           anonimizados, como descrito na Política de Privacidade.
         </p>
       </LegalSection>
