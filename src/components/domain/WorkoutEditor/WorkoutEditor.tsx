@@ -462,6 +462,8 @@ export function WorkoutEditorSession({
               // DELETE (or land after it). Its outcome does not matter, the workout is going.
               await engine.flush();
               await deleteWorkout(id);
+              // Gone: no later edit or retry may PATCH it (the engine outlives this page).
+              engine.dispose();
             },
           }}
         />

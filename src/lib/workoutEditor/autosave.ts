@@ -94,6 +94,12 @@ export interface AutosaveEngine {
   fail(message: string): void;
   /** Replaces the `onSaved` callback (React re-renders hand in a fresh closure). */
   setOnSaved(callback: AutosaveOptions["onSaved"]): void;
+  /**
+   * The workout was deleted: drop the armed debounce and ignore every later edit, flush and retry,
+   * so nothing PATCHes (or re-creates under) a workout that is gone. A run already in flight
+   * finishes; one-way.
+   */
+  dispose(): void;
 }
 
 export const DEFAULT_DELAY_MS = 800;
@@ -242,6 +248,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
   let queue: Promise<void> = Promise.resolve();
   let queuedFlush = false;
   let running = false;
+  let disposed = false;
   const listeners = new Set<() => void>();
 
   function setState(patch: Partial<AutosaveState>) {
@@ -286,10 +293,12 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
 
   function flush(): Promise<void> {
     clearTimer();
+    if (disposed) return queue;
     if (queuedFlush) return queue;
     queuedFlush = true;
     queue = queue.then(async () => {
       queuedFlush = false;
+      if (disposed) return;
       await run();
     });
     return queue;
@@ -585,6 +594,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
       };
     },
     dispatch(action) {
+      if (disposed) return;
       const next = reduce(state.draft, action);
       if (next === state.draft) return;
       setState({
@@ -612,6 +622,10 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
     },
     setOnSaved(callback) {
       onSaved = callback;
+    },
+    dispose() {
+      disposed = true;
+      clearTimer();
     },
   };
 }
