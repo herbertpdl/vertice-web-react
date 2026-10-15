@@ -68,20 +68,28 @@ export function setupLink(origin: string, token: string) {
 export interface UpdateStudentInput {
   name: string;
   email: string;
-  cpf?: string;
+  /** Leave out to keep the stored CPF; a new CPF (digits) replaces it; `null` removes it. */
+  cpf?: string | null;
 }
 
 /**
- * `cpf` is optional: leave it out to keep the current one. A masked CPF (what every client
- * response carries) is dropped rather than sent, so a form prefilled from `ClientDetail` can never
- * overwrite the real CPF with `***.***.***-25`.
+ * `PATCH /clients/:id`. `cpf` is optional: leave it out to keep the current one, `null` removes it.
+ * A masked CPF (what every client response carries, and a 400 from the BFF) is dropped rather than
+ * sent, so a form prefilled from `ClientDetail` can never overwrite the real CPF with
+ * `***.***.***-25`.
  */
 export function updateStudent(id: number, input: UpdateStudentInput) {
   const { cpf, ...rest } = input;
-  const body = cpf === undefined || isMaskedCpf(cpf) ? rest : { ...rest, cpf };
+  const body =
+    cpf === undefined || (cpf !== null && isMaskedCpf(cpf)) ? rest : { ...rest, cpf };
   return apiClient.patch<ClientDetail>(`/clients/${id}`, body);
 }
 
-export function deleteStudent(id: number) {
+/**
+ * "Encerrar acompanhamento" (`DELETE /clients/:id`, 204): ends the trainer's relationship with the
+ * client. It does not delete the client's account; the plans and the logs under them stay. A 403
+ * means the client is not (or no longer) one of the trainer's.
+ */
+export function endStudentRelationship(id: number) {
   return apiClient.delete<void>(`/clients/${id}`);
 }

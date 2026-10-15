@@ -206,3 +206,41 @@ export const ProtectedSetRemovalRestored: Story = {
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
 };
+
+const deleteTransport = fakeTransport();
+const deleteRequest = fn(async () => undefined);
+
+/**
+ * "Excluir treino": a pending edit is saved (or settled) before the DELETE, so no autosave lands
+ * after it; then back to the plan. A workout that doesn't exist yet has nothing to delete.
+ */
+export const DeleteWorkout: Story = {
+  args: {
+    workoutId: 42,
+    initial: treinoA,
+    transport: deleteTransport,
+    deleteWorkout: deleteRequest,
+    delayMs: 60_000,
+  },
+  beforeEach: () => {
+    deleteRequest.mockClear();
+    deleteTransport.calls.length = 0;
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.type(canvas.getByLabelText("Nome do treino"), " v2");
+    await userEvent.click(canvas.getByRole("button", { name: "Excluir treino" }));
+    const dialog = within(document.body).getByRole("dialog");
+    await expect(within(dialog).getByText(/será|serão/)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Excluir treino" }));
+    await waitFor(() => expect(deleteRequest).toHaveBeenCalledWith(42));
+    await expect(deleteTransport.calls).toContain("patchWorkout");
+    const push = useRouter().push;
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/planos/7"));
+  },
+};
+
+export const NewWorkoutHasNoDelete: Story = {
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "Excluir treino" })).toBeNull();
+  },
+};

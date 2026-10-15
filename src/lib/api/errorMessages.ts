@@ -38,3 +38,24 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/**
+ * A 409 `PRECONDITION_FAILED` on a delete: a client already recorded training under it (the BFF's
+ * `HasRecordedDataException` mapping). The generic copy above would not say why.
+ */
+export const deleteRefusedMessages = {
+  trainingPlan: "Este plano já tem treinos registrados e não pode ser excluído.",
+  workout: "Este treino já tem registros de um aluno e não pode ser excluído.",
+} as const;
+
+/** `apiErrorMessage` for a delete of `resource`, with the "already has recorded data" copy on 409. */
+export function deleteErrorMessage(
+  error: unknown,
+  resource: keyof typeof deleteRefusedMessages,
+  fallback: string,
+): string {
+  if (error instanceof ApiError && error.code === "PRECONDITION_FAILED") {
+    return deleteRefusedMessages[resource];
+  }
+  return apiErrorMessage(error, fallback);
+}

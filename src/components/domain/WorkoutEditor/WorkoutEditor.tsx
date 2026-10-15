@@ -8,9 +8,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Dropdown, PageLoadingOverlay, TextField } from "@/components/ui";
 import { AddExerciseDialog } from "../AddExerciseDialog";
 import { CloneWorkoutDialog } from "../CloneWorkoutDialog";
+import { DeleteWorkoutDialog } from "../DeleteWorkoutDialog";
 import { EditorFooter } from "../EditorFooter";
 import { WorkoutExerciseCard, type CardDragState } from "../WorkoutExerciseCard";
-import { fetchFullWorkout } from "@/lib/api/workouts";
+import { deleteWorkout as deleteWorkoutRequest, fetchFullWorkout } from "@/lib/api/workouts";
 import { fetchTrainingPlan } from "@/lib/api/trainingPlans";
 import { fetchStudent } from "@/lib/api/students";
 import { DAY_ORDER, DAY_NAMES_LONG } from "@/lib/days";
@@ -103,6 +104,8 @@ export interface WorkoutEditorSessionProps {
   studentName?: string;
   /** Test/story hook: replaces the BFF-backed transport. */
   transport?: AutosaveTransport;
+  /** Test/story hook: replaces `DELETE /workouts/:id`. */
+  deleteWorkout?: (id: number) => Promise<unknown>;
   delayMs?: number;
 }
 
@@ -114,6 +117,7 @@ export function WorkoutEditorSession({
   clientId,
   studentName,
   transport,
+  deleteWorkout = deleteWorkoutRequest,
   delayMs,
 }: WorkoutEditorSessionProps) {
   const router = useRouter();
@@ -152,6 +156,7 @@ export function WorkoutEditorSession({
 
   const [addOpen, setAddOpen] = useState(false);
   const [cloneOpen, setCloneOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
   // Drag and drop (native HTML5): which exercise / set is being dragged and
@@ -277,25 +282,33 @@ export function WorkoutEditorSession({
   return (
     <div className="relative flex w-full flex-col">
       <div className="flex w-full flex-col gap-[var(--space-6)] px-[var(--space-8)] py-[var(--space-8)]">
-        <nav aria-label="Navegação" className="flex items-center gap-2">
-          <Link
-            href={`/alunos/${clientId ?? ""}`}
-            className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-primary)]"
-          >
-            {studentName ?? "..."}
-          </Link>
-          <ChevronRight width={13} height={13} className="text-[color:var(--color-text-tertiary)]" />
-          <Link
-            href={`/planos/${planId}`}
-            className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-primary)]"
-          >
-            {planName ?? "..."}
-          </Link>
-          <ChevronRight width={13} height={13} className="text-[color:var(--color-text-tertiary)]" />
-          <span className="text-[length:var(--text-sm)] font-semibold text-[color:var(--color-text-primary)]">
-            {crumbName}
-          </span>
-        </nav>
+        <div className="flex w-full items-center justify-between gap-[var(--space-4)]">
+          <nav aria-label="Navegação" className="flex items-center gap-2">
+            <Link
+              href={`/alunos/${clientId ?? ""}`}
+              className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-primary)]"
+            >
+              {studentName ?? "..."}
+            </Link>
+            <ChevronRight width={13} height={13} className="text-[color:var(--color-text-tertiary)]" />
+            <Link
+              href={`/planos/${planId}`}
+              className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-text-primary)]"
+            >
+              {planName ?? "..."}
+            </Link>
+            <ChevronRight width={13} height={13} className="text-[color:var(--color-text-tertiary)]" />
+            <span className="text-[length:var(--text-sm)] font-semibold text-[color:var(--color-text-primary)]">
+              {crumbName}
+            </span>
+          </nav>
+          {/* Only once the workout exists upstream (a new one gets its id on the first save). */}
+          {state.workoutId !== null && (
+            <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
+              Excluir treino
+            </Button>
+          )}
+        </div>
 
         <div className="flex w-full items-start justify-between gap-[var(--space-4)]">
           <div className="flex items-start gap-[var(--space-4)]">
@@ -437,6 +450,22 @@ export function WorkoutEditorSession({
         onFinish={() => void handleFinish()}
       />
 
+      {deleteOpen && state.workoutId !== null && (
+        <DeleteWorkoutDialog
+          workout={{ id: state.workoutId, name: crumbName }}
+          planId={planId}
+          onClose={() => setDeleteOpen(false)}
+          onDeleted={() => router.push(`/planos/${planId}`)}
+          api={{
+            remove: async (id) => {
+              // Settle the autosave first: a debounced or in-flight save must not race the
+              // DELETE (or land after it). Its outcome does not matter, the workout is going.
+              await engine.flush();
+              await deleteWorkout(id);
+            },
+          }}
+        />
+      )}
       {addOpen && (
         <AddExerciseDialog
           atCap={atCap}

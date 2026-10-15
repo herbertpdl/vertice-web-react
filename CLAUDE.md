@@ -85,7 +85,12 @@ navigates to `/login` (see the comment there for why it can't just `router.push`
 BFF errors arrive as `ApiError {code, message, details, status}` — the same
 `{error:{code,message,details}}` shape `vertice-bff/docs/api-contract.md` documents. Screens use
 `useRedirectOnError` (`src/lib/hooks/`) to bounce on `FORBIDDEN`/`NOT_FOUND` (someone else's
-student/plan/workout, or a deleted one).
+student/plan/workout, or a deleted one). Copy is keyed on `error.code` (`apiErrorMessage` in
+`src/lib/api/errorMessages.ts`; `deleteErrorMessage` adds the "já tem treinos registrados" copy for
+a delete's 409 `PRECONDITION_FAILED`), never `error.message`. Destructive actions go through
+`ConfirmDialog` (`src/components/domain/`): one request per confirm (a submitting ref, not just
+`isPending`), the failure shown in the dialog. `Dialog` reads `onClose` through a ref, so an inline
+arrow is fine.
 
 - **`src/lib/api/*.ts`** — one module per BFF resource (`students`, `trainingPlans`, `workouts`,
   `workoutExercises`, `exerciseSets`, `exercises`, `feedback`, `dashboard`, `auth`), thin typed
