@@ -60,7 +60,8 @@ that set/clear that cookie; they parse the body with the Zod schemas in
 `/definir-senha?token=` page. Every BFF call sends `bffHeaders(request, …)`, which adds
 `X-Forwarded-For` for the BFF's per-IP rate limits (README, "Deployment"; `TRUSTED_PROXY_HOPS`,
 required in production: unset, `src/instrumentation.ts` exits at boot and the call throws);
-use it, and `relayBffResponse` (keeps `Retry-After`, null body on 204), for any new route.
+use it, and `relayBffResponse` (keeps `Retry-After`, `Content-Disposition` on a 2xx for the
+`GET /auth/me/export` file name, null body on 204), for any new route.
 Every `/api/*` handler starts with `guardApiRequest(request, "json" | "optional-json" | "none")`
 (`src/lib/requestGuard.ts`): 403 unless `Sec-Fetch-Site`/`Origin` say same-origin (unsafe methods
 must carry `Origin`), 415 for a non-JSON body. The BFF proxy encodes each path segment and 400s
@@ -89,7 +90,10 @@ student/plan/workout, or a deleted one).
 - **`src/lib/api/*.ts`** — one module per BFF resource (`students`, `trainingPlans`, `workouts`,
   `workoutExercises`, `exerciseSets`, `exercises`, `feedback`, `dashboard`, `auth`), thin typed
   wrappers over `apiClient`; shared response types in `types.ts`. Add new endpoints here, not
-  inline in components.
+  inline in components. `apiClient.delete(path, body?)` takes an optional JSON body (`DELETE
+  /auth/me`'s `{password}`); `apiClient.download(path, fallbackName)` fetches a file as
+  `{blob, filename}` (name from `Content-Disposition`, allow-listed to `[\w.-]`) with the same
+  401 → logout as every call, and `saveFile` (`src/lib/download.ts`) hands it to the browser.
 - **`src/lib/validation/*.ts`** — Zod schemas + Portuguese label maps (e.g. `setStrategyLabels`,
   `muscleGroupLabels`) consumed by `react-hook-form` via `@hookform/resolvers`.
 - **Server state is TanStack Query** (`src/app/providers.tsx`: `staleTime` 30 s, `retry` 1).
