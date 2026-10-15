@@ -13,8 +13,8 @@ export function parseRetryAfter(
   return Math.max(0, Math.ceil((date - now) / 1000));
 }
 
-export function rateLimitMessage(retryAfterSeconds?: number): string {
-  const prefix = "Muitas tentativas.";
+/** `prefix` is the first sentence: what was limited ("Muitas tentativas." by default). */
+export function rateLimitMessage(retryAfterSeconds?: number, prefix = "Muitas tentativas."): string {
   if (retryAfterSeconds === undefined || retryAfterSeconds <= 0) {
     return `${prefix} Aguarde alguns minutos e tente novamente.`;
   }
@@ -32,9 +32,9 @@ export function rateLimitMessage(retryAfterSeconds?: number): string {
  * for any other error, so call sites can fall through to their own handling. Structural rather
  * than `instanceof ApiError`: client.ts imports this module.
  */
-export function rateLimitedMessage(error: unknown): string | undefined {
+export function rateLimitedMessage(error: unknown, prefix?: string): string | undefined {
   if (typeof error !== "object" || error === null) return undefined;
   const { status, retryAfter } = error as { status?: unknown; retryAfter?: unknown };
   if (status !== 429) return undefined;
-  return rateLimitMessage(typeof retryAfter === "number" ? retryAfter : undefined);
+  return rateLimitMessage(typeof retryAfter === "number" ? retryAfter : undefined, prefix);
 }

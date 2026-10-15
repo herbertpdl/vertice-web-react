@@ -5,6 +5,11 @@ export interface Me {
   id: number;
   name: string;
   email: string;
+  /**
+   * Masked (`***.***.***-25`, `""` when none), with no reveal: display only. The user corrects it
+   * by typing a full new one (`PATCH /auth/me`); never send this value back.
+   */
+  cpf: string;
   /** `""` for anyone but a trainer who set one. */
   cref: string;
   role: Role;

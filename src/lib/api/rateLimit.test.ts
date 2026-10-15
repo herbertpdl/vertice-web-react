@@ -31,6 +31,12 @@ describe("rateLimitMessage", () => {
     expect(rateLimitMessage(30)).toBe("Muitas tentativas. Tente novamente em 30 segundos.");
   });
 
+  it("takes another first sentence", () => {
+    expect(rateLimitMessage(2400, "Limite de exportações atingido.")).toBe(
+      "Limite de exportações atingido. Tente novamente em 40 minutos.",
+    );
+  });
+
   it("rounds up to whole minutes", () => {
     expect(rateLimitMessage(60)).toBe("Muitas tentativas. Tente novamente em 1 minuto.");
     expect(rateLimitMessage(61)).toBe("Muitas tentativas. Tente novamente em 2 minutos.");

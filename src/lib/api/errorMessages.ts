@@ -16,6 +16,12 @@ export const errorMessages: Readonly<Record<string, string>> = {
   // The BFF sends the same 409 for a taken email and a taken CPF, so it never says which one.
   CONFLICT: "E-mail ou CPF já cadastrado",
   PRECONDITION_FAILED: "Não é possível fazer isso no estado atual.",
+  // `DELETE /auth/me` and `POST /auth/password`: a 400, not a logout (the session is still valid).
+  INVALID_CURRENT_PASSWORD: "Senha incorreta.",
+  // `DELETE /auth/me` by a trainer who still has clients linked.
+  ACTIVE_CLIENTS: "Encerre o acompanhamento de cada aluno antes de excluir sua conta.",
+  // `GET /auth/me/export` over vertice-api's export bounds.
+  TOO_LARGE: "Seus dados passam do limite da exportação automática. Fale com o suporte para recebê-los.",
   UPSTREAM_ERROR: "Ocorreu um erro inesperado. Tente novamente.",
   UPSTREAM_UNAVAILABLE: "O serviço está indisponível no momento. Tente novamente em instantes.",
 };
