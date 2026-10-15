@@ -154,3 +154,23 @@ export const SubmitsOnce: Story = {
     await expect(heldUpdate).toHaveBeenCalledTimes(1);
   },
 };
+
+/** Two submits in the same tick, before `isPending` renders: the submitting ref keeps it to one PATCH. */
+export const SameTickDoubleSubmitPatchesOnce: Story = {
+  args: { api: { update: heldUpdate } },
+  beforeEach: () => {
+    heldUpdate.mockClear();
+  },
+  play: async ({ args }) => {
+    const form = body().getByRole("button", { name: "Salvar" }).closest("form")!;
+    form.requestSubmit();
+    form.requestSubmit();
+    // react-hook-form validates asynchronously before calling the submit handler.
+    await waitFor(() => expect(heldUpdate).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await expect(heldUpdate).toHaveBeenCalledTimes(1);
+    release();
+    await waitFor(() => expect(args.onClose).toHaveBeenCalled());
+    await expect(heldUpdate).toHaveBeenCalledTimes(1);
+  },
+};
