@@ -1,7 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { LogOut, Settings, User } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { LogOut, User } from "lucide-react";
 import { Header, type HeaderNavItem } from "../Header";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useSignOut } from "@/lib/auth/useSignOut";
@@ -14,6 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: user } = useCurrentUser();
   const handleSignOut = useSignOut();
 
@@ -31,10 +32,9 @@ export function AppHeader() {
         email: user?.email ?? "",
         role: user ? (ROLE_LABELS[user.role] ?? user.role) : "",
       }}
-      profileMenuItems={[
-        { icon: User, label: "Editar perfil" },
-        { icon: Settings, label: "Configurações" },
-      ]}
+      // Every item does something: "Configurações" is gone until there are settings beyond the
+      // profile (audit plan P1-06).
+      profileMenuItems={[{ icon: User, label: "Editar perfil", onClick: () => router.push("/perfil") }]}
       profileSignOutItem={{ icon: LogOut, label: "Sair", onClick: handleSignOut }}
     />
   );

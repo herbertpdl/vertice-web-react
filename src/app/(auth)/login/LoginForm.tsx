@@ -17,6 +17,8 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const [formError, setFormError] = useState<string | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  // Set by "Excluir conta" (DeleteAccountDialog) once the account is gone and the session cleared.
+  const accountDeleted = searchParams.get("aviso") === "conta-excluida";
 
   const {
     register,
@@ -57,6 +59,15 @@ export function LoginForm() {
           Entre na sua conta para continuar gerenciando seus alunos.
         </p>
       </div>
+
+      {accountDeleted && !formError && (
+        <div
+          role="status"
+          className="rounded-[var(--radius-md)] border border-[var(--color-success)] bg-[var(--color-success)]/10 px-[14px] py-[10px] text-[13px] text-[color:var(--color-success)]"
+        >
+          Sua conta foi excluída.
+        </div>
+      )}
 
       {formError && (
         <div className="rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[var(--color-danger)]/10 px-[14px] py-[10px] text-[13px] text-[color:var(--color-danger)]">

@@ -52,13 +52,18 @@ export function bffHeaders(
 const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
 
 /**
- * Relays a BFF response as-is: status, body, Content-Type and `Retry-After` (sent with
- * 429 RATE_LIMITED, which the forms turn into "tente novamente em …").
+ * Relays a BFF response as-is: status, body, Content-Type, `Retry-After` (sent with
+ * 429 RATE_LIMITED, which the forms turn into "tente novamente em …") and, on a 2xx,
+ * `Content-Disposition` (`GET /auth/me/export`'s file name). Caching is not relayed: the route handlers set `no-store`
+ * themselves (`withNoStore`).
  */
 export async function relayBffResponse(res: Response): Promise<NextResponse> {
   const headers: Record<string, string> = {};
   const retryAfter = res.headers.get("Retry-After");
   if (retryAfter) headers["Retry-After"] = retryAfter;
+  // Only a success names a file: an error body is never offered as a download.
+  const disposition = res.ok ? res.headers.get("Content-Disposition") : null;
+  if (disposition) headers["Content-Disposition"] = disposition;
 
   if (NULL_BODY_STATUSES.has(res.status)) {
     return new NextResponse(null, { status: res.status, headers });

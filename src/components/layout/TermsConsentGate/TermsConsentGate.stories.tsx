@@ -21,7 +21,15 @@ const accepted: Consent = {
 };
 
 function me(consent: Consent): Me {
-  return { id: 1, name: "Ana Ribeiro", email: "ana@example.com", cref: "", role: "TRAINER", consent };
+  return {
+    id: 1,
+    name: "Ana Ribeiro",
+    email: "ana@example.com",
+    cpf: "***.***.***-25",
+    cref: "",
+    role: "TRAINER",
+    consent,
+  };
 }
 
 function stubRouter() {

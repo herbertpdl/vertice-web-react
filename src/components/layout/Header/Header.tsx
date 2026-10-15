@@ -37,6 +37,17 @@ export function Header({
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Choosing an item (e.g. "Editar perfil", which navigates) also closes the menu.
+  function closingMenu(item: ProfileMenuItem): ProfileMenuItem {
+    return {
+      ...item,
+      onClick: () => {
+        setMenuOpen(false);
+        item.onClick?.();
+      },
+    };
+  }
+
   return (
     <header
       className={`font-base flex w-full items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg)] px-[var(--space-6)] py-[var(--space-4)] ${className}`}
@@ -104,8 +115,8 @@ export function Header({
             <ProfileMenu
               name={user.name}
               email={user.email}
-              items={profileMenuItems}
-              signOutItem={profileSignOutItem}
+              items={profileMenuItems?.map(closingMenu)}
+              signOutItem={profileSignOutItem && closingMenu(profileSignOutItem)}
             />
           </div>
         )}

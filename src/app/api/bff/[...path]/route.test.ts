@@ -128,6 +128,56 @@ describe("/api/bff/[...path] proxy", () => {
     });
   });
 
+  it("relays the export's Content-Disposition, still no-store", async () => {
+    const file = '{"formatVersion":1}';
+    fetchMock.mockResolvedValue(
+      new Response(file, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": 'attachment; filename="vertice-dados-2026-10-15.json"',
+          "Cache-Control": "private, max-age=600",
+        },
+      }),
+    );
+    const res = await call(GET, ["auth", "me", "export"], { method: "GET" });
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:3000/api/auth/me/export");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toBe(
+      'attachment; filename="vertice-dados-2026-10-15.json"',
+    );
+    expect(res.headers.get("Content-Type")).toBe("application/json; charset=utf-8");
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(await res.text()).toBe(file);
+  });
+
+  it("does not relay Content-Disposition on an error", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json(
+        { error: { code: "TOO_LARGE", message: "Too large" } },
+        { status: 413, headers: { "Content-Disposition": 'attachment; filename="x.json"' } },
+      ),
+    );
+    const res = await call(GET, ["auth", "me", "export"], { method: "GET" });
+    expect(res.status).toBe(413);
+    expect(res.headers.get("Content-Disposition")).toBeNull();
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("forwards DELETE /auth/me's JSON body (the password)", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    const res = await call(DELETE, ["auth", "me"], {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "s3nha-atual" }),
+    });
+    expect(res.status).toBe(204);
+    const init = fetchMock.mock.calls[0][1]!;
+    expect(init.method).toBe("DELETE");
+    expect(init.body).toBe('{"password":"s3nha-atual"}');
+    expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+  });
+
   it("relays a non-JSON upstream body with its status and Content-Type", async () => {
     fetchMock.mockResolvedValue(
       new Response("<html>502 Bad Gateway</html>", {

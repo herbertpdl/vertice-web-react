@@ -14,6 +14,9 @@ describe("apiErrorMessage", () => {
     ["NOT_FOUND", 404],
     ["CONFLICT", 409],
     ["PRECONDITION_FAILED", 409],
+    ["INVALID_CURRENT_PASSWORD", 400],
+    ["ACTIVE_CLIENTS", 409],
+    ["TOO_LARGE", 413],
     ["UPSTREAM_ERROR", 502],
     ["UPSTREAM_UNAVAILABLE", 503],
   ])("maps %s to its pt-BR copy, never the BFF's message", (code, status) => {
