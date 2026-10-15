@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api/client";
-import { apiErrorMessage } from "@/lib/api/errorMessages";
+import { apiErrorMessage, limitMessage } from "@/lib/api/errorMessages";
 import type {
   ExerciseSet,
   FullWorkout,
@@ -346,7 +346,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
       // a rejected header-only payload has nothing to undo — surface it as
       // the error state instead of reverting and re-arming forever.
       if (isValidationError(error) && sent.exercises.length > 0) {
-        revertTree();
+        revertTree(error);
         return;
       }
       throw error;
@@ -412,7 +412,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
             setState({ mode: "per-item" });
             await runPerItem(sent, workoutId);
           } else if (isValidationError(error)) {
-            revertTree();
+            revertTree(error);
             return;
           } else {
             throw error;
@@ -429,15 +429,18 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
    * E9: the whole rejected batch is undone (upstream changed nothing) and a generic message shown.
    * Fixed pt-BR copy: upstream's validation text is English and does not name the entry anyway.
    */
-  function revertTree() {
+  function revertTree(error?: unknown) {
     const base = baseline();
     const draft = { ...state.draft, exercises: base.exercises };
+    const limit = limitMessage(error);
     setState({
       draft,
       refusal: {
         kind: "generic",
         title: "Alteração não aplicada",
-        body: "A plataforma não aceitou esta alteração, então ela foi desfeita; o restante do treino continua sendo salvo automaticamente.",
+        body:
+          (limit ? `${limit} ` : "") +
+          "A plataforma não aceitou esta alteração, então ela foi desfeita; o restante do treino continua sendo salvo automaticamente.",
         exerciseKeys: [],
         setKeys: [],
       },

@@ -2,16 +2,17 @@ import { z } from "zod";
 import type { UpdateMeInput } from "@/lib/api/auth";
 import type { Me } from "@/lib/api/types";
 import { isValidCpf, onlyDigits } from "./cpf";
+import { CREF_MAX, NAME_MAX, boundedText, emailField, requiredText } from "./bounds";
 
 /**
  * "Meu perfil". `newCpf` starts empty: `GET /auth/me` only has the masked CPF, so the form never
  * holds it. Left empty, the stored CPF stays; typed, it replaces it.
  */
 export const profileSchema = z.object({
-  name: z.string().trim().min(1, "Informe o nome"),
-  email: z.string().trim().min(1, "Informe o e-mail").email("E-mail inválido"),
+  name: requiredText(NAME_MAX, "Informe o nome"),
+  email: emailField(),
   newCpf: z.string().refine((value) => value === "" || isValidCpf(value), "CPF inválido"),
-  cref: z.string(),
+  cref: boundedText(CREF_MAX),
 });
 
 export type ProfileInput = z.infer<typeof profileSchema>;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NAME_MAX, requiredText } from "./bounds";
 
 export const dayOfWeekSchema = z.enum([
   "MONDAY",
@@ -21,7 +22,7 @@ export const dayOfWeekLabels: Record<z.infer<typeof dayOfWeekSchema>, string> = 
 };
 
 export const workoutSchema = z.object({
-  name: z.string().min(1, "Informe o nome do treino"),
+  name: requiredText(NAME_MAX, "Informe o nome do treino"),
   dayOfWeek: dayOfWeekSchema,
 });
 

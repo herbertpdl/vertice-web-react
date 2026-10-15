@@ -17,6 +17,7 @@ import {
 import { createExercise, exercisesQueryKey, fetchExercises } from "@/lib/api/exercises";
 import { fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 import { exerciseSchema, type ExerciseFormInput } from "@/lib/validation/exercises";
+import { safeHttpUrl } from "@/lib/validation/bounds";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { MAX_EXERCISES } from "@/lib/workoutEditor/model";
 import type { Exercise } from "@/lib/api/types";
@@ -196,7 +197,7 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
                         {group.name}
                       </span>
                     ))}
-                    {exercise.videoUrl && (
+                    {safeHttpUrl(exercise.videoUrl) && (
                       <CirclePlay width={12} height={12} className="text-[color:var(--color-primary)]" />
                     )}
                   </div>

@@ -25,7 +25,7 @@ describe("exerciseSchema", () => {
     expect(
       exerciseSchema.safeParse({ ...valid, videoUrl: "https://example.com/remada" }).success,
     ).toBe(true);
-    expect(messages({ ...valid, videoUrl: "not a url" })).toEqual(["URL inválida"]);
+    expect(messages({ ...valid, videoUrl: "not a url" })).toEqual(["Use um link começando com http:// ou https://"]);
   });
 
   it("requires a name", () => {

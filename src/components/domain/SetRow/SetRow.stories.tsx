@@ -51,3 +51,24 @@ export const DuplicateDisabled: Story = {
     await expect(canvas.getByRole("button", { name: "Duplicar série 2" })).toBeDisabled();
   },
 };
+
+/** Values vertice-api would refuse are flagged and never committed (they would undo the batch). */
+export const OutOfRange: Story = {
+  args: { set: set({ id: 103 }) },
+  play: async ({ canvas, userEvent, args }) => {
+    const reps = canvas.getByLabelText("Reps da série 2");
+    await userEvent.type(reps, "1001");
+    await expect(reps).toHaveAttribute("aria-invalid", "true");
+    await expect(args.onUpdate).not.toHaveBeenCalledWith({ reps: 1001 });
+
+    const weight = canvas.getByLabelText("Peso da série 2");
+    await userEvent.type(weight, "12345");
+    await expect(weight).toHaveAttribute("aria-invalid", "true");
+    await expect(args.onUpdate).not.toHaveBeenCalledWith({ weight: "12345" });
+
+    await userEvent.clear(weight);
+    await userEvent.type(weight, "82,5");
+    await expect(weight).toHaveAttribute("aria-invalid", "false");
+    await expect(args.onUpdate).toHaveBeenLastCalledWith({ weight: "82.5" });
+  },
+};

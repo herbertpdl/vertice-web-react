@@ -5,6 +5,7 @@ import {
   deleteErrorMessage,
   deleteRefusedMessages,
   errorMessages,
+  limitMessage,
 } from "./errorMessages";
 
 function apiError(code: string, status: number, message = "English upstream text", retryAfter?: number) {
@@ -70,5 +71,26 @@ describe("deleteErrorMessage", () => {
     expect(deleteErrorMessage(new TypeError("Failed to fetch"), "workout", "fallback")).toBe(
       "fallback",
     );
+  });
+});
+
+describe("limitMessage (the API's per-item caps)", () => {
+  it.each([
+    ["exercises: must not exceed 20 entries", "Um treino pode ter no máximo 20 exercícios."],
+    ["sets: must not exceed 10 entries", "Um exercício pode ter no máximo 10 séries."],
+    [
+      "workoutLogId: a workout session takes at most 10 feedback entries",
+      "Cada treino realizado aceita no máximo 10 comentários de feedback.",
+    ],
+  ])("turns %s into pt-BR copy", (text, copy) => {
+    const error = apiError("VALIDATION_ERROR", 400, text);
+    expect(limitMessage(error)).toBe(copy);
+    expect(apiErrorMessage(error, "fallback")).toBe(copy);
+  });
+
+  it("leaves any other validation error on the generic copy", () => {
+    const error = apiError("VALIDATION_ERROR", 400, "name: must not be blank");
+    expect(limitMessage(error)).toBeNull();
+    expect(apiErrorMessage(error, "fallback")).toBe(errorMessages.VALIDATION_ERROR);
   });
 });
