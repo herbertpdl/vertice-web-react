@@ -19,8 +19,10 @@ export function ProgressTab({ clientId }: { clientId: number }) {
     enabled: exerciseId !== "",
   });
 
-  const points = (progress ?? []).map((p) => ({ ...p, weightNum: Number(p.weight) }));
-  const max = Math.max(1, ...points.map((p) => p.weightNum));
+  // `weight` is a number on this endpoint (the only decimal in the contract that is not a
+  // string): the BFF parses it before sending. See `ExerciseProgressPoint`.
+  const points = progress ?? [];
+  const max = Math.max(1, ...points.map((p) => p.weight));
 
   return (
     <div className="flex w-full flex-col gap-[var(--space-5)]">
@@ -49,10 +51,10 @@ export function ProgressTab({ clientId }: { clientId: number }) {
           {points.map((point) => (
             <div key={point.weekStartDate} className="flex flex-1 flex-col items-center gap-2">
               <span className="text-[11px] font-semibold text-[color:var(--color-text-primary)]">
-                {point.weightNum}kg
+                {point.weight}kg
               </span>
               <div
-                style={{ height: Math.max(4, (point.weightNum / max) * 140) }}
+                style={{ height: Math.max(4, (point.weight / max) * 140) }}
                 className="w-full rounded-t-[var(--radius-sm)] bg-[var(--color-primary)]"
               />
               <span className="text-[10px] text-[color:var(--color-text-tertiary)]">

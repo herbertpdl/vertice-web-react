@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import type { components } from "./schema";
 import type { Exercise, ExerciseProgressPoint } from "./types";
 
 export interface ExerciseListParams {
@@ -35,12 +36,7 @@ export function fetchExerciseProgress(id: number, clientId?: number) {
   });
 }
 
-export interface ExerciseInput {
-  name: string;
-  description?: string;
-  videoUrl?: string;
-  muscleGroupIds: number[];
-}
+export type ExerciseInput = components["schemas"]["ExerciseRequest"];
 
 export function createExercise(input: ExerciseInput) {
   return apiClient.post<Exercise>("/exercises", input);

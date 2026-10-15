@@ -1,28 +1,23 @@
 import { apiClient } from "./client";
-import type { TrainingPlan, Workout, PlanLevel } from "./types";
+import type { components } from "./schema";
+import type { TrainingPlan, TrainingPlanDetail } from "./types";
 
 export function fetchTrainingPlans(clientId?: number) {
   return apiClient.get<TrainingPlan[]>("/training-plans", { clientId });
 }
 
 export function fetchTrainingPlan(id: number) {
-  return apiClient.get<TrainingPlan & { workouts: Workout[] }>(`/training-plans/${id}`);
+  return apiClient.get<TrainingPlanDetail>(`/training-plans/${id}`);
 }
 
-export interface TrainingPlanInput {
-  name: string;
-  description?: string;
-  clientId: number;
-  startDate: string;
-  endDate: string;
-  level: PlanLevel;
-}
+export type TrainingPlanInput = components["schemas"]["TrainingPlanRequest"];
 
 export function createTrainingPlan(input: TrainingPlanInput) {
   return apiClient.post<TrainingPlan>("/training-plans", input);
 }
 
-export type TrainingPlanUpdateInput = Omit<TrainingPlanInput, "clientId">;
+/** `PATCH /training-plans/:id` takes the same body minus `clientId`: a plan never changes client. */
+export type TrainingPlanUpdateInput = components["schemas"]["UpdateTrainingPlanRequest"];
 
 export function updateTrainingPlan(id: number, input: TrainingPlanUpdateInput) {
   return apiClient.patch<TrainingPlan>(`/training-plans/${id}`, input);

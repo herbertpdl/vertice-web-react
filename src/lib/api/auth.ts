@@ -1,6 +1,7 @@
 import { apiClient, apiErrorFrom } from "./client";
+import type { components } from "./schema";
 import { isMaskedCpf } from "./students";
-import type { Consent, ConsentType, Me, SessionUser } from "./types";
+import type { Consent, Me, SessionUser } from "./types";
 
 // These go to this app's own /api/auth/* route handlers (not the /api/bff proxy): they set or
 // clear the session cookie, or need no session at all. Failures throw an ApiError, so callers
@@ -58,7 +59,7 @@ export function fetchMe() {
 }
 
 /** Records the caller's own consent (self only: no user id). Returns the new consent state. */
-export function recordConsent(input: { type: ConsentType; version: string }) {
+export function recordConsent(input: components["schemas"]["ConsentRequest"]) {
   return apiClient.post<Consent>("/auth/me/consent", input);
 }
 
@@ -67,12 +68,7 @@ export function recordConsent(input: { type: ConsentType; version: string }) {
  * clears `cref` (or, for a non-trainer, `cpf`). A masked CPF (what `GET /auth/me` returns) is
  * dropped rather than sent, so it can never overwrite the real one.
  */
-export interface UpdateMeInput {
-  name?: string;
-  email?: string;
-  cpf?: string | null;
-  cref?: string | null;
-}
+export type UpdateMeInput = components["schemas"]["UpdateMeRequest"];
 
 export function updateMe(input: UpdateMeInput) {
   const { cpf, ...rest } = input;
@@ -97,5 +93,6 @@ export function exportMyData() {
  * working, but the web's session cookie is still set: call `logout()` next.
  */
 export async function deleteAccount(password: string): Promise<void> {
-  await apiClient.delete<void>("/auth/me", { password });
+  const body: components["schemas"]["DeleteAccountRequest"] = { password };
+  await apiClient.delete<void>("/auth/me", body);
 }

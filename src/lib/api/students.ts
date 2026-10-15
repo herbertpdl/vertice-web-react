@@ -1,4 +1,5 @@
 import { apiClient } from "./client";
+import type { components } from "./schema";
 import type {
   ClientDetail,
   ClientSummary,
@@ -38,11 +39,8 @@ export function fetchStudentOverview(id: number) {
   return apiClient.get<StudentDetailOverview>(`/clients/${id}/overview`);
 }
 
-export interface CreateStudentInput {
-  name: string;
-  email: string;
-  cpf: string;
-}
+/** `cpf` is optional in the contract; this app's form always collects one (`src/lib/validation/students.ts`). */
+export type CreateStudentInput = components["schemas"]["CreateClientRequest"];
 
 /**
  * Creates the client without a password. `setup` is their first-access token, or `null` when the
@@ -65,12 +63,8 @@ export function setupLink(origin: string, token: string) {
   return `${origin}/definir-senha?token=${encodeURIComponent(token)}`;
 }
 
-export interface UpdateStudentInput {
-  name: string;
-  email: string;
-  /** Leave out to keep the stored CPF; a new CPF (digits) replaces it; `null` removes it. */
-  cpf?: string | null;
-}
+/** `cpf`: leave out to keep the stored one; a new CPF (digits) replaces it; `null` removes it. */
+export type UpdateStudentInput = components["schemas"]["UpdateClientRequest"];
 
 /**
  * `PATCH /clients/:id`. `cpf` is optional: leave it out to keep the current one, `null` removes it.

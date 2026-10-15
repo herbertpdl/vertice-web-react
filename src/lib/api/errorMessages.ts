@@ -1,14 +1,18 @@
 import { ApiError } from "./client";
 import { MAX_EXERCISES_PER_WORKOUT, MAX_FEEDBACK_PER_LOG, MAX_SETS_PER_EXERCISE } from "@/lib/validation/bounds";
 import { rateLimitedMessage } from "./rateLimit";
+import type { ApiErrorCode } from "./types";
 
 /**
- * pt-BR copy per BFF error `code` (vertice-bff `docs/api-contract.md`, "Errors"). The `message`
- * the BFF sends is English and meant for logs: screens key on `code` and show this copy, never
- * `error.message`. A screen that gives a code its own meaning (a 409 `PRECONDITION_FAILED` on a
- * delete, a 401 on login) handles it before falling back to `apiErrorMessage`.
+ * pt-BR copy per BFF error `code`. Keyed on the generated `ApiErrorCode`, so a code the BFF does
+ * not document cannot get copy here, and `Partial` because some codes are handled elsewhere
+ * (`RATE_LIMITED` by `rateLimitedMessage`, `INVALID_SETUP_TOKEN` by the first-access page). The
+ * `message` the BFF sends is English and meant for logs: screens key on `code` and show this
+ * copy, never `error.message`. A screen that gives a code its own meaning (a 409
+ * `PRECONDITION_FAILED` on a delete, a 401 on login) handles it before falling back to
+ * `apiErrorMessage`.
  */
-export const errorMessages: Readonly<Record<string, string>> = {
+export const errorMessages: Readonly<Partial<Record<ApiErrorCode, string>>> = {
   VALIDATION_ERROR: "Alguns dados não foram aceitos. Revise e tente novamente.",
   UNAUTHORIZED: "Sua sessão expirou. Entre novamente.",
   UNAUTHENTICATED: "Sua sessão expirou. Entre novamente.",
@@ -25,6 +29,8 @@ export const errorMessages: Readonly<Record<string, string>> = {
   TOO_LARGE: "Seus dados passam do limite da exportação automática. Fale com o suporte para recebê-los.",
   UPSTREAM_ERROR: "Ocorreu um erro inesperado. Tente novamente.",
   UPSTREAM_UNAVAILABLE: "O serviço está indisponível no momento. Tente novamente em instantes.",
+  // The BFF's own unhandled-error body (`src/plugins/error-handler.ts`), a 500.
+  INTERNAL_ERROR: "Ocorreu um erro inesperado. Tente novamente.",
 };
 
 /**
@@ -57,8 +63,10 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   if (rateLimited) return rateLimited;
   const limit = limitMessage(error);
   if (limit) return limit;
+  // `error.code` is any string (a BFF ahead of this build can send an unknown code), so the
+  // lookup is guarded rather than typed: an unmapped code falls back.
   if (error instanceof ApiError && Object.hasOwn(errorMessages, error.code)) {
-    return errorMessages[error.code];
+    return errorMessages[error.code as ApiErrorCode] ?? fallback;
   }
   return fallback;
 }

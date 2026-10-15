@@ -144,17 +144,19 @@ export const treinoAFull: FullWorkout = {
     restSecondsBetweenSets: we.restSecondsBetweenSets,
     notes: we.notes,
     exercise: we.exercise,
+    // Every field is set on the wire: "unset" reaches the client as the proto3 zero value
+    // (`0` / `""`), which is what `fromFullWorkout` normalises back to undefined.
     sets: we.sets.map((s, j) => ({
       id: s.id!,
       workoutExerciseId: we.id!,
       setNumber: j + 1,
-      reps: s.reps,
-      durationSeconds: s.durationSeconds,
-      weight: s.weight,
-      loadPercentage: s.loadPercentage,
+      reps: s.reps ?? 0,
+      durationSeconds: s.durationSeconds ?? 0,
+      weight: s.weight ?? "",
+      loadPercentage: s.loadPercentage ?? "",
       strategy: s.strategy,
-      restSeconds: s.restSeconds,
-      notes: s.notes,
+      restSeconds: s.restSeconds ?? 0,
+      notes: s.notes ?? "",
     })),
   })),
 };

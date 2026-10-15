@@ -1,20 +1,12 @@
 import { apiClient } from "./client";
-import type { ExerciseSet, SetStrategy } from "./types";
+import type { components } from "./schema";
+import type { ExerciseSet } from "./types";
 
 export function fetchExerciseSets(workoutExerciseId: number) {
   return apiClient.get<ExerciseSet[]>(`/workout-exercises/${workoutExerciseId}/sets`);
 }
 
-export interface ExerciseSetInput {
-  setNumber: number;
-  reps?: number;
-  durationSeconds?: number;
-  weight?: string;
-  loadPercentage?: string;
-  strategy: SetStrategy;
-  restSeconds?: number;
-  notes?: string;
-}
+export type ExerciseSetInput = components["schemas"]["ExerciseSetRequest"];
 
 export function createExerciseSet(workoutExerciseId: number, input: ExerciseSetInput) {
   return apiClient.post<ExerciseSet>(`/workout-exercises/${workoutExerciseId}/sets`, input);

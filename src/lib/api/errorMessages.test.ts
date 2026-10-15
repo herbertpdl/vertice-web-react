@@ -7,13 +7,14 @@ import {
   errorMessages,
   limitMessage,
 } from "./errorMessages";
+import type { ApiErrorCode } from "./types";
 
 function apiError(code: string, status: number, message = "English upstream text", retryAfter?: number) {
   return new ApiError({ code, message }, status, retryAfter);
 }
 
 describe("apiErrorMessage", () => {
-  it.each([
+  it.each<[ApiErrorCode, number]>([
     ["VALIDATION_ERROR", 400],
     ["UNAUTHENTICATED", 401],
     ["FORBIDDEN", 403],
