@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui";
+import { DeletePlanDialog } from "@/components/domain/DeletePlanDialog";
 import { PlanDialog } from "@/components/domain/PlanDialog";
+import { fetchStudents } from "@/lib/api/students";
 import { fetchTrainingPlan } from "@/lib/api/trainingPlans";
 import { formatDateRange } from "@/lib/format";
 import { planLevelLabels } from "@/lib/validation/trainingPlans";
@@ -23,12 +25,19 @@ function planStatus(startDate: string, endDate: string) {
 export function PlanDetailContent({ planId }: { planId: number }) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data, isPending, error } = useQuery({
     queryKey: ["trainingPlan", planId],
     queryFn: () => fetchTrainingPlan(planId),
   });
   useRedirectOnError(error, "/alunos");
+
+  // The roster lists only active clients. A plan stays readable after "Encerrar acompanhamento"
+  // (a direct link still works), but the trainer no longer edits its dates or deletes it, so those
+  // actions go once the roster says the client left. Until it loads (or if it fails) they stay: the
+  // BFF refuses what the ended link no longer allows anyway.
+  const { data: roster } = useQuery({ queryKey: ["students"], queryFn: fetchStudents });
 
   if (isPending || !data) {
     return (
@@ -40,6 +49,7 @@ export function PlanDetailContent({ planId }: { planId: number }) {
   }
 
   const status = planStatus(data.startDate, data.endDate);
+  const formerClient = roster !== undefined && !roster.some((client) => client.id === data.clientId);
   const workoutsByDay = new Map<string, typeof data.workouts>();
   for (const workout of data.workouts) {
     workoutsByDay.set(workout.dayOfWeek, [
@@ -76,9 +86,20 @@ export function PlanDetailContent({ planId }: { planId: number }) {
             )}
           </div>
           <div className="flex items-center gap-[var(--space-3)]">
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
-              Editar plano
-            </Button>
+            {formerClient ? (
+              <span className="text-[length:var(--text-sm)] text-[color:var(--color-text-secondary)]">
+                Acompanhamento encerrado
+              </span>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
+                  Excluir plano
+                </Button>
+                <Button variant="outline" onClick={() => setEditOpen(true)}>
+                  Editar plano
+                </Button>
+              </>
+            )}
             <Button onClick={() => router.push(`/planos/${planId}/treinos/novo`)}>
               Novo treino
             </Button>
@@ -180,6 +201,13 @@ export function PlanDetailContent({ planId }: { planId: number }) {
 
       {editOpen && (
         <PlanDialog clientId={data.clientId} plan={data} onClose={() => setEditOpen(false)} />
+      )}
+      {deleteOpen && (
+        <DeletePlanDialog
+          plan={data}
+          onClose={() => setDeleteOpen(false)}
+          onDeleted={() => router.push(`/alunos/${data.clientId}`)}
+        />
       )}
     </div>
   );

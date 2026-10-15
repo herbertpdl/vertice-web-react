@@ -94,7 +94,8 @@ export function LoginForm() {
         />
       </div>
 
-      {/* "Esqueceu a senha?" comes back with password reset (audit plan P1-06). */}
+      {/* No "Esqueceu a senha?" until a reset flow exists: it needs email delivery, which the stack
+          does not have yet (follow-up from audit plan P1-06). */}
       <div className="flex w-full items-center justify-between">
         <Checkbox
           label="Manter-me conectado"

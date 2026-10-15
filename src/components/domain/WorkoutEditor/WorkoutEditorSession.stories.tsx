@@ -206,3 +206,92 @@ export const ProtectedSetRemovalRestored: Story = {
     await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
   },
 };
+
+const deleteTransport = fakeTransport();
+/** What the transport had been asked to do when the DELETE went out. */
+let callsBeforeDelete: string[] = [];
+const deleteRequest = fn(async () => {
+  callsBeforeDelete = [...deleteTransport.calls];
+});
+
+/**
+ * "Excluir treino": a pending edit is saved before the DELETE (so no autosave lands after it), then
+ * back to the plan, and the engine is stopped: a later retry sends nothing.
+ */
+export const DeleteWorkout: Story = {
+  args: {
+    workoutId: 42,
+    initial: treinoA,
+    transport: deleteTransport,
+    deleteWorkout: deleteRequest,
+    delayMs: 60_000,
+  },
+  beforeEach: () => {
+    deleteRequest.mockClear();
+    deleteTransport.calls.length = 0;
+    callsBeforeDelete = [];
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.type(canvas.getByLabelText("Nome do treino"), " v2");
+    // The debounce (60 s here) has not fired: nothing sent yet.
+    await expect(deleteTransport.calls).toEqual([]);
+    await userEvent.click(canvas.getByRole("button", { name: "Excluir treino" }));
+    const dialog = within(document.body).getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Excluir treino" }));
+    await waitFor(() => expect(deleteRequest).toHaveBeenCalledWith(42));
+    // The flush ran first: the PATCH was already sent when the DELETE went out.
+    await expect(callsBeforeDelete).toEqual(["patchWorkout"]);
+    const push = useRouter().push;
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/planos/7"));
+    await expect(deleteRequest).toHaveBeenCalledTimes(1);
+    await expect(deleteTransport.calls).toEqual(["patchWorkout"]);
+  },
+};
+
+const failingFlushCalls: string[] = [];
+/** Every save fails (a network error): the pending edit can't be flushed. */
+const failingFlushTransport = {
+  ...fakeTransport(),
+  patchWorkout: async () => {
+    failingFlushCalls.push("patchWorkout");
+    throw new TypeError("Failed to fetch");
+  },
+};
+const deleteAfterFailedFlush = fn(async () => undefined);
+
+/**
+ * The flush before the DELETE fails: the workout is deleted anyway (the edit was going with it),
+ * and the failed save is not retried afterwards.
+ */
+export const DeleteAfterFailedFlush: Story = {
+  args: {
+    workoutId: 42,
+    initial: treinoA,
+    transport: failingFlushTransport,
+    deleteWorkout: deleteAfterFailedFlush,
+    delayMs: 60_000,
+  },
+  beforeEach: () => {
+    deleteAfterFailedFlush.mockClear();
+    failingFlushCalls.length = 0;
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.type(canvas.getByLabelText("Nome do treino"), " v2");
+    await userEvent.click(canvas.getByRole("button", { name: "Excluir treino" }));
+    const dialog = within(document.body).getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Excluir treino" }));
+    await waitFor(() => expect(deleteAfterFailedFlush).toHaveBeenCalledWith(42));
+    await expect(failingFlushCalls).toEqual(["patchWorkout"]);
+    const push = useRouter().push;
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/planos/7"));
+    // The footer's "Tentar novamente" (still on screen in the story) sends nothing now.
+    await userEvent.click(canvas.getByRole("button", { name: "Tentar novamente" }));
+    await expect(failingFlushCalls).toEqual(["patchWorkout"]);
+  },
+};
+
+export const NewWorkoutHasNoDelete: Story = {
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: "Excluir treino" })).toBeNull();
+  },
+};

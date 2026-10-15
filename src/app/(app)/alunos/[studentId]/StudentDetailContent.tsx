@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Dialog, DialogFooter, MetricCard } from "@/components/ui";
 import { Avatar } from "@/components/domain/Avatar";
+import { EditStudentDialog } from "@/components/domain/EditStudentDialog";
+import { EndRelationshipDialog } from "@/components/domain/EndRelationshipDialog";
 import { StudentAccessLink } from "@/components/domain/StudentAccessLink";
 import { StudentCpf } from "@/components/domain/StudentCpf";
 import { fetchStudentOverview } from "@/lib/api/students";
@@ -21,7 +24,10 @@ type Tab = "plans" | "feedback" | "progress";
 
 export function StudentDetailContent({ studentId }: { studentId: number }) {
   const [tab, setTab] = useState<Tab>("plans");
+  const router = useRouter();
   const [accessLinkOpen, setAccessLinkOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [endOpen, setEndOpen] = useState(false);
 
   const { data, isPending, error } = useQuery({
     queryKey: ["student", studentId, "overview"],
@@ -80,11 +86,28 @@ export function StudentDetailContent({ studentId }: { studentId: number }) {
             </div>
           </div>
         </div>
-        {/* For a client who hasn't set a password yet (or whose link expired). */}
-        <Button type="button" variant="outline" onClick={() => setAccessLinkOpen(true)}>
-          Link de acesso
-        </Button>
+        <div className="flex items-center gap-[var(--space-3)]">
+          <Button type="button" variant="ghost" onClick={() => setEndOpen(true)}>
+            Encerrar acompanhamento
+          </Button>
+          {/* For a client who hasn't set a password yet (or whose link expired). */}
+          <Button type="button" variant="outline" onClick={() => setAccessLinkOpen(true)}>
+            Link de acesso
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setEditOpen(true)}>
+            Editar aluno
+          </Button>
+        </div>
       </div>
+
+      {editOpen && <EditStudentDialog student={student} onClose={() => setEditOpen(false)} />}
+      {endOpen && (
+        <EndRelationshipDialog
+          student={student}
+          onClose={() => setEndOpen(false)}
+          onEnded={() => router.push("/alunos")}
+        />
+      )}
 
       {accessLinkOpen && (
         <Dialog title="Link de acesso" onClose={() => setAccessLinkOpen(false)}>

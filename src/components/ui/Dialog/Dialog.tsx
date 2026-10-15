@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { X } from "lucide-react";
 
 interface DialogProps {
@@ -16,6 +16,14 @@ const FOCUSABLE_SELECTOR =
 
 export function Dialog({ title, onClose, width = 440, children, className = "" }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Callers pass `onClose` inline, so it is a new function on every render. The focus effect
+  // below must run once per open (it focuses the first control and, on cleanup, gives focus back),
+  // not whenever `onClose` changes, or each keystroke in a field would move focus to "Fechar".
+  // The latest `onClose` is read through this ref instead.
+  const onCloseRef = useRef(onClose);
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -26,7 +34,7 @@ export function Dialog({ title, onClose, width = 440, children, className = "" }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         // A nested popover (e.g. an open Dropdown) claims Escape via preventDefault.
-        if (!event.defaultPrevented) onClose();
+        if (!event.defaultPrevented) onCloseRef.current();
         return;
       }
       if (event.key !== "Tab" || !panel) return;
@@ -50,7 +58,7 @@ export function Dialog({ title, onClose, width = 440, children, className = "" }
       document.removeEventListener("keydown", handleKeyDown);
       previouslyFocused?.focus();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div

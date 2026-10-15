@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "./client";
-import { apiErrorMessage, errorMessages } from "./errorMessages";
+import {
+  apiErrorMessage,
+  deleteErrorMessage,
+  deleteRefusedMessages,
+  errorMessages,
+} from "./errorMessages";
 
 function apiError(code: string, status: number, message = "English upstream text", retryAfter?: number) {
   return new ApiError({ code, message }, status, retryAfter);
@@ -42,5 +47,28 @@ describe("apiErrorMessage", () => {
     expect(apiErrorMessage(apiError("constructor", 500), "fallback")).toBe("fallback");
     expect(apiErrorMessage(new TypeError("Failed to fetch"), "fallback")).toBe("fallback");
     expect(apiErrorMessage(undefined, "fallback")).toBe("fallback");
+  });
+});
+
+describe("deleteErrorMessage", () => {
+  it("says a plan or workout with recorded training can't be deleted, on the code", () => {
+    expect(deleteErrorMessage(apiError("PRECONDITION_FAILED", 409), "trainingPlan", "x")).toBe(
+      "Este plano já tem treinos registrados e não pode ser excluído.",
+    );
+    expect(deleteErrorMessage(apiError("PRECONDITION_FAILED", 409), "workout", "x")).toBe(
+      deleteRefusedMessages.workout,
+    );
+  });
+
+  it("does not read a CONFLICT (also a 409) as recorded data", () => {
+    expect(deleteErrorMessage(apiError("CONFLICT", 409), "trainingPlan", "x")).toBe(
+      errorMessages.CONFLICT,
+    );
+  });
+
+  it("falls back like apiErrorMessage for other failures", () => {
+    expect(deleteErrorMessage(new TypeError("Failed to fetch"), "workout", "fallback")).toBe(
+      "fallback",
+    );
   });
 });

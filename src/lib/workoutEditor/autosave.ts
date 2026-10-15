@@ -94,6 +94,12 @@ export interface AutosaveEngine {
   fail(message: string): void;
   /** Replaces the `onSaved` callback (React re-renders hand in a fresh closure). */
   setOnSaved(callback: AutosaveOptions["onSaved"]): void;
+  /**
+   * The workout was deleted: drop the armed debounce and ignore every later edit, flush and retry,
+   * so nothing PATCHes (or re-creates under) a workout that is gone. A run already in flight
+   * finishes; one-way.
+   */
+  dispose(): void;
 }
 
 export const DEFAULT_DELAY_MS = 800;
@@ -109,6 +115,19 @@ function isGoneOnDelete(error: unknown) {
 }
 function isPreconditionFailed(error: unknown) {
   return error instanceof ApiError && error.code === "PRECONDITION_FAILED";
+}
+/**
+ * A per-item DELETE the platform refused because a client recorded data under the item (spec,
+ * "Which delete failures count as a refusal"): 409 `PRECONDITION_FAILED` (vertice-api's
+ * `HasRecordedDataException` since P1-05) or 502 `UPSTREAM_ERROR` (the FK violation it answered
+ * before). Keyed on the code: anything else (503, 400, an unknown code) is a failed save, shown with
+ * that code's copy and retried, never "desempenho registrado".
+ */
+function isRemovalRefusal(error: unknown) {
+  return (
+    error instanceof ApiError &&
+    (error.code === "PRECONDITION_FAILED" || error.code === "UPSTREAM_ERROR")
+  );
 }
 function isValidationError(error: unknown) {
   return error instanceof ApiError && error.code === "VALIDATION_ERROR";
@@ -229,6 +248,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
   let queue: Promise<void> = Promise.resolve();
   let queuedFlush = false;
   let running = false;
+  let disposed = false;
   const listeners = new Set<() => void>();
 
   function setState(patch: Partial<AutosaveState>) {
@@ -273,10 +293,12 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
 
   function flush(): Promise<void> {
     clearTimer();
+    if (disposed) return queue;
     if (queuedFlush) return queue;
     queuedFlush = true;
     queue = queue.then(async () => {
       queuedFlush = false;
+      if (disposed) return;
       await run();
     });
     return queue;
@@ -452,7 +474,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
           } catch (error) {
             if (isGoneOnDelete(error)) {
               working = working.filter((w) => w.key !== we.key);
-            } else if (error instanceof ApiError) {
+            } else if (isRemovalRefusal(error)) {
               restoredExercises.push({ exercise: we, index: i });
             } else {
               throw error;
@@ -473,7 +495,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
               working = working.map((w) =>
                 w.key === we.key ? { ...w, sets: w.sets.filter((s) => s.key !== set.key) } : w,
               );
-            } else if (error instanceof ApiError) {
+            } else if (isRemovalRefusal(error)) {
               restoredSets.push({ exerciseKey: we.key, exerciseName: we.exercise.name, set, index: j });
             } else {
               throw error;
@@ -572,6 +594,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
       };
     },
     dispatch(action) {
+      if (disposed) return;
       const next = reduce(state.draft, action);
       if (next === state.draft) return;
       setState({
@@ -599,6 +622,10 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
     },
     setOnSaved(callback) {
       onSaved = callback;
+    },
+    dispose() {
+      disposed = true;
+      clearTimer();
     },
   };
 }

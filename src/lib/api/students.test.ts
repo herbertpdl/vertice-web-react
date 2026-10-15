@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchStudent, isMaskedCpf, revealStudentCpf, updateStudent } from "./students";
+import {
+  endStudentRelationship,
+  fetchStudent,
+  isMaskedCpf,
+  revealStudentCpf,
+  updateStudent,
+} from "./students";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -42,9 +48,25 @@ describe("updateStudent", () => {
     expect(sentBody()).toEqual({ name: "Ana", email: "ana@example.com", cpf: "52998224725" });
   });
 
+  it("sends null to remove the CPF", async () => {
+    await updateStudent(4, { name: "Ana", email: "ana@example.com", cpf: null });
+    expect(sentBody()).toEqual({ name: "Ana", email: "ana@example.com", cpf: null });
+  });
+
   it("leaves the CPF out when none is given", async () => {
     await updateStudent(4, { name: "Ana", email: "ana@example.com" });
     expect(sentBody()).toEqual({ name: "Ana", email: "ana@example.com" });
+  });
+});
+
+describe("endStudentRelationship", () => {
+  it("is a DELETE on the client, with no body", async () => {
+    fetchMock.mockImplementationOnce(async () => new Response(null, { status: 204 }));
+    await endStudentRelationship(4);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/bff/clients/4");
+    expect(init!.method).toBe("DELETE");
+    expect(init!.body).toBeUndefined();
   });
 });
 
