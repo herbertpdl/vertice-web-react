@@ -578,48 +578,103 @@ describe("existing workout", () => {
     expect(transport.deleteExercise).toHaveBeenCalledTimes(1);
   });
 
-  it("restores a set removal refused with 409 PRECONDITION_FAILED (vertice-api since P1-05)", async () => {
-    const { transport, engine } = setup({
-      replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
-      deleteSet: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
+  // Spec, "Which delete failures count as a refusal": every error class, for both kinds of
+  // per-item DELETE. The whole-list replace is refused first, so the change goes per item.
+  describe.each([
+    { kind: "set", method: "deleteSet" },
+    { kind: "exercise", method: "deleteExercise" },
+  ] as const)("a per-item $kind DELETE", ({ kind, method }) => {
+    function removeOne(engine: ReturnType<typeof setup>["engine"]) {
+      const [first] = engine.getState().draft.exercises;
+      if (kind === "set") {
+        const set = first.sets[1];
+        engine.dispatch({ type: "removeSet", exerciseKey: first.key, setKey: set.key });
+        return { id: set.id, present: () => engine.getState().draft.exercises[0].sets.some((s) => s.key === set.key) };
+      }
+      engine.dispatch({ type: "removeExercise", exerciseKey: first.key });
+      return { id: first.id, present: () => engine.getState().draft.exercises.some((we) => we.key === first.key) };
+    }
+
+    function failingOnce(error: unknown) {
+      let fail = true;
+      return vi.fn(async () => {
+        if (fail) {
+          fail = false;
+          throw error;
+        }
+      });
+    }
+
+    it.each([
+      ["404 NOT_FOUND", apiError("NOT_FOUND", 404)],
+      ["403 FORBIDDEN", apiError("FORBIDDEN", 403)],
+    ])("answered %s counts as done: the item is already gone", async (_label, error) => {
+      const remove = failingOnce(error);
+      const { engine } = setup({
+        replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
+        [method]: remove,
+      });
+      const item = removeOne(engine);
+      await vi.advanceTimersByTimeAsync(100);
+      await settle();
+
+      expect(remove).toHaveBeenCalledWith(item.id);
+      expect(item.present()).toBe(false);
+      expect(engine.getState().refusal).toBeNull();
+      expect(engine.getState().status).toBe("saved");
+      expect(await engine.finish()).toBe(true);
+      expect(remove).toHaveBeenCalledTimes(1);
     });
-    const [first] = engine.getState().draft.exercises;
-    const protectedSet = first.sets[1];
-    engine.dispatch({ type: "removeSet", exerciseKey: first.key, setKey: protectedSet.key });
-    await vi.advanceTimersByTimeAsync(100);
-    await settle();
 
-    const state = engine.getState();
-    expect(transport.deleteSet).toHaveBeenCalledWith(protectedSet.id);
-    expect(state.refusal).toMatchObject({ kind: "removal", setKeys: [protectedSet.key] });
-    expect(state.status).toBe("saved");
-  });
+    it.each([
+      ["409 PRECONDITION_FAILED", apiError("PRECONDITION_FAILED", 409)],
+      ["502 UPSTREAM_ERROR", apiError("UPSTREAM_ERROR", 502)],
+    ])("answered %s is a refusal: the item comes back with the banner", async (_label, error) => {
+      const remove = failingOnce(error);
+      const { engine } = setup({
+        replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
+        [method]: remove,
+      });
+      const item = removeOne(engine);
+      await vi.advanceTimersByTimeAsync(100);
+      await settle();
 
-  it("treats a per-item DELETE failing for another reason as a failed save, not a refusal (spec)", async () => {
-    let fail = true;
-    const { transport, engine } = setup({
-      replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
-      deleteSet: vi.fn(async () => {
-        if (fail) throw apiError("UPSTREAM_UNAVAILABLE", 503, "Service unavailable");
-        return undefined;
-      }),
+      expect(remove).toHaveBeenCalledWith(item.id);
+      expect(item.present()).toBe(true);
+      expect(engine.getState().refusal).toMatchObject({ kind: "removal", title: "Remoção não aplicada" });
+      expect(engine.getState().status).toBe("saved");
+      // The restored item is in sync again: the DELETE is not re-sent.
+      expect(await engine.finish()).toBe(true);
+      expect(remove).toHaveBeenCalledTimes(1);
     });
-    const [first] = engine.getState().draft.exercises;
-    const removed = first.sets[1];
-    engine.dispatch({ type: "removeSet", exerciseKey: first.key, setKey: removed.key });
-    await vi.advanceTimersByTimeAsync(100);
-    await settle();
 
-    const state = engine.getState();
-    expect(state.status).toBe("error");
-    expect(state.errorMessage).toBe(errorMessages.UPSTREAM_UNAVAILABLE);
-    expect(state.refusal).toBeNull();
-    // The removal stays in the draft and goes out again on retry.
-    expect(state.draft.exercises[0].sets.map((s) => s.key)).not.toContain(removed.key);
-    fail = false;
-    await engine.retry();
-    expect(engine.getState().status).toBe("saved");
-    expect(transport.deleteSet).toHaveBeenCalledTimes(2);
+    it.each([
+      ["503 UPSTREAM_UNAVAILABLE", apiError("UPSTREAM_UNAVAILABLE", 503), errorMessages.UPSTREAM_UNAVAILABLE],
+      ["400 VALIDATION_ERROR", apiError("VALIDATION_ERROR", 400), errorMessages.VALIDATION_ERROR],
+      ["an unknown code", apiError("SOMETHING_NEW", 500), "Não foi possível salvar"],
+      ["a network TypeError", new TypeError("Failed to fetch"), "Não foi possível salvar"],
+    ])("failing with %s is a failed save: no refusal, and the retry re-sends it", async (_label, error, message) => {
+      const remove = failingOnce(error);
+      const { engine } = setup({
+        replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
+        [method]: remove,
+      });
+      const item = removeOne(engine);
+      await vi.advanceTimersByTimeAsync(100);
+      await settle();
+
+      expect(engine.getState().status).toBe("error");
+      expect(engine.getState().errorMessage).toBe(message);
+      expect(engine.getState().refusal).toBeNull();
+      // The removal is still the trainer's intent.
+      expect(item.present()).toBe(false);
+
+      await engine.retry();
+      expect(remove).toHaveBeenCalledTimes(2);
+      expect(remove).toHaveBeenLastCalledWith(item.id);
+      expect(engine.getState().status).toBe("saved");
+      expect(item.present()).toBe(false);
+    });
   });
 
   it("still surfaces a 403 on a per-item non-DELETE op as an error", async () => {
@@ -664,6 +719,18 @@ describe("existing workout", () => {
     const sent = (transport.replace as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
     expect(sent[0].notes).toBe("x");
     expect(sent[0].sets).toHaveLength(3);
+  });
+
+  it("dispose() (the workout was deleted) drops the armed debounce and ignores later edits", async () => {
+    const { transport, engine } = setup();
+    engine.dispatch({ type: "setName", name: "Treino A — v2" });
+    engine.dispose();
+    engine.dispatch({ type: "setName", name: "Treino A — v3" });
+    await vi.advanceTimersByTimeAsync(1000);
+    await engine.retry();
+    expect(await engine.finish()).toBe(true);
+    expect(transport.calls).toEqual([]);
+    expect(engine.getState().draft.name).toBe("Treino A — v2");
   });
 
   it("finish() completes the pending save first and reports failure (R11, E17)", async () => {
