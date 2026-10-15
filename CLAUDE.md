@@ -67,7 +67,12 @@ must carry `Origin`), 415 for a non-JSON body. The BFF proxy encodes each path s
 `.`, `..`, empty or slash-carrying ones (`bffProxyPath` in `src/lib/bff.ts`). The session cookie
 is `HttpOnly`, `SameSite=Strict`, `Secure` when the server runs with `NODE_ENV=production`.
 `src/proxy.ts` is the edge guard: no cookie → `/login?redirect=<path>`, cookie on an auth page →
-the `redirect` path or `/dashboard`, `/definir-senha` public either way. A `redirect` value only
+the `redirect` path or `/dashboard`, `/definir-senha`, `/termos` and `/privacidade` public either
+way. Inside `(app)`, `TermsConsentGate` replaces the page with a blocking notice until `GET
+/auth/me`'s `consent.termsVersion` equals `LEGAL_VERSIONS.terms` (`src/lib/legal/versions.ts`, the
+version of the draft texts this build ships; register sends it as `acceptedTermsVersion`). It fails
+closed (no `me` → error state with "Tentar novamente", never the page) and `console.warn`s when the
+BFF's `GET /legal/versions` differs from the embedded versions. A `redirect` value only
 ever goes through `safeRedirectPath` (`src/lib/safeRedirect.ts`, same-origin paths only), here and
 in `LoginForm`. The proxy also sends the page CSP, per request with a nonce
 (`src/lib/csp.ts`, `Content-Security-Policy-Report-Only` for now), which is why the root layout

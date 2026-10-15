@@ -13,12 +13,20 @@ async function post(request: NextRequest) {
 
   const parsed = registerRequestSchema.safeParse(await readJson(request));
   if (!parsed.success) return validationError();
-  const { name, email, cpf, cref, password, remember } = parsed.data;
+  const { name, email, cpf, cref, password, acceptedTermsVersion, remember } = parsed.data;
 
   const res = await fetch(bffUrl("/auth/register"), {
     method: "POST",
     headers: bffHeaders(request, { "Content-Type": "application/json" }),
-    body: JSON.stringify({ name, email, password, cpf, cref: cref || undefined, role: "TRAINER" }),
+    body: JSON.stringify({
+      name,
+      email,
+      password,
+      cpf,
+      cref: cref || undefined,
+      role: "TRAINER",
+      acceptedTermsVersion,
+    }),
   });
   if (!res.ok) return relayBffResponse(res);
 

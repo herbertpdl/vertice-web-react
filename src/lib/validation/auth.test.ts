@@ -79,9 +79,26 @@ describe("registerRequestSchema", () => {
       email: "ana@example.com",
       cpf: "529.982.247-25",
       password: "senha-forte",
+      acceptedTermsVersion: "2026-10-draft",
       role: "CLIENT",
     });
     expect(result).not.toHaveProperty("role");
     expect(result.cpf).toBe("52998224725");
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["empty", ""],
+    ["over 32 characters", "v".repeat(33)],
+    ["with characters outside [A-Za-z0-9._-]", "2026/10 draft"],
+  ])("rejects an acceptedTermsVersion that is %s", (_, acceptedTermsVersion) => {
+    const result = registerRequestSchema.safeParse({
+      name: "Ana",
+      email: "ana@example.com",
+      cpf: "529.982.247-25",
+      password: "senha-forte",
+      acceptedTermsVersion,
+    });
+    expect(result.success).toBe(false);
   });
 });

@@ -7,7 +7,7 @@ interface AuthBrandPanelProps {
 
 export function AuthBrandPanel({ lines, footerText }: AuthBrandPanelProps) {
   return (
-    <div className="font-base hidden h-full w-[560px] shrink-0 flex-col justify-between overflow-hidden bg-[var(--color-bg)] p-[var(--space-12)] lg:flex">
+    <div className="font-base hidden h-screen w-[560px] shrink-0 lg:sticky lg:top-0 flex-col justify-between overflow-hidden bg-[var(--color-bg)] p-[var(--space-12)] lg:flex">
       <div className="flex items-center gap-[var(--space-3)]">
         <Image src="/logo-mark.png" alt="" width={34} height={34} priority />
         <span className="font-heading text-[length:var(--text-lg)] font-semibold tracking-[3px] text-[color:var(--color-text-primary)]">

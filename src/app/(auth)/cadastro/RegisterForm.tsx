@@ -15,6 +15,7 @@ import {
 } from "@/lib/validation/auth";
 import { maskCpf } from "@/lib/masks/cpf";
 import { onlyDigits } from "@/lib/validation/cpf";
+import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -55,6 +56,8 @@ export function RegisterForm() {
         cpf: onlyDigits(data.cpf),
         cref: data.cref || undefined,
         password: data.password,
+        // The version of the texts the links below open (they ship with this build).
+        acceptedTermsVersion: LEGAL_VERSIONS.terms,
         remember: true,
       });
       router.push("/dashboard");
@@ -140,11 +143,34 @@ export function RegisterForm() {
 
       <div className="flex w-full items-start gap-2">
         <Checkbox
+          id="register-terms"
+          aria-labelledby="register-terms-text"
           checked={terms === true}
           onChange={(event) => setValue("terms", event.target.checked as true)}
         />
-        <span className="text-[12px] leading-[1.4] text-[color:var(--color-text-secondary)]">
-          Concordo com os Termos de Uso e a Política de Privacidade
+        {/* A new tab, so reading the texts doesn't lose what was typed here. */}
+        <span
+          id="register-terms-text"
+          className="text-[12px] leading-[1.4] text-[color:var(--color-text-secondary)]"
+        >
+          Concordo com os{" "}
+          <Link
+            href="/termos"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-[color:var(--color-primary)]"
+          >
+            Termos de Uso
+          </Link>{" "}
+          e a{" "}
+          <Link
+            href="/privacidade"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-[color:var(--color-primary)]"
+          >
+            Política de Privacidade
+          </Link>
         </span>
       </div>
       {errors.terms && (
