@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, fn, mocked, waitFor, within } from "storybook/test";
+import { expect, fireEvent, fn, mocked, waitFor, within } from "storybook/test";
 import { ACCOUNT_DELETED_URL, DeleteAccountDialog } from "./DeleteAccountDialog";
 import { ApiError } from "@/lib/api/client";
 
@@ -150,5 +150,72 @@ export const Client: Story = {
   args: { role: "CLIENT" },
   play: async ({ canvas }) => {
     await expect(canvas.queryByText(/planos que você escreveu/)).toBeNull();
+  },
+};
+
+/** A delete that stays in flight until the story releases it. */
+function heldDelete() {
+  let release: () => void = () => {};
+  const deleteAccount = fn(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+  );
+  return { deleteAccount, release: () => release() };
+}
+
+const doubleClickDelete = heldDelete();
+
+/** A double-click sends one DELETE. */
+export const DoubleClickSubmitsOnce: Story = {
+  args: {
+    api: {
+      deleteAccount: doubleClickDelete.deleteAccount,
+      logout: fn(async () => undefined),
+      leave: fn(),
+    },
+  },
+  // A block body: `beforeEach` may return a cleanup, and `mockClear()` returns the mock itself.
+  beforeEach: () => {
+    doubleClickDelete.deleteAccount.mockClear();
+  },
+  play: async ({ canvas, userEvent, args }) => {
+    await fillIn(canvas, userEvent);
+    await userEvent.dblClick(submitButton(canvas));
+    await expect(doubleClickDelete.deleteAccount).toHaveBeenCalledTimes(1);
+    doubleClickDelete.release();
+    await waitFor(() => expect(args.api!.leave).toHaveBeenCalledWith(ACCOUNT_DELETED_URL));
+    await expect(doubleClickDelete.deleteAccount).toHaveBeenCalledTimes(1);
+  },
+};
+
+const enterThenClickDelete = heldDelete();
+
+/** Enter in the password field, then a click while that delete is pending: still one DELETE. */
+export const EnterThenClickSubmitsOnce: Story = {
+  args: {
+    api: {
+      deleteAccount: enterThenClickDelete.deleteAccount,
+      logout: fn(async () => undefined),
+      leave: fn(),
+    },
+  },
+  // A block body: `beforeEach` may return a cleanup, and `mockClear()` returns the mock itself.
+  beforeEach: () => {
+    enterThenClickDelete.deleteAccount.mockClear();
+  },
+  play: async ({ canvas, userEvent, args }) => {
+    await fillIn(canvas, userEvent);
+    await userEvent.type(passwordField(canvas), "{Enter}");
+    await expect(enterThenClickDelete.deleteAccount).toHaveBeenCalledTimes(1);
+    // Pending: the button is disabled, and a click on it or a second Enter changes nothing.
+    await expect(submitButton(canvas)).toBeDisabled();
+    await fireEvent.click(submitButton(canvas));
+    await userEvent.keyboard("{Enter}");
+    await expect(enterThenClickDelete.deleteAccount).toHaveBeenCalledTimes(1);
+    enterThenClickDelete.release();
+    await waitFor(() => expect(args.api!.leave).toHaveBeenCalledWith(ACCOUNT_DELETED_URL));
+    await expect(enterThenClickDelete.deleteAccount).toHaveBeenCalledTimes(1);
   },
 };
