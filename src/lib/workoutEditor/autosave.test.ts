@@ -578,6 +578,50 @@ describe("existing workout", () => {
     expect(transport.deleteExercise).toHaveBeenCalledTimes(1);
   });
 
+  it("restores a set removal refused with 409 PRECONDITION_FAILED (vertice-api since P1-05)", async () => {
+    const { transport, engine } = setup({
+      replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
+      deleteSet: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
+    });
+    const [first] = engine.getState().draft.exercises;
+    const protectedSet = first.sets[1];
+    engine.dispatch({ type: "removeSet", exerciseKey: first.key, setKey: protectedSet.key });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+
+    const state = engine.getState();
+    expect(transport.deleteSet).toHaveBeenCalledWith(protectedSet.id);
+    expect(state.refusal).toMatchObject({ kind: "removal", setKeys: [protectedSet.key] });
+    expect(state.status).toBe("saved");
+  });
+
+  it("treats a per-item DELETE failing for another reason as a failed save, not a refusal (spec)", async () => {
+    let fail = true;
+    const { transport, engine } = setup({
+      replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),
+      deleteSet: vi.fn(async () => {
+        if (fail) throw apiError("UPSTREAM_UNAVAILABLE", 503, "Service unavailable");
+        return undefined;
+      }),
+    });
+    const [first] = engine.getState().draft.exercises;
+    const removed = first.sets[1];
+    engine.dispatch({ type: "removeSet", exerciseKey: first.key, setKey: removed.key });
+    await vi.advanceTimersByTimeAsync(100);
+    await settle();
+
+    const state = engine.getState();
+    expect(state.status).toBe("error");
+    expect(state.errorMessage).toBe(errorMessages.UPSTREAM_UNAVAILABLE);
+    expect(state.refusal).toBeNull();
+    // The removal stays in the draft and goes out again on retry.
+    expect(state.draft.exercises[0].sets.map((s) => s.key)).not.toContain(removed.key);
+    fail = false;
+    await engine.retry();
+    expect(engine.getState().status).toBe("saved");
+    expect(transport.deleteSet).toHaveBeenCalledTimes(2);
+  });
+
   it("still surfaces a 403 on a per-item non-DELETE op as an error", async () => {
     const { transport, engine } = setup({
       replace: vi.fn(async () => { throw apiError("PRECONDITION_FAILED", 409); }),

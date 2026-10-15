@@ -110,6 +110,19 @@ function isGoneOnDelete(error: unknown) {
 function isPreconditionFailed(error: unknown) {
   return error instanceof ApiError && error.code === "PRECONDITION_FAILED";
 }
+/**
+ * A per-item DELETE the platform refused because a client recorded data under the item (spec,
+ * "Which delete failures count as a refusal"): 409 `PRECONDITION_FAILED` (vertice-api's
+ * `HasRecordedDataException` since P1-05) or 502 `UPSTREAM_ERROR` (the FK violation it answered
+ * before). Keyed on the code: anything else (503, 400, an unknown code) is a failed save, shown with
+ * that code's copy and retried, never "desempenho registrado".
+ */
+function isRemovalRefusal(error: unknown) {
+  return (
+    error instanceof ApiError &&
+    (error.code === "PRECONDITION_FAILED" || error.code === "UPSTREAM_ERROR")
+  );
+}
 function isValidationError(error: unknown) {
   return error instanceof ApiError && error.code === "VALIDATION_ERROR";
 }
@@ -452,7 +465,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
           } catch (error) {
             if (isGoneOnDelete(error)) {
               working = working.filter((w) => w.key !== we.key);
-            } else if (error instanceof ApiError) {
+            } else if (isRemovalRefusal(error)) {
               restoredExercises.push({ exercise: we, index: i });
             } else {
               throw error;
@@ -473,7 +486,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
               working = working.map((w) =>
                 w.key === we.key ? { ...w, sets: w.sets.filter((s) => s.key !== set.key) } : w,
               );
-            } else if (error instanceof ApiError) {
+            } else if (isRemovalRefusal(error)) {
               restoredSets.push({ exerciseKey: we.key, exerciseName: we.exercise.name, set, index: j });
             } else {
               throw error;
