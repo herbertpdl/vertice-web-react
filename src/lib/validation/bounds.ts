@@ -71,11 +71,13 @@ export const restSeconds = z
   .max(REST_SECONDS_MAX, `No máximo ${REST_SECONDS_MAX} segundos`);
 
 /** Only `http:` / `https:` URLs may be linked: the catalog is shared, so `javascript:`/`data:` never. */
-export const HTTP_URL_PATTERN = /^https?:\/\/\S+$/i;
+export const HTTP_URL_PATTERN = /^https?:\/\/\S+$/;
+/** Render side: lenient on scheme case, for data stored before the rule. */
+const RENDERABLE_URL_PATTERN = /^https?:\/\/\S+$/i;
 
 /** The URL when it is a well-formed http(s) one, otherwise `null` (render no link). */
 export function safeHttpUrl(url: string | null | undefined): string | null {
-  if (!url || !HTTP_URL_PATTERN.test(url)) return null;
+  if (!url || !RENDERABLE_URL_PATTERN.test(url)) return null;
   try {
     const parsed = new URL(url);
     return parsed.protocol === "http:" || parsed.protocol === "https:" ? url : null;

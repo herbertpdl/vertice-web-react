@@ -37,6 +37,9 @@ describe("exerciseSchema bounds", () => {
     expect(ok(exerciseSchema, { ...valid, videoUrl: "javascript:alert(1)" })).toBe(false);
     expect(ok(exerciseSchema, { ...valid, videoUrl: "data:text/html;base64,AAAA" })).toBe(false);
     expect(ok(exerciseSchema, { ...valid, videoUrl: "ftp://example.com/a" })).toBe(false);
+    // The API's pattern is case-sensitive, so the form must refuse these too.
+    expect(ok(exerciseSchema, { ...valid, videoUrl: "HTTP://a.com" })).toBe(false);
+    expect(ok(exerciseSchema, { ...valid, videoUrl: "HTTPS://x" })).toBe(false);
   });
 
   it("caps lengths at the API's columns", () => {
