@@ -80,8 +80,9 @@ export default function DashboardPage() {
           <Link href="/alunos?new=true">
             <Button variant="outline">Novo aluno</Button>
           </Link>
+          {/* A workout belongs to a student's plan, so this opens the roster to pick one. */}
           <Link href="/alunos">
-            <Button>Novo treino</Button>
+            <Button>Ver alunos</Button>
           </Link>
         </div>
       </div>
