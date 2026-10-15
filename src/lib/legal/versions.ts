@@ -31,3 +31,17 @@ export function needsTermsAcceptance(
  * on the draft pages so nobody mistakes it for a real address.
  */
 export const LEGAL_CONTACT_PLACEHOLDER = "[e-mail de contato a definir]";
+
+/**
+ * The texts whose embedded version differs from the BFF's `GET /legal/versions` (empty when they
+ * agree). A difference means a text or the BFF env was bumped without the other, so web and
+ * mobile would disagree on what "current" is.
+ */
+export function legalVersionsDrift(
+  remote: { terms: string; healthData: string },
+  embedded: { terms: string; healthData: string } = LEGAL_VERSIONS,
+): string[] {
+  return (["terms", "healthData"] as const)
+    .filter((key) => remote[key] !== embedded[key])
+    .map((key) => `${key}: web ${embedded[key]}, BFF ${remote[key]}`);
+}

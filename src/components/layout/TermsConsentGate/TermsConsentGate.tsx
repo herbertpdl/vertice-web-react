@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { TermsConsentError } from "@/components/domain/TermsConsentError";
 import { TermsConsentNotice } from "@/components/domain/TermsConsentNotice";
 import { PageLoadingOverlay } from "@/components/ui";
 import { recordConsent } from "@/lib/api/auth";
@@ -8,6 +9,7 @@ import { apiErrorMessage } from "@/lib/api/errorMessages";
 import type { Me } from "@/lib/api/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useSignOut } from "@/lib/auth/useSignOut";
+import { useLegalVersionsDriftWarning } from "@/lib/legal/useLegalVersionsDriftWarning";
 import { LEGAL_VERSIONS, needsTermsAcceptance } from "@/lib/legal/versions";
 
 interface TermsConsentGateProps {
@@ -24,9 +26,10 @@ interface TermsConsentGateProps {
  */
 export function TermsConsentGate({ children, api = { recordConsent } }: TermsConsentGateProps) {
   const queryClient = useQueryClient();
-  const { data: me, isPending, isError } = useCurrentUser();
+  const { data: me, isError, isFetching, refetch } = useCurrentUser();
   const signOut = useSignOut();
   const version = LEGAL_VERSIONS.terms;
+  useLegalVersionsDriftWarning();
 
   const accept = useMutation({
     mutationFn: () => api.recordConsent({ type: "TERMS", version }),
@@ -37,17 +40,27 @@ export function TermsConsentGate({ children, api = { recordConsent } }: TermsCon
     },
   });
 
-  if (isPending) {
+  // Fails closed: the page renders only once `me` says the current version was accepted. The
+  // decision reads `me`'s data, never the error flag: after a failed background refetch react-query
+  // keeps the last data (and sets `isError`), and that data still decides.
+  if (!me) {
+    // A 401 already logs out (apiClient); any other failure leaves the page hidden until a retry
+    // (while retrying, the query stays in `error` with `isFetching`).
+    if (!isError) {
+      return (
+        <div className="relative flex w-full flex-1">
+          <PageLoadingOverlay text="Carregando..." />
+        </div>
+      );
+    }
     return (
-      <div className="relative flex w-full flex-1">
-        <PageLoadingOverlay text="Carregando..." />
+      <div className="flex w-full flex-1 items-start justify-center p-[var(--space-10)]">
+        <TermsConsentError retrying={isFetching} onRetry={() => void refetch()} onSignOut={signOut} />
       </div>
     );
   }
 
-  // `GET /auth/me` failed for another reason than 401 (that one logs out, see apiClient): the BFF
-  // is unreachable, so every page's own calls fail too and show their errors. Nothing to gate.
-  if (isError || !needsTermsAcceptance(me.consent, version)) return children;
+  if (!needsTermsAcceptance(me.consent, version)) return children;
 
   return (
     <div className="flex w-full flex-1 items-start justify-center p-[var(--space-10)]">

@@ -38,6 +38,13 @@ function stubRouter() {
   } as unknown as ReturnType<typeof useRouter>);
 }
 
+/** The gate also fetches `["legalVersions"]` (drift warning): seed it so no story hits the network. */
+const legalVersions = { '["legalVersions"]': { ...LEGAL_VERSIONS } };
+
+function seeded(user: Me | undefined, states: Parameters<typeof withSeededQueries>[1] = {}) {
+  return withSeededQueries(user ? { '["me"]': user, ...legalVersions } : legalVersions, states);
+}
+
 const PAGE = "Conteúdo da página";
 
 const meta = {
@@ -46,7 +53,7 @@ const meta = {
     children: <p>{PAGE}</p>,
     api: { recordConsent: fn(async () => accepted) },
   },
-  decorators: [withSeededQueries({ '["me"]': me(noConsent) })],
+  decorators: [seeded(me(noConsent))],
   beforeEach: stubRouter,
 } satisfies Meta<typeof TermsConsentGate>;
 
@@ -69,11 +76,7 @@ export const FirstAccess: Story = {
 
 /** Accepted an earlier version: the texts changed, ask again. */
 export const OutdatedVersion: Story = {
-  decorators: [
-    withSeededQueries({
-      '["me"]': me({ ...accepted, termsVersion: "2026-01-draft" }),
-    }),
-  ],
+  decorators: [seeded(me({ ...accepted, termsVersion: "2026-01-draft" }))],
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("heading", { name: "Atualizamos nossos termos" })).toBeVisible();
     await expect(canvas.queryByText(PAGE)).toBeNull();
@@ -82,7 +85,7 @@ export const OutdatedVersion: Story = {
 
 /** Accepted the current version: the page renders, no notice. */
 export const CurrentVersion: Story = {
-  decorators: [withSeededQueries({ '["me"]': me(accepted) })],
+  decorators: [seeded(me(accepted))],
   play: async ({ canvas }) => {
     await expect(canvas.getByText(PAGE)).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "Aceitar" })).toBeNull();
@@ -122,8 +125,56 @@ export const AcceptFails: Story = {
 
 /** `GET /auth/me` still loading. */
 export const Loading: Story = {
-  decorators: [withSeededQueries({}, { pending: ['["me"]'] })],
-  play: async () => {
+  decorators: [seeded(undefined, { pending: ['["me"]'] })],
+  play: async ({ canvas }) => {
     await expect(within(document.body).getByText("Carregando...")).toBeVisible();
+    await expect(canvas.queryByText(PAGE)).toBeNull();
+  },
+};
+
+/** `GET /auth/me` failed (429, 5xx, network) with nothing to fall back on: fail closed. */
+export const LoadFailed: Story = {
+  decorators: [seeded(undefined, { failing: ['["me"]'] })],
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("heading", { name: "Não foi possível carregar sua conta" }),
+    ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Tentar novamente" })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: "Sair" })).toBeEnabled();
+    await expect(canvas.queryByText(PAGE)).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Aceitar" })).toBeNull();
+  },
+};
+
+/** Marks `["me"]` as failed while keeping its data: a background refetch that failed. */
+function failedRefetch(user: Me) {
+  return seeded(user, {
+    onClient: (client) => {
+      const query = client.getQueryCache().find({ queryKey: ["me"] })!;
+      query.setState({
+        status: "error",
+        fetchStatus: "idle",
+        error: new ApiError({ code: "UPSTREAM_UNAVAILABLE", message: "Unavailable" }, 503),
+        errorUpdatedAt: Date.now(),
+        errorUpdateCount: 1,
+      });
+    },
+  });
+}
+
+/** A failed refetch doesn't reveal the page: the last `me` (not accepted) still decides. */
+export const RefetchFailedNotAccepted: Story = {
+  decorators: [failedRefetch(me(noConsent))],
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("heading", { name: "Antes de continuar" })).toBeVisible();
+    await expect(canvas.queryByText(PAGE)).toBeNull();
+  },
+};
+
+/** ...nor hides it when the last `me` had accepted the current version. */
+export const RefetchFailedAccepted: Story = {
+  decorators: [failedRefetch(me(accepted))],
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(PAGE)).toBeVisible();
   },
 };
