@@ -38,6 +38,13 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:unit
+      # The same unit suite again in two processes pinned ahead of and behind UTC, proving nothing
+      # depends on the host's time zone (P2-02; mirrors vertice-bff's own test:hostile-tz step and
+      # vertice-api's hostileTimeZoneTest). Load-bearing, not ceremony: the Intl.DateTimeFormats in
+      # src/lib/format.ts resolve their zone when they are constructed at module load, so an
+      # in-process TZ flip cannot catch a missing `timeZone` option — only a separate process can.
+      - name: Run the unit suite under hostile time zones
+        run: npm run test:hostile-tz
       # No BFF needed: nothing calls it at build time, and src/instrumentation.ts skips the
       # TRUSTED_PROXY_HOPS boot check during `next build` (the deploy environment sets it).
       - run: npm run build

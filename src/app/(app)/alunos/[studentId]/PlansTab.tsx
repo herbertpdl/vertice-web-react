@@ -9,14 +9,14 @@ import { PlanDialog } from "@/components/domain/PlanDialog";
 import { fetchTrainingPlans } from "@/lib/api/trainingPlans";
 import { fetchWorkouts } from "@/lib/api/workouts";
 import { formatDateRange } from "@/lib/format";
+import { planStatus, planStatusLabels, type PlanStatus } from "@/lib/plans";
 import { planLevelLabels } from "@/lib/validation/trainingPlans";
 
-function planStatus(startDate: string, endDate: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  if (today < startDate) return { label: "Agendado", tone: "text-[color:var(--color-text-secondary)] bg-[var(--color-surface-hover)]" };
-  if (today > endDate) return { label: "Concluído", tone: "text-[color:var(--color-text-tertiary)] bg-[var(--color-surface-hover)]" };
-  return { label: "Ativo", tone: "text-[color:var(--color-primary)] bg-[#00e5ff26]" };
-}
+const statusTones: Record<PlanStatus, string> = {
+  scheduled: "text-[color:var(--color-text-secondary)] bg-[var(--color-surface-hover)]",
+  completed: "text-[color:var(--color-text-tertiary)] bg-[var(--color-surface-hover)]",
+  active: "text-[color:var(--color-primary)] bg-[#00e5ff26]",
+};
 
 export function PlansTab({ clientId }: { clientId: number }) {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -58,6 +58,7 @@ export function PlansTab({ clientId }: { clientId: number }) {
         <div className="flex flex-col gap-[var(--space-4)]">
           {plans.map((plan, i) => {
             const status = planStatus(plan.startDate, plan.endDate);
+            const statusLabel = planStatusLabels[status];
             const workoutCount = workoutCounts[i]?.data?.length;
             return (
               <Link
@@ -97,9 +98,9 @@ export function PlansTab({ clientId }: { clientId: number }) {
                   </span>
                 </div>
                 <span
-                  className={`rounded-[var(--radius-full)] px-[10px] py-[4px] text-[11px] font-semibold ${status.tone}`}
+                  className={`rounded-[var(--radius-full)] px-[10px] py-[4px] text-[11px] font-semibold ${statusTones[status]}`}
                 >
-                  {status.label}
+                  {statusLabel}
                 </span>
                 <ChevronRight width={20} height={20} className="text-[color:var(--color-text-tertiary)]" />
               </Link>

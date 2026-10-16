@@ -11,16 +11,10 @@ import { PlanDialog } from "@/components/domain/PlanDialog";
 import { fetchStudents } from "@/lib/api/students";
 import { fetchTrainingPlan } from "@/lib/api/trainingPlans";
 import { formatDateRange } from "@/lib/format";
+import { planStatus, planStatusLabels } from "@/lib/plans";
 import { planLevelLabels } from "@/lib/validation/trainingPlans";
 import { DAY_ORDER, DAY_NAMES, DAY_ABBR } from "@/lib/days";
 import { useRedirectOnError } from "@/lib/hooks/useRedirectOnError";
-
-function planStatus(startDate: string, endDate: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  if (today < startDate) return "Agendado";
-  if (today > endDate) return "Concluído";
-  return "Ativo";
-}
 
 export function PlanDetailContent({ planId }: { planId: number }) {
   const router = useRouter();
@@ -48,7 +42,7 @@ export function PlanDetailContent({ planId }: { planId: number }) {
     );
   }
 
-  const status = planStatus(data.startDate, data.endDate);
+  const statusLabel = planStatusLabels[planStatus(data.startDate, data.endDate)];
   const formerClient = roster !== undefined && !roster.some((client) => client.id === data.clientId);
   const workoutsByDay = new Map<string, typeof data.workouts>();
   for (const workout of data.workouts) {
@@ -76,7 +70,7 @@ export function PlanDetailContent({ planId }: { planId: number }) {
                 {data.name}
               </h1>
               <span className="rounded-[var(--radius-full)] bg-[#00e5ff26] px-[10px] py-[4px] text-[11px] font-semibold text-[color:var(--color-primary)]">
-                {status}
+                {statusLabel}
               </span>
             </div>
             {data.description && (
