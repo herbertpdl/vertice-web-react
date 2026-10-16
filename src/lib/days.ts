@@ -1,4 +1,4 @@
-import type { DayOfWeek } from "@/lib/api/types";
+import type { DayOfWeek, WeekdayLabel } from "@/lib/api/types";
 
 export const DAY_ORDER: DayOfWeek[] = [
   "MONDAY",
@@ -38,6 +38,19 @@ export const DAY_NAME_LOWER: Record<DayOfWeek, string> = {
   FRIDAY: "sexta",
   SATURDAY: "sábado",
   SUNDAY: "domingo",
+};
+
+/**
+ * Single letters for the roster's week strip (`WeeklyActivityDots`). Keyed by `WeekdayLabel`,
+ * the Monday-to-Friday union `GET /clients` sends in `weekActivity`, so it covers exactly the
+ * days that can arrive — no weekend entries, and no missing one.
+ */
+export const DAY_INITIAL: Record<WeekdayLabel, string> = {
+  MONDAY: "S",
+  TUESDAY: "T",
+  WEDNESDAY: "Q",
+  THURSDAY: "Q",
+  FRIDAY: "S",
 };
 
 /** Full weekday names, as the workout editor's "Dia da semana" dropdown shows them. */

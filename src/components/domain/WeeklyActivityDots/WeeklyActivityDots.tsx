@@ -1,12 +1,5 @@
 import type { WeekActivityDay } from "@/lib/api/types";
-
-const LABELS: Record<string, string> = {
-  MONDAY: "S",
-  TUESDAY: "T",
-  WEDNESDAY: "Q",
-  THURSDAY: "Q",
-  FRIDAY: "S",
-};
+import { DAY_INITIAL } from "@/lib/days";
 
 export function WeeklyActivityDots({ days }: { days: WeekActivityDay[] }) {
   return (
@@ -21,7 +14,7 @@ export function WeeklyActivityDots({ days }: { days: WeekActivityDay[] }) {
               : "bg-[var(--color-surface-hover)] text-[color:var(--color-text-tertiary)]"
           }`}
         >
-          {LABELS[day.dayOfWeek] ?? ""}
+          {DAY_INITIAL[day.dayOfWeek]}
         </div>
       ))}
     </div>

@@ -102,13 +102,16 @@ arrow is fine.
   `{blob, filename}` (name from `Content-Disposition`, allow-listed to `[\w.-]`) with the same
   401 → logout as every call, and `saveFile` (`src/lib/download.ts`) hands it to the browser.
 - **`src/lib/validation/*.ts`** — Zod schemas and the Portuguese label maps that belong to a form
-  field (`setStrategyLabels`, `planLevelLabels`, `muscleGroupLabels`), consumed by
-  `react-hook-form` via `@hookform/resolvers`. They stay hand-written (Zod needs the enum members
-  at runtime), but `contract.test.ts` asserts every enum still equals the generated contract one.
+  field (`setStrategyLabels`, `planLevelLabels`), consumed by `react-hook-form` via
+  `@hookform/resolvers`. They stay hand-written (Zod needs the enum members at runtime), but
+  `contract.test.ts` asserts every enum still equals the generated contract one.
   **Weekday labels are the exception: `src/lib/days.ts` is the one file for them** (`DAY_NAMES`,
-  `DAY_ABBR`, `DAY_NAME_LOWER`, `DAY_NAMES_LONG`, `DAY_ORDER`, all keyed by the contract's
-  `DayOfWeek`), because screens outside any form render them too. One label map per concept, in
-  one file — never a second copy (XREPO-013).
+  `DAY_ABBR`, `DAY_NAME_LOWER`, `DAY_NAMES_LONG`, `DAY_INITIAL`, `DAY_ORDER`), because screens
+  outside any form render them too. One label map per concept, in one file — never a second copy
+  (XREPO-013) — and **every label map is keyed by the contract union it labels**
+  (`Record<DayOfWeek, string>`, `Record<Role, string>`, …), never `Record<string, string>`: that
+  is what makes a member added or renamed in the spec a typecheck failure instead of a blank or
+  raw-code label on screen.
 - **Server state is TanStack Query** (`src/app/providers.tsx`: `staleTime` 30 s, `retry` 1).
   Mutations invalidate by query key (`["workout", id, "full"]`, `["trainingPlan", id]`, …) rather
   than updating the cache by hand.
