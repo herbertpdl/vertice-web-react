@@ -7,7 +7,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Button, ListRowSkeleton, MetricCard } from "@/components/ui";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { fetchDashboard } from "@/lib/api/dashboard";
-import { formatRelativeTime, daysLeftLabel } from "@/lib/format";
+import {
+  daysLeftLabel,
+  formatDateNumeric,
+  formatRelativeTime,
+  formatTimeOfDay,
+} from "@/lib/format";
 
 // Read the clock only after mount: server (often UTC) and browser (local) time zones can
 // disagree on which greeting bucket applies, causing a hydration mismatch if read during render.
@@ -191,8 +196,7 @@ export default function DashboardPage() {
                           {plan.student}
                         </span>
                         <span className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
-                          {plan.name} · termina{" "}
-                          {new Date(plan.end).toLocaleDateString("pt-BR")}
+                          {plan.name} · termina {formatDateNumeric(plan.end)}
                         </span>
                       </div>
                       <span className="rounded-[var(--radius-full)] bg-[var(--color-surface-active)] px-[10px] py-[4px] text-[length:var(--text-xs)] font-semibold text-[color:var(--color-warning)]">
@@ -234,7 +238,9 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <span className="font-heading text-[length:var(--text-base)] font-semibold text-[color:var(--color-text-secondary)]">
-                        {item.time}
+                        {/* `item.time` is the same clock, pre-formatted, but deprecated in the
+                            contract: the instant is the value, and the client picks the zone. */}
+                        {formatTimeOfDay(item.completedAt)}
                       </span>
                     </div>
                   </div>

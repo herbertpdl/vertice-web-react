@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@d2eb89ab2743a7f1092a3f4aadcb1449da3db273:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@0a983439c29b586eb18fc5b334cd59c8d6b39ee8:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -754,7 +754,7 @@ export interface paths {
         };
         /**
          * The trainer dashboard
-         * @description Roles: TRAINER. Stat tiles, recent feedback, plans nearing their end and workouts completed today, in one call.
+         * @description Roles: TRAINER. Stat tiles, recent feedback, plans nearing their end and workouts completed today, in one call. "Today" and "this week" are the business day and week in America/Sao_Paulo.
          */
         get: operations["getDashboard"];
         put?: never;
@@ -811,9 +811,9 @@ export interface components {
                 id: number;
                 name: string;
                 level: components["schemas"]["PlanLevel"];
-                /** @description Calendar date, YYYY-MM-DD */
+                /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
                 startDate: string;
-                /** @description Calendar date, YYYY-MM-DD */
+                /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
                 endDate: string;
             } | null;
             thisWeek: {
@@ -832,14 +832,14 @@ export interface components {
             currentPlan: {
                 id: number;
                 name: string;
-                /** @description Calendar date, YYYY-MM-DD */
+                /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
                 endDate: string;
             } | null;
-            /** @description Most recent completed log in the current week only. */
+            /** @description Most recent completed log in the current week only. An ISO-8601 instant in UTC (`Z`): format it in America/Sao_Paulo. */
             lastWorkoutAt: string | null;
             /** @description Monday to Friday of the current week. */
             weekActivity: {
-                /** @description Calendar date, YYYY-MM-DD */
+                /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
                 date: string;
                 dayOfWeek: components["schemas"]["Weekday"];
                 completed: boolean;
@@ -904,15 +904,20 @@ export interface components {
             expiringPlans: {
                 name: string;
                 student: string;
-                /** @description Calendar date, YYYY-MM-DD */
+                /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
                 end: string;
                 daysLeft: number;
             }[];
             completedToday: {
                 student: string;
                 workout: string;
-                /** @description HH:MM (UTC) */
+                /**
+                 * @deprecated
+                 * @description DEPRECATED, use `completedAt`. The `HH:MM` wall clock of the completion in America/Sao_Paulo — a pre-formatted local time, with the zone implicit, which is why it is going away. It is kept only so clients can migrate: it used to be the UTC clock (`completedAt.slice(11, 16)`), which displayed an evening workout about 3 hours early, and it now reads correctly. It will be removed once vertice-web-react reads `completedAt`.
+                 */
                 time: string;
+                /** @description When the workout was completed, as an ISO-8601 instant in UTC (`Z`). Prefer this over the deprecated `time`: format the clock in America/Sao_Paulo (`Intl.DateTimeFormat` with `timeZone`), e.g. 20:30. "Today" is still the server's: the entries are the completions whose business day in America/Sao_Paulo is today. */
+                completedAt: string;
             }[];
         };
         DataExport: {
@@ -940,7 +945,7 @@ export interface components {
             trainingPlanId: number;
             clientId: number;
             text: string;
-            /** @description ISO-8601 instant */
+            /** @description ISO-8601 instant, UTC (`Z`). An absolute point in time. Format it for display in a time zone (the business zone is America/Sao_Paulo) — never read the clock or the calendar day off the string, and never assume a fixed -03:00 (instants from before 2019 are -02:00). */
             createdAt: string;
             clientName: string;
             workoutName: string;
@@ -1061,13 +1066,13 @@ export interface components {
         PasswordSetupToken: {
             /** @description Single-use, URL-safe. Shown once: upstream only stores its hash. */
             token: string;
-            /** @description ISO-8601 instant */
+            /** @description ISO-8601 instant, UTC (`Z`). An absolute point in time. Format it for display in a time zone (the business zone is America/Sao_Paulo) — never read the clock or the calendar day off the string, and never assume a fixed -03:00 (instants from before 2019 are -02:00). */
             expiresAt: string;
         };
         /** @enum {string} */
         PlanLevel: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
         ProgressPoint: {
-            /** @description Calendar date, YYYY-MM-DD */
+            /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
             weekStartDate: string;
             weight: number;
         };
@@ -1114,7 +1119,7 @@ export interface components {
             /** @description Decimal string. */
             weight: string;
             reps: number;
-            /** @description ISO-8601 instant */
+            /** @description ISO-8601 instant, UTC (`Z`). An absolute point in time. Format it for display in a time zone (the business zone is America/Sao_Paulo) — never read the clock or the calendar day off the string, and never assume a fixed -03:00 (instants from before 2019 are -02:00). */
             recordedAt: string;
         };
         /** @enum {string} */
@@ -1128,9 +1133,9 @@ export interface components {
             description: string;
             trainerId: number;
             clientId: number;
-            /** @description Calendar date, YYYY-MM-DD */
+            /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
             startDate: string;
-            /** @description Calendar date, YYYY-MM-DD */
+            /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
             endDate: string;
             level: components["schemas"]["PlanLevel"];
         };
@@ -1140,9 +1145,9 @@ export interface components {
             description: string;
             trainerId: number;
             clientId: number;
-            /** @description Calendar date, YYYY-MM-DD */
+            /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
             startDate: string;
-            /** @description Calendar date, YYYY-MM-DD */
+            /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
             endDate: string;
             level: components["schemas"]["PlanLevel"];
             workouts: components["schemas"]["Workout"][];
@@ -1214,16 +1219,16 @@ export interface components {
             trainingPlanId: number;
             clientId: number;
             text: string;
-            /** @description ISO-8601 instant */
+            /** @description ISO-8601 instant, UTC (`Z`). An absolute point in time. Format it for display in a time zone (the business zone is America/Sao_Paulo) — never read the clock or the calendar day off the string, and never assume a fixed -03:00 (instants from before 2019 are -02:00). */
             createdAt: string;
         };
         WorkoutLog: {
             id: number;
             workoutId: number;
             clientId: number;
-            /** @description Calendar date, YYYY-MM-DD */
+            /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
             weekStartDate: string;
-            /** @description ISO-8601 instant */
+            /** @description ISO-8601 instant, UTC (`Z`). An absolute point in time. Format it for display in a time zone (the business zone is America/Sao_Paulo) — never read the clock or the calendar day off the string, and never assume a fixed -03:00 (instants from before 2019 are -02:00). */
             startedAt: string;
             /** @description ISO-8601 instant, `""` until the workout is completed. */
             completedAt: string;
@@ -3836,7 +3841,7 @@ export interface operations {
     getWorkoutSession: {
         parameters: {
             query?: {
-                /** @description Defaults to the current week’s Monday. */
+                /** @description A business date, and a Monday. Defaults to the current week’s Monday in America/Sao_Paulo. */
                 weekStartDate?: string;
                 /** @description Required for a TRAINER. */
                 clientId?: number;
@@ -3901,7 +3906,7 @@ export interface operations {
             query: {
                 /** @description Required. */
                 trainingPlanId: number;
-                /** @description Defaults to the current week’s Monday. */
+                /** @description A business date, and a Monday. Defaults to the current week’s Monday in America/Sao_Paulo. */
                 weekStartDate?: string;
                 /** @description Required for a TRAINER. */
                 clientId?: number;

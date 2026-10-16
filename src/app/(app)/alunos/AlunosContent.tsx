@@ -10,7 +10,7 @@ import { Avatar } from "@/components/domain/Avatar";
 import { WeeklyActivityDots } from "@/components/domain/WeeklyActivityDots";
 import { NewStudentDialog } from "@/components/domain/NewStudentDialog";
 import { fetchStudents } from "@/lib/api/students";
-import { formatRelativeTime } from "@/lib/format";
+import { formatDateNumeric, formatRelativeTime } from "@/lib/format";
 
 type Filter = "all" | "active" | "none";
 
@@ -165,7 +165,7 @@ export function AlunosContent() {
                       {student.currentPlan.name}
                     </span>
                     <span className="text-[11px] text-[color:var(--color-text-tertiary)]">
-                      até {new Date(student.currentPlan.endDate).toLocaleDateString("pt-BR")}
+                      até {formatDateNumeric(student.currentPlan.endDate)}
                     </span>
                   </>
                 ) : (

@@ -21,6 +21,7 @@ npm run start            # run the production build
 npm run lint             # ESLint (flat config, eslint-config-next core-web-vitals + typescript), `--max-warnings 0`: any warning fails it
 npm run typecheck        # next typegen (generates LayoutProps/PageProps into .next/types) + tsc --noEmit
 npm run test:unit        # vitest `unit` project (node), the fast run
+npm run test:hostile-tz  # the `unit` project again in two processes, TZ=Pacific/Kiritimati (UTC+14) and TZ=Pacific/Honolulu (UTC-10): nothing may depend on the host's zone (see "Dates and times")
 npm run test:storybook   # vitest `storybook` project: every story as a headless Chromium test (@storybook/addon-vitest + playwright)
 npm test                 # both projects
 npm run storybook        # Storybook on :6006 (stories live next to each src/components/ui/* component)
@@ -28,7 +29,7 @@ npm run api:types        # regenerate src/lib/api/schema.ts from vertice-bff's O
 ```
 
 CI (`.github/workflows/ci.yml`, on every PR and push to `main`) runs two jobs: `build-and-test`
-(`npm ci` → `api:types -- --check` → lint → typecheck → `test:unit` → build →
+(`npm ci` → `api:types -- --check` → lint → typecheck → `test:unit` → `test:hostile-tz` → build →
 `npm audit --omit=dev --audit-level=high`) and `storybook` (Playwright Chromium, then
 `test:storybook`). Run the same commands locally before pushing. The build needs no BFF and no
 env.
@@ -108,7 +109,9 @@ arrow is fine.
   **Weekday labels are the exception: `src/lib/days.ts` is the one file for them** (`DAY_NAMES`,
   `DAY_ABBR`, `DAY_NAME_LOWER`, `DAY_NAMES_LONG` keyed by `DayOfWeek`, and `DAY_INITIAL` keyed by
   `WeekdayLabel`, the Mon–Fri subset the roster sends; `DAY_ORDER` next to them is the display
-  ordering, not a label map), because screens outside any form render them too. One label map per
+  ordering, not a label map), because screens outside any form render them too. `src/lib/plans.ts`
+  is the same shape for a plan's derived status (`planStatus` + `planStatusLabels`, which the
+  plans tab and the plan detail header both render; the badge colors stay with each screen). One label map per
   concept, in one file — never a second copy (XREPO-013) — and **keyed by the contract union it
   labels** (`Record<DayOfWeek, string>`, `Record<Role, string>`, …), never `Record<string,
   string>`: that is what makes a member added or renamed in the spec a typecheck failure instead
@@ -145,6 +148,37 @@ CI's `npm run api:types -- --check` fails when `schema.ts` is stale, mirroring `
 and the published `maxLength`s count code points while the server enforces UTF-16/byte bounds —
 which is why the numeric and length bounds live in `src/lib/validation/bounds.ts` rather than
 coming from the spec.
+
+### Dates and times
+
+The business time zone is `America/Sao_Paulo`, and every date-ish field the BFF answers is one of
+exactly two kinds. An **instant** (`createdAt`, `completedAt`, `recordedAt`, `startedAt`,
+`lastWorkoutAt`, `expiresAt`, …) is an absolute point in time, ISO-8601 with `Z`: format it *in a
+zone* with `Intl` (`formatDateTime`, `formatTimeOfDay`), never by reading a clock or a day off the
+string — `completedAt.slice(11, 16)` is the UTC clock, about three hours ahead of the trainer's own
+(REL-API-008). A **business date** (a plan's `startDate`/`endDate`, a log's `weekStartDate`,
+`expiringPlans[].end`) is a local calendar day in that zone, `yyyy-MM-dd`, with no time and no
+zone: it compares and sorts as a plain string, and it never goes through a UTC conversion, because
+`new Date("2026-10-31")` is UTC midnight and renders as 30/10/2026 in Brazil. `src/lib/format.ts`
+is the one place that formats either kind (`formatDateShort`/`Long`/`Numeric`/`Range` for business
+dates, each pairing a `Date.UTC`-built civil date with `timeZone: "UTC"`), and `todayLocalIso()`
+there is the only "today" — never `new Date().toISOString().slice(0, 10)`, the UTC day, which flips
+at 21:00 local. `daysUntil` and `src/lib/plans.ts`'s `planStatus` are calendar-day comparisons
+between business dates for the same reason. Don't hardcode `-03:00` either: Brazil observed DST
+until 2019, so older instants resolve at `-02:00`, which only the zone's rules know. This code runs
+in the browser (any traveller's zone) *and* on the server during SSR (usually UTC), so a formatter
+without an explicit `timeZone` is a bug; `npm run test:hostile-tz` is the guard, and it must stay
+two separate processes (the `Intl.DateTimeFormat`s are built at module load, so flipping
+`process.env.TZ` inside a test proves nothing). It runs one zone ahead of UTC and one behind
+because the two failure modes point opposite ways: a missing `timeZone: BUSINESS_TIME_ZONE` on an
+instant shows up in any non-Brazil zone, while a missing `timeZone: "UTC"` on a business date only
+shows up behind UTC. The contract is `src/lib/format.test.ts` and `src/lib/plans.test.ts`, the
+counterparts of `vertice-bff`'s `src/lib/dates.test.ts`. The rule is `vertice-api`'s — its
+[`README.md`](https://github.com/herbertpdl/vertice-api/blob/main/README.md) ("Dates and times")
+and [`CLAUDE.md`](https://github.com/herbertpdl/vertice-api/blob/main/CLAUDE.md) ("Time: instants
+vs. business dates") are the source of truth, restated for clients in
+[`vertice-bff/docs/api-contract.md`](https://github.com/herbertpdl/vertice-bff/blob/main/docs/api-contract.md)
+("Dates and times"), and the generated `schema.ts` carries it per field as a doc comment.
 
 ### Routes and components
 
