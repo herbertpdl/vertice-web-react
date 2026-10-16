@@ -36,7 +36,8 @@ export function withSeededQueries(
       query.setState({
         status: "error",
         fetchStatus: "idle",
-        error: new ApiError({ code: "UNAVAILABLE", message: "Service unavailable" }, 503),
+        // The code the BFF actually sends with a 503 (`ApiErrorCode`), not a made-up one.
+        error: new ApiError({ code: "UPSTREAM_UNAVAILABLE", message: "Service unavailable" }, 503),
         errorUpdatedAt: Date.now(),
         errorUpdateCount: 1,
       });

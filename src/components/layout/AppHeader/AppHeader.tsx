@@ -3,10 +3,12 @@
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, User } from "lucide-react";
 import { Header, type HeaderNavItem } from "../Header";
+import type { Role } from "@/lib/api/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useSignOut } from "@/lib/auth/useSignOut";
 
-const ROLE_LABELS: Record<string, string> = {
+/** Keyed by the contract's `Role`, so a member added or renamed in the spec fails typecheck. */
+const ROLE_LABELS: Record<Role, string> = {
   TRAINER: "Treinador(a)",
   CLIENT: "Aluno(a)",
   ADMIN: "Admin",
@@ -30,6 +32,9 @@ export function AppHeader() {
       user={{
         name: user?.name ?? "",
         email: user?.email ?? "",
+        // The map is exhaustive over `Role`, so `??` only catches a role a BFF deployed ahead
+        // of this build sends — the raw code reads better there than an empty line, the same
+        // tolerance `apiErrorMessage` has for an unknown error code.
         role: user ? (ROLE_LABELS[user.role] ?? user.role) : "",
       }}
       // Every item does something: "Configurações" is gone until there are settings beyond the

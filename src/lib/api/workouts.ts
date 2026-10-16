@@ -1,9 +1,9 @@
 import { apiClient } from "./client";
+import type { components } from "./schema";
 import type {
   Workout,
   FullWorkout,
   RecentWorkoutSummary,
-  DayOfWeek,
   WorkoutExerciseEntry,
 } from "./types";
 
@@ -15,15 +15,10 @@ export function fetchWorkouts(planId: number) {
   return apiClient.get<Workout[]>(`/training-plans/${planId}/workouts`);
 }
 
-export interface WorkoutInput {
-  name: string;
-  dayOfWeek: DayOfWeek;
-}
+export type WorkoutInput = components["schemas"]["WorkoutRequest"];
 
-export interface WorkoutCreateInput extends WorkoutInput {
-  /** Optional nested tree; omitted or `[]` creates an empty workout. Max 20. */
-  exercises?: WorkoutExerciseEntry[];
-}
+/** `WorkoutInput` plus the optional nested tree; omitted or `[]` creates an empty workout. Max 20. */
+export type WorkoutCreateInput = components["schemas"]["CreateWorkoutRequest"];
 
 /** Creates the workout and (optionally) its whole exercise/set tree in one call; returns the full tree with every new id. */
 export function createWorkout(planId: number, input: WorkoutCreateInput) {

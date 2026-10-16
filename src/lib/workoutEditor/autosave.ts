@@ -34,10 +34,15 @@ export interface AutosaveTransport {
   getFull(workoutId: number): Promise<FullWorkout>;
   replace(workoutId: number, exercises: WorkoutExerciseEntry[]): Promise<FullWorkout>;
   patchWorkout(workoutId: number, input: WorkoutInput): Promise<unknown>;
-  addExercise(workoutId: number, input: WorkoutExerciseCreateInput): Promise<WorkoutExercise>;
+  /**
+   * The per-item creates: only the new id is adopted. The BFF answers with the whole row, but
+   * its echoed field values are deliberately ignored (see `adoptIds` in `model.ts`), so the
+   * engine asks for no more than it reads.
+   */
+  addExercise(workoutId: number, input: WorkoutExerciseCreateInput): Promise<Pick<WorkoutExercise, "id">>;
   updateExercise(id: number, input: WorkoutExerciseUpdateInput): Promise<unknown>;
   deleteExercise(id: number): Promise<unknown>;
-  addSet(workoutExerciseId: number, input: ExerciseSetInput): Promise<ExerciseSet>;
+  addSet(workoutExerciseId: number, input: ExerciseSetInput): Promise<Pick<ExerciseSet, "id">>;
   updateSet(id: number, input: ExerciseSetInput): Promise<unknown>;
   deleteSet(id: number): Promise<unknown>;
 }

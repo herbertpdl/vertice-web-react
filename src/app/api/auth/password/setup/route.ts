@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import type { components } from "@/lib/api/schema";
 import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from "@/lib/bff";
 import { guardApiRequest } from "@/lib/requestGuard";
 import { passwordSetupRequestSchema } from "@/lib/validation/auth";
@@ -15,10 +16,11 @@ async function post(request: NextRequest) {
   if (!parsed.success) return validationError();
   const { token, newPassword } = parsed.data;
 
+  const upstream: components["schemas"]["PasswordSetupRequest"] = { token, newPassword };
   const res = await fetch(bffUrl("/auth/password/setup"), {
     method: "POST",
     headers: bffHeaders(request, { "Content-Type": "application/json" }),
-    body: JSON.stringify({ token, newPassword }),
+    body: JSON.stringify(upstream),
   });
   return relayBffResponse(res);
 }

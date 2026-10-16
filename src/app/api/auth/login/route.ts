@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { components } from "@/lib/api/schema";
 import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from "@/lib/bff";
 import { guardApiRequest } from "@/lib/requestGuard";
 import { setSession } from "@/lib/session";
@@ -13,14 +14,16 @@ async function post(request: NextRequest) {
   if (!parsed.success) return validationError();
   const { email, password, remember } = parsed.data;
 
+  // Typed from the generated contract, so a changed login body fails `npm run typecheck` here.
+  const upstream: components["schemas"]["LoginRequest"] = { email, password };
   const res = await fetch(bffUrl("/auth/login"), {
     method: "POST",
     headers: bffHeaders(request, { "Content-Type": "application/json" }),
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(upstream),
   });
   if (!res.ok) return relayBffResponse(res);
 
-  const data = await res.json();
+  const data = (await res.json()) as components["schemas"]["AuthSession"];
   await setSession(data.token, remember ?? false);
   return NextResponse.json({ user: data.user });
 }

@@ -30,6 +30,11 @@ jobs:
           cache: npm
 
       - run: npm ci
+      # Fails when src/lib/api/schema.ts no longer matches vertice-bff's docs/openapi.json at the
+      # commit pinned in src/lib/api/.bff-ref (XREPO-005, XREPO-013). Fetches the spec from the
+      # public vertice-bff repo, so it needs no token.
+      - name: Check the generated API types are current
+        run: npm run api:types -- --check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:unit

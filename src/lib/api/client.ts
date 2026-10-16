@@ -5,6 +5,15 @@ import { parseRetryAfter } from "./rateLimit";
 // logout+redirect when a 401 arrives (e.g. auth/me and dashboard failing together).
 let loggingOut = false;
 
+/**
+ * What `ApiError` is built from: the BFF's own error body (`ApiErrorBody["error"]`, whose `code`
+ * is one of the documented `ApiErrorCode`s) widened to any `code`, because this app also mints
+ * `UNKNOWN_ERROR` for a failure with no parseable body, and a BFF deployed ahead of this build
+ * can send a code this copy of the spec does not know yet. Screens must handle an unknown code
+ * (`apiErrorMessage` falls back), so `code` stays `string` rather than the generated union.
+ */
+export type ApiErrorInit = { code: string } & Omit<ApiErrorBody["error"], "code">;
+
 export class ApiError extends Error {
   code: string;
   details?: unknown;
@@ -12,7 +21,7 @@ export class ApiError extends Error {
   /** Seconds to wait, from `Retry-After` (sent with 429 RATE_LIMITED). */
   retryAfter?: number;
 
-  constructor(body: ApiErrorBody["error"], status: number, retryAfter?: number) {
+  constructor(body: ApiErrorInit, status: number, retryAfter?: number) {
     super(body.message);
     this.name = "ApiError";
     this.code = body.code;

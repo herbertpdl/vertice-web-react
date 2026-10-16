@@ -36,14 +36,39 @@ stack" below.)
   `storybook` project; run `npx playwright install chromium` once first)
 - `npm test` — both vitest projects
 - `npm run storybook` — Storybook on `:6006`
+- `npm run api:types` — regenerate `src/lib/api/schema.ts` from `vertice-bff`'s OpenAPI document
+  (see "The BFF contract" below); `-- --check` only verifies, `-- --local` reads a sibling clone
+
+## The BFF contract
+
+`src/lib/api/schema.ts` is **generated**, never hand-edited: `openapi-typescript` turns
+[`vertice-bff/docs/openapi.json`](https://github.com/herbertpdl/vertice-bff/blob/main/docs/openapi.json)
+into TypeScript at the `vertice-bff` commit pinned in `src/lib/api/.bff-ref` — the same pattern
+`vertice-bff` uses to pin `vertice-api`'s protos. `src/lib/api/types.ts` is nothing but named
+aliases over it (`Me`, `FullWorkout`, …), so every wire shape this app believes in comes from the
+BFF's own route schemas.
+
+To take a contract change:
+
+1. Merge it in `vertice-bff` (its CI regenerates `docs/openapi.json`).
+2. Put that merge commit's full SHA in `src/lib/api/.bff-ref`.
+3. `npm run api:types` (add `-- --local` to read the sibling `../vertice-bff` checkout instead of
+   GitHub), then `npm run typecheck` and fix whatever the new types reject.
+4. Commit `.bff-ref`, `schema.ts` and the fixes together.
+
+CI runs `npm run api:types -- --check`, which fails when `schema.ts` does not match the pinned
+spec, so the generated file can never drift from the pin. The pt-BR label maps and the Zod form
+schemas stay hand-written in `src/lib/validation/*` (Zod needs the members at runtime);
+`src/lib/validation/contract.test.ts` asserts their enums still equal the generated ones.
 
 ## CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`, on the Node
 version in `.nvmrc`:
 
-- **`build-and-test`** — `npm ci`, lint, typecheck, `test:unit`, `build` (no BFF or env needed)
-  and `npm audit --omit=dev --audit-level=high`.
+- **`build-and-test`** — `npm ci`, `api:types -- --check` (the generated BFF types match the
+  pinned spec), lint, typecheck, `test:unit`, `build` (no BFF or env needed) and
+  `npm audit --omit=dev --audit-level=high`.
 - **`storybook`** — installs Playwright's Chromium (cached per Playwright version) and runs
   `test:storybook`.
 
