@@ -21,10 +21,14 @@ import {
  * Every expectation here is an absolute one: "now" is set to a UTC instant and the answer is the
  * one a person in São Paulo would give, whatever zone the host is in. That is the point — the same
  * assertions hold under the repo's own `TZ` (a dev machine in `America/Sao_Paulo`), under CI's UTC,
- * and under `npm run test:hostile-tz`'s `TZ=Pacific/Kiritimati`. Flipping `process.env.TZ` inside
- * the process would prove nothing: the `Intl.DateTimeFormat`s in `format.ts` resolve their zone
- * when they are constructed at module load, so a missing `timeZone` option would still pass. Only
- * a separate process with a different `TZ` catches that, which is what the hostile pass is.
+ * and under both of `npm run test:hostile-tz`'s zones: `TZ=Pacific/Honolulu` (UTC-10), the only
+ * one that catches a business-date formatter missing `timeZone: "UTC"`, and `TZ=Pacific/Kiritimati`
+ * (UTC+14), the only one that catches `civilDay` built with the local-midnight `new Date(y, m, d)`
+ * instead of `Date.UTC`. Neither zone catches the other's regression, so the pass needs both.
+ * Flipping `process.env.TZ` inside the process would prove nothing at all: the
+ * `Intl.DateTimeFormat`s in `format.ts` resolve their zone when they are constructed at module
+ * load, so a missing `timeZone` option would still pass. Only a separate process with a different
+ * `TZ` catches that, which is what the hostile pass is.
  */
 
 /** 22:00 on Sunday 2026-10-18 in São Paulo (-03:00) is already Monday in UTC. */

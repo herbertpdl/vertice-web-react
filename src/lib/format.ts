@@ -26,9 +26,15 @@
  *
  * Every formatter here is explicit about its zone, and none of them trusts the host's: this module
  * runs both in the browser (any traveller's zone) and on the server during SSR (usually UTC).
- * `npm run test:hostile-tz` runs the unit suite again under `TZ=Pacific/Kiritimati` (UTC+14) to
- * keep it that way. There is no fixed `-03:00` anywhere either — Brazil observed DST until 2019,
- * so an instant from before then resolves at `-02:00`, which only the zone's own rules know.
+ * `npm run test:hostile-tz` keeps it that way by running the unit suite again under two zones, and
+ * it needs both, because each guards one half of the `civilDay` + `timeZone: "UTC"` pairing:
+ * `TZ=Pacific/Honolulu` (UTC-10) is the only one that catches a business-date formatter declared
+ * without `timeZone: "UTC"` (a civil date at UTC midnight survives any offset *ahead* of UTC), and
+ * `TZ=Pacific/Kiritimati` (UTC+14) is the only one that catches `civilDay` built with the
+ * local-midnight `new Date(y, m, d)` instead of `Date.UTC` (which goes wrong only ahead of UTC).
+ * Either one alone, and CI's own UTC, lets one of the two ship green. There is no fixed `-03:00`
+ * anywhere either — Brazil observed DST until 2019, so an instant from before then resolves at
+ * `-02:00`, which only the zone's own rules know.
  */
 
 export const BUSINESS_TIME_ZONE = "America/Sao_Paulo";
