@@ -106,12 +106,17 @@ arrow is fine.
   `@hookform/resolvers`. They stay hand-written (Zod needs the enum members at runtime), but
   `contract.test.ts` asserts every enum still equals the generated contract one.
   **Weekday labels are the exception: `src/lib/days.ts` is the one file for them** (`DAY_NAMES`,
-  `DAY_ABBR`, `DAY_NAME_LOWER`, `DAY_NAMES_LONG`, `DAY_INITIAL`, `DAY_ORDER`), because screens
-  outside any form render them too. One label map per concept, in one file — never a second copy
-  (XREPO-013) — and **every label map is keyed by the contract union it labels**
-  (`Record<DayOfWeek, string>`, `Record<Role, string>`, …), never `Record<string, string>`: that
-  is what makes a member added or renamed in the spec a typecheck failure instead of a blank or
-  raw-code label on screen.
+  `DAY_ABBR`, `DAY_NAME_LOWER`, `DAY_NAMES_LONG` keyed by `DayOfWeek`, and `DAY_INITIAL` keyed by
+  `WeekdayLabel`, the Mon–Fri subset the roster sends; `DAY_ORDER` next to them is the display
+  ordering, not a label map), because screens outside any form render them too. One label map per
+  concept, in one file — never a second copy (XREPO-013) — and **keyed by the contract union it
+  labels** (`Record<DayOfWeek, string>`, `Record<Role, string>`, …), never `Record<string,
+  string>`: that is what makes a member added or renamed in the spec a typecheck failure instead
+  of a blank or raw-code label on screen. Two deliberate shades of that rule:
+  `setStrategyLabels`/`planLevelLabels` are keyed by their Zod-inferred unions, which
+  `contract.test.ts` asserts equal the generated ones, so the guard holds one step removed; and
+  `errorMessages` is a `Partial<Record<ApiErrorCode, string>>`, so a *new* error code does not
+  fail typecheck — `apiErrorMessage` falls back for it on purpose.
 - **Server state is TanStack Query** (`src/app/providers.tsx`: `staleTime` 30 s, `retry` 1).
   Mutations invalidate by query key (`["workout", id, "full"]`, `["trainingPlan", id]`, …) rather
   than updating the cache by hand.

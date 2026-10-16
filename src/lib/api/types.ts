@@ -5,8 +5,10 @@
  * regenerating, and CI's `npm run api:types -- --check` fails when this app's copy is stale.
  *
  * Only the wire shapes live here. The app's own types (the workout editor's draft model,
- * component props, the `*Input` shapes its forms produce) stay where they are used, and the
- * pt-BR label maps stay in `src/lib/validation/*`.
+ * component props, the `*Input` shapes its forms produce) stay where they are used, and so do
+ * the pt-BR label maps: form-field labels in `src/lib/validation/*`, weekday labels in
+ * `src/lib/days.ts`, role labels next to the header that shows them. One copy of each, keyed by
+ * the union here that it labels (see CLAUDE.md, "src/lib/validation/*.ts").
  *
  * The names are this app's, not the spec's, where the two differ (`StudentDetailOverview` for
  * `ClientOverview`, ...): the screens read "student" and the BFF's module is "clients".
