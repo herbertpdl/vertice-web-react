@@ -101,10 +101,19 @@ arrow is fine.
   /auth/me`'s `{password}`); `apiClient.download(path, fallbackName)` fetches a file as
   `{blob, filename}` (name from `Content-Disposition`, allow-listed to `[\w.-]`) with the same
   401 → logout as every call, and `saveFile` (`src/lib/download.ts`) hands it to the browser.
-- **`src/lib/validation/*.ts`** — Zod schemas + Portuguese label maps (e.g. `setStrategyLabels`,
-  `muscleGroupLabels`) consumed by `react-hook-form` via `@hookform/resolvers`. These stay
-  hand-written (Zod needs the enum members at runtime), but `contract.test.ts` asserts every
-  enum still equals the generated contract one.
+- **`src/lib/validation/*.ts`** — Zod schemas and the Portuguese label maps that belong to a form
+  field (`setStrategyLabels`, `planLevelLabels`, `muscleGroupLabels`), consumed by
+  `react-hook-form` via `@hookform/resolvers`. They stay hand-written (Zod needs the enum members
+  at runtime), but `contract.test.ts` asserts every enum still equals the generated contract one.
+  **Weekday labels are the exception: `src/lib/days.ts` is the one file for them** (`DAY_NAMES`,
+  `DAY_ABBR`, `DAY_NAME_LOWER`, `DAY_NAMES_LONG`, `DAY_ORDER`, all keyed by the contract's
+  `DayOfWeek`), because screens outside any form render them too. One label map per concept, in
+  one file — never a second copy (XREPO-013).
+- **Server state is TanStack Query** (`src/app/providers.tsx`: `staleTime` 30 s, `retry` 1).
+  Mutations invalidate by query key (`["workout", id, "full"]`, `["trainingPlan", id]`, …) rather
+  than updating the cache by hand.
+- **UI language is Portuguese (pt-BR)** — routes (`/alunos`, `/planos`, `/exercicios`,
+  `/cadastro`), labels and copy. Keep new UI in Portuguese; code identifiers stay in English.
 
 ### The BFF contract is generated, not hand-written
 
@@ -128,11 +137,6 @@ CI's `npm run api:types -- --check` fails when `schema.ts` is stale, mirroring `
 and the published `maxLength`s count code points while the server enforces UTF-16/byte bounds —
 which is why the numeric and length bounds live in `src/lib/validation/bounds.ts` rather than
 coming from the spec.
-- **Server state is TanStack Query** (`src/app/providers.tsx`: `staleTime` 30 s, `retry` 1).
-  Mutations invalidate by query key (`["workout", id, "full"]`, `["trainingPlan", id]`, …) rather
-  than updating the cache by hand.
-- **UI language is Portuguese (pt-BR)** — routes (`/alunos`, `/planos`, `/exercicios`,
-  `/cadastro`), labels and copy. Keep new UI in Portuguese; code identifiers stay in English.
 
 ### Routes and components
 

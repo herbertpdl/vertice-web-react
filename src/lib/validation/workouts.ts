@@ -11,15 +11,8 @@ export const dayOfWeekSchema = z.enum([
   "SUNDAY",
 ]);
 
-export const dayOfWeekLabels: Record<z.infer<typeof dayOfWeekSchema>, string> = {
-  MONDAY: "Segunda",
-  TUESDAY: "Terça",
-  WEDNESDAY: "Quarta",
-  THURSDAY: "Quinta",
-  FRIDAY: "Sexta",
-  SATURDAY: "Sábado",
-  SUNDAY: "Domingo",
-};
+// Weekday labels are not here: `src/lib/days.ts` is the one file for them (DAY_NAMES,
+// DAY_ABBR, DAY_NAME_LOWER, DAY_NAMES_LONG), keyed by the contract's `DayOfWeek` (XREPO-013).
 
 export const workoutSchema = z.object({
   name: requiredText(NAME_MAX, "Informe o nome do treino"),

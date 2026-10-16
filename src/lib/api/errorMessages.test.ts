@@ -26,6 +26,7 @@ describe("apiErrorMessage", () => {
     ["TOO_LARGE", 413],
     ["UPSTREAM_ERROR", 502],
     ["UPSTREAM_UNAVAILABLE", 503],
+    ["INTERNAL_ERROR", 500],
   ])("maps %s to its pt-BR copy, never the BFF's message", (code, status) => {
     const message = apiErrorMessage(apiError(code, status), "fallback");
     expect(message).toBe(errorMessages[code]);

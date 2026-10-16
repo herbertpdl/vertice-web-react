@@ -36,7 +36,7 @@ function fail(message) {
 }
 
 /** The pinned SHA: the first non-blank, non-`#` line of `.bff-ref`, which must be 40 hex chars. */
-export function parsePin(content) {
+function parsePin(content) {
   const line = content
     .split("\n")
     .map((l) => l.trim())
