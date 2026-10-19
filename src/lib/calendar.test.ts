@@ -242,6 +242,14 @@ describe("maskBrDate", () => {
     expect(maskBrDate("3110/2026")).toBe("31/10/2026");
     expect(maskBrDate("31/102026")).toBe("31/10/2026");
   });
+
+  it("drops a digit typed into a segment that was already full, instead of cascading", () => {
+    // Caret at the very start of "31/10/2026" and a "3" typed: carrying the overflow all the
+    // way along would rewrite the month and the year too, as "33/11/0202".
+    expect(maskBrDate("331/10/2026")).toBe("33/10/2026");
+    expect(maskBrDate("31/100/2026")).toBe("31/10/2026");
+    expect(maskBrDate("31/10/20267")).toBe("31/10/2026");
+  });
 });
 
 describe("caret tracking", () => {

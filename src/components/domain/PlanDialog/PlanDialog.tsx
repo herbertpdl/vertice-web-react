@@ -133,6 +133,7 @@ export function PlanDialog({
             value={startDate}
             onChange={(value) => setDate("startDate", value)}
             min={minStartDate}
+            today={today}
             error={errors.startDate?.message}
             className="flex-1"
           />
@@ -144,6 +145,7 @@ export function PlanDialog({
             // `trainingPlanSchema` enforces the same rule; the calendar just stops offering
             // the days it would reject.
             min={minPlanEndDate(startDate, minStartDate)}
+            today={today}
             error={errors.endDate?.message}
             className="flex-1"
           />

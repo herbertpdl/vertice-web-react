@@ -36,6 +36,13 @@ interface DateFieldProps {
   helpText?: string;
   disabled?: boolean;
   className?: string;
+  /**
+   * Which day is "today": the one the grid rings, and the month it opens on when the field is
+   * empty. Defaults to the real one. Parameterised like every other "today" in `src/lib`
+   * (`daysUntil`, `planStatus`, `minPlanStartDate`) so a caller that has already pinned it —
+   * a story, a test — pins this too, instead of the component reaching for the clock behind it.
+   */
+  today?: string;
 }
 
 type Placement = "bottom" | "top";
@@ -84,6 +91,7 @@ export function DateField({
   helpText,
   disabled,
   className = "",
+  today: todayProp,
 }: DateFieldProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
@@ -107,7 +115,7 @@ export function DateField({
   // Where the caret belongs after the mask rewrites the text, as a digit offset.
   const pendingCaretRef = useRef<number | null>(null);
 
-  const today = todayLocalIso();
+  const today = todayProp ?? todayLocalIso();
   const text = draft ?? (value ? formatDateNumeric(value) : "");
   /** The day the grid's roving focus sits on, and the month it therefore shows. */
   const activeDate = clampDate(focusedDate ?? (value || today), min, max);
@@ -176,7 +184,11 @@ export function DateField({
   // The popover isn't a DOM descendant of the container, so an outside click has to check both.
   // Guarding on the refs is also what keeps this from racing the field's own pointerdown.
   useEffect(() => {
-    if (!open) return;
+    // `disabled` as well as `open`: the portal is gated on both, so a parent that disables the
+    // field mid-flight (during a submit, say) would otherwise leave these listeners claiming
+    // Escape for a calendar that is no longer on screen — and the enclosing Dialog could not
+    // then be closed with Escape at all, with nothing visible to explain why.
+    if (!open || disabled) return;
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
       if (containerRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
@@ -185,7 +197,7 @@ export function DateField({
     }
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [open]);
+  }, [open, disabled]);
 
   // Escape, on `document` and in the *capture* phase. A React `onKeyDown` would only see keys
   // dispatched from inside this component's tree, and focus can legitimately be elsewhere while
@@ -193,7 +205,7 @@ export function DateField({
   // listener on the same node, so `preventDefault()` is already set when `Dialog` checks
   // `defaultPrevented` — otherwise Escape would close the whole dialog and discard the form.
   useEffect(() => {
-    if (!open) return;
+    if (!open || disabled) return;
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.preventDefault();
@@ -203,7 +215,7 @@ export function DateField({
     }
     document.addEventListener("keydown", handleEscape, true);
     return () => document.removeEventListener("keydown", handleEscape, true);
-  }, [open]);
+  }, [open, disabled]);
 
   function close({ focusInput = false } = {}) {
     setOpen(false);

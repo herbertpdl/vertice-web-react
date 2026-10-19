@@ -139,23 +139,31 @@ export function parseBrDate(text: string): string | null {
 
 /** How many digits each of `dd`, `mm` and `aaaa` holds. */
 const SEGMENT_LENGTHS = [2, 2, 4];
+const TOTAL_DIGITS = SEGMENT_LENGTHS.reduce((sum, length) => sum + length, 0);
 
 /**
  * What the field shows while it is being typed into.
  *
- * Each `/`-delimited segment is filled in turn and whatever overflows carries into the next, so
- * the separators are reconstructed from a bare digit stream (typing from empty, or a paste) *and*
- * an edit inside one segment leaves the ones after it alone. Re-deriving the whole string from
- * the digit stream instead would make a backspace in `31/10/2026` reflow every later digit into
- * `31/02/026` — mangling the month and year to fix the day, which is the most likely edit there
- * is on a date that is already filled in.
+ * Each `/`-delimited segment is filled in turn, so an edit inside one leaves the ones after it
+ * alone. Re-deriving the whole string from the digit stream instead would make a backspace in
+ * `31/10/2026` reflow every later digit into `31/02/026` — mangling the month and year to fix
+ * the day, which is the most likely edit there is on a date that is already filled in.
+ *
+ * Overflow carries into the next segment only while the text could still *become* a date: that
+ * is what lays the separators into a bare digit stream (typing from empty, or a paste) and what
+ * puts a deleted `/` back. Once a text that already has separators holds more than eight digits,
+ * a full segment has been typed into, so the extra digit is dropped rather than carried — a `3`
+ * typed at the start of `31/10/2026` must not cascade into `33/11/0202`.
  */
 export function maskBrDate(text: string): string {
-  const parts = text.replace(/[^\d/]/g, "").split("/");
+  const cleaned = text.replace(/[^\d/]/g, "");
+  const parts = cleaned.split("/");
+  const carries = parts.length === 1 || cleaned.replace(/\//g, "").length <= TOTAL_DIGITS;
+
   const segments: string[] = [];
   let carry = "";
   for (const [index, length] of SEGMENT_LENGTHS.entries()) {
-    const available = carry + (parts[index] ?? "");
+    const available = (carries ? carry : "") + (parts[index] ?? "");
     segments.push(available.slice(0, length));
     carry = available.slice(length);
   }

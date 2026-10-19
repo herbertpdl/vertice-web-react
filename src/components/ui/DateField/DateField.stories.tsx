@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, within } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 import { DateField } from "./DateField";
 
 /**
@@ -9,14 +9,27 @@ import { DateField } from "./DateField";
  */
 function ControlledDateField({
   value: initialValue = "",
+  onChange,
   ...props
 }: Partial<React.ComponentProps<typeof DateField>>) {
   const [value, setValue] = useState(initialValue);
-  return <DateField label="Início" {...props} value={value} onChange={setValue} />;
+  return (
+    <DateField
+      label="Início"
+      {...props}
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        onChange?.(next);
+      }}
+    />
+  );
 }
 
 const meta = {
   component: ControlledDateField,
+  // Pinned, so "today" is the day the grid rings rather than whenever CI happens to run.
+  args: { today: "2026-10-19", onChange: fn() },
   parameters: { layout: "centered" },
   decorators: [
     (Story) => (
@@ -129,7 +142,7 @@ export const EscapeClosesOnlyTheCalendar: Story = {
   },
 };
 
-/** Fixing one digit of a filled date must not reflow the segments after it, nor lose the caret. */
+/** Fixing one digit of a filled date must not reflow the segments after it. */
 export const EditingOneDigitKeepsTheRest: Story = {
   args: { value: "2026-10-31" },
   play: async ({ canvas, userEvent }) => {
@@ -138,11 +151,58 @@ export const EditingOneDigitKeepsTheRest: Story = {
     input.setSelectionRange(2, 2);
     await userEvent.keyboard("{Backspace}");
     await expect(input).toHaveValue("3/10/2026");
-    await expect(input.selectionStart).toBe(1);
 
-    // Mid-edit the committed value is left alone, so the first keystroke doesn't wipe the date.
     await userEvent.keyboard("0");
     await expect(input).toHaveValue("30/10/2026");
+  },
+};
+
+/**
+ * Deleting the separator is the case where the mask genuinely rewrites the string: the browser
+ * hands over `3110/2026` and the mask puts `31/10/2026` back. Without the caret effect that
+ * programmatic write parks the caret at the end of the field.
+ */
+export const RemaskingKeepsTheCaretPut: Story = {
+  args: { value: "2026-10-31" },
+  play: async ({ canvas, userEvent }) => {
+    const input = field(canvas) as HTMLInputElement;
+    input.focus();
+    input.setSelectionRange(3, 3);
+    await userEvent.keyboard("{Backspace}");
+    await expect(input).toHaveValue("31/10/2026");
+    await expect(input.selectionStart).toBe(2);
+  },
+};
+
+/**
+ * A half-finished edit must not destroy the date underneath it: only an empty box commits `""`.
+ * Asserted on the *committed* value, since the draft in the box hides what the parent holds.
+ */
+export const AHalfTypedDateKeepsTheCommittedOne: Story = {
+  args: { value: "2026-10-31" },
+  play: async ({ canvas, userEvent, args }) => {
+    const input = field(canvas) as HTMLInputElement;
+    input.focus();
+    input.setSelectionRange(0, input.value.length);
+    await userEvent.keyboard("3");
+    await expect(input).toHaveValue("3");
+    // "3" is not a date, so nothing was committed over the one already there...
+    await expect(args.onChange).not.toHaveBeenCalled();
+
+    // ...and leaving the field brings it back into view.
+    await userEvent.tab();
+    await expect(input).toHaveValue("31/10/2026");
+  },
+};
+
+/** Emptying the box, on the other hand, is a real intent to clear and is committed as such. */
+export const ClearingTheFieldCommitsEmpty: Story = {
+  args: { value: "2026-10-31" },
+  play: async ({ canvas, userEvent, args }) => {
+    await userEvent.clear(field(canvas));
+    await expect(args.onChange).toHaveBeenCalledWith("");
+    await userEvent.tab();
+    await expect(field(canvas)).toHaveValue("");
   },
 };
 
