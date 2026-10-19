@@ -65,9 +65,11 @@ describe("names, descriptions and emails", () => {
 
   it("bounds a plan's name and description", () => {
     const plan = { name: "Plano", description: "", startDate: "2026-01-01", endDate: "2026-02-01", level: "BEGINNER" };
-    expect(ok(trainingPlanSchema, plan)).toBe(true);
-    expect(ok(trainingPlanSchema, { ...plan, name: " " })).toBe(false);
-    expect(ok(trainingPlanSchema, { ...plan, description: "a".repeat(256) })).toBe(false);
+    // The schema's lower bound is a parameter, so pin it rather than letting it track today.
+    const schema = trainingPlanSchema("2026-01-01");
+    expect(ok(schema, plan)).toBe(true);
+    expect(ok(schema, { ...plan, name: " " })).toBe(false);
+    expect(ok(schema, { ...plan, description: "a".repeat(256) })).toBe(false);
   });
 
   it("trims and lower-cases an email on create, and caps it at 255", () => {
