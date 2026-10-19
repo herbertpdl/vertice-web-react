@@ -62,6 +62,15 @@
     height: 100%;
   }
 
+  /*
+   * The app is dark-only. Without this, the browser draws every native control it still owns
+   * (scrollbars, autofill, the `<option>` list, date/time inputs) in its light theme — which is
+   * how the plan dialog ended up with a near-black calendar glyph on a near-black field.
+   */
+  :root {
+    color-scheme: dark;
+  }
+
   .font-base {
     font-family: var(--font-inter), Inter, sans-serif;
   }

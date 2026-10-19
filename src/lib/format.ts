@@ -64,6 +64,12 @@ const numericDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   year: "numeric",
 });
 
+const monthYearFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "UTC",
+  month: "long",
+  year: "numeric",
+});
+
 // --- Instants (ISO-8601 with `Z`) --------------------------------------------------------------
 // Each of these resolves an absolute instant in the business zone, so each one must say
 // `timeZone: BUSINESS_TIME_ZONE`.
@@ -137,6 +143,11 @@ export function formatDateLong(isoDate: string): string {
 /** A business date all in digits, e.g. "31/10/2026". */
 export function formatDateNumeric(isoDate: string): string {
   return numericDateFormatter.format(civilDay(isoDate));
+}
+
+/** The month a business date falls in, as a calendar's header shows it, e.g. "outubro de 2026". */
+export function formatMonthYear(isoDate: string): string {
+  return monthYearFormatter.format(civilDay(isoDate));
 }
 
 export function formatDateRange(startDate: string, endDate: string): string {

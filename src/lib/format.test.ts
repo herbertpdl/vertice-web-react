@@ -5,6 +5,7 @@ import {
   daysUntil,
   formatDateLong,
   formatDateNumeric,
+  formatMonthYear,
   formatDateRange,
   formatDateShort,
   formatDateTime,
@@ -90,6 +91,15 @@ describe("formatting a business date", () => {
     expect(formatDateNumeric("2026-12-31")).toBe("31/12/2026");
     expect(formatDateNumeric("2026-03-01")).toBe("01/03/2026");
     expect(formatDateNumeric("2024-02-29")).toBe("29/02/2024");
+  });
+
+  it("renders the month a date falls in, for the date picker's header", () => {
+    expect(formatMonthYear("2026-10-31")).toBe("outubro de 2026");
+    // The last day of the month must not spill into the next one, which is exactly what a
+    // business date put through a UTC conversion would do in a zone behind UTC.
+    expect(formatMonthYear("2026-01-31")).toBe("janeiro de 2026");
+    expect(formatMonthYear("2026-12-31")).toBe("dezembro de 2026");
+    expect(formatMonthYear("2026-03-01")).toBe("março de 2026");
   });
 
   it("renders a date inside a DST transition day as written", () => {

@@ -3,7 +3,7 @@
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button, Dialog, DialogFooter, Dropdown, TextField } from "@/components/ui";
+import { Button, DateField, Dialog, DialogFooter, Dropdown, TextField } from "@/components/ui";
 import { apiErrorMessage } from "@/lib/api/errorMessages";
 import { createTrainingPlan, updateTrainingPlan } from "@/lib/api/trainingPlans";
 import {
@@ -48,6 +48,8 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
   });
 
   const level = useWatch({ control, name: "level" });
+  const startDate = useWatch({ control, name: "startDate" });
+  const endDate = useWatch({ control, name: "endDate" });
 
   const mutation = useMutation({
     mutationFn: (data: TrainingPlanFormInput) =>
@@ -91,19 +93,22 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
           {...register("description")}
         />
         <div className="flex w-full gap-[var(--space-3)]">
-          <TextField
+          <DateField
             label="Início"
-            type="date"
+            value={startDate}
+            onChange={(value) => setValue("startDate", value)}
             error={errors.startDate?.message}
             className="flex-1"
-            {...register("startDate")}
           />
-          <TextField
+          <DateField
             label="Término"
-            type="date"
+            value={endDate}
+            onChange={(value) => setValue("endDate", value)}
+            // The schema's own rule (`trainingPlanSchema`'s refine) says the plan can't end
+            // before it starts; the calendar just stops offering those days.
+            min={startDate || undefined}
             error={errors.endDate?.message}
             className="flex-1"
-            {...register("endDate")}
           />
         </div>
         <Dropdown
