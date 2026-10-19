@@ -33,11 +33,31 @@ export function minPlanEndDate(startDate: string, minStartDate: string) {
   return addDays(startDate || minStartDate, 1);
 }
 
+/** The dates a plan being edited already has, so the rules below can let it keep them. */
+export interface CurrentPlanDates {
+  startDate: string;
+  endDate: string;
+}
+
 /**
  * Built per dialog rather than exported as a constant, because its lower bound depends on the plan
  * being edited (see `minPlanStartDate`) and on what day it is.
+ *
+ * Both date rules let an existing plan keep exactly the dates it already has. The floor does it
+ * through `minPlanStartDate`; the end-after-start rule does it through `current`, because a plan
+ * stored with `endDate === startDate` was legal under the previous `>=` rule and would otherwise
+ * become permanently unsaveable — the same trap, for the other field. Changing either date opts
+ * back into both rules in full.
  */
-export function trainingPlanSchema(minStartDate: string = todayLocalIso()) {
+export function trainingPlanSchema(
+  minStartDate: string = todayLocalIso(),
+  current?: CurrentPlanDates,
+) {
+  const unchanged = (data: { startDate: string; endDate: string }) =>
+    current !== undefined &&
+    data.startDate === current.startDate &&
+    data.endDate === current.endDate;
+
   return z
     .object({
       name: requiredText(NAME_MAX, "Informe o nome do plano"),
@@ -50,7 +70,7 @@ export function trainingPlanSchema(minStartDate: string = todayLocalIso()) {
       message: `A data de início não pode ser anterior a ${formatDateNumeric(minStartDate)}`,
       path: ["startDate"],
     })
-    .refine((data) => data.endDate > data.startDate, {
+    .refine((data) => data.endDate > data.startDate || unchanged(data), {
       message: "O plano precisa terminar depois do dia em que começa",
       path: ["endDate"],
     });

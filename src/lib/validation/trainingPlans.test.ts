@@ -12,8 +12,13 @@ const plan = {
 };
 
 /** The first message the schema reports for a field, or `undefined` when the field passed. */
-function errorFor(value: unknown, field: string, minStartDate = TODAY) {
-  const result = trainingPlanSchema(minStartDate).safeParse(value);
+function errorFor(
+  value: unknown,
+  field: string,
+  minStartDate = TODAY,
+  current?: { startDate: string; endDate: string },
+) {
+  const result = trainingPlanSchema(minStartDate, current).safeParse(value);
   if (result.success) return undefined;
   return result.error.issues.find((issue) => issue.path[0] === field)?.message;
 }
@@ -105,6 +110,40 @@ describe("trainingPlanSchema — a plan cannot end on the day it starts", () => 
         endDate: "2026-11-01",
       }).success,
     ).toBe(true);
+  });
+});
+
+describe("trainingPlanSchema — an existing plan keeps the dates it already has", () => {
+  // `endDate === startDate` was legal under the previous `>=` rule, so such plans can be in the
+  // database. Without this escape hatch one could never be saved again — not even to fix a typo
+  // in its name — which is the same trap `minPlanStartDate` exists to avoid for the other field.
+  const oneDay = { ...plan, startDate: "2026-10-12", endDate: "2026-10-12" };
+  const current = { startDate: "2026-10-12", endDate: "2026-10-12" };
+
+  it("saves a stored one-day plan untouched", () => {
+    expect(trainingPlanSchema("2026-10-12", current).safeParse(oneDay).success).toBe(true);
+  });
+
+  it("still refuses it once either date is changed", () => {
+    expect(
+      errorFor({ ...oneDay, startDate: "2026-10-13", endDate: "2026-10-13" }, "endDate", "2026-10-12", current),
+    ).toBe("O plano precisa terminar depois do dia em que começa");
+    expect(
+      errorFor({ ...oneDay, endDate: "2026-10-11" }, "endDate", "2026-10-12", current),
+    ).toBe("O plano precisa terminar depois do dia em que começa");
+  });
+
+  it("gives a brand-new plan no such hatch", () => {
+    expect(errorFor({ ...plan, startDate: TODAY, endDate: TODAY }, "endDate")).toBe(
+      "O plano precisa terminar depois do dia em que começa",
+    );
+  });
+
+  it("does not let an unrelated plan borrow another's dates", () => {
+    const other = { startDate: "2026-11-01", endDate: "2026-11-01" };
+    expect(errorFor({ ...oneDay }, "endDate", "2026-10-12", other)).toBe(
+      "O plano precisa terminar depois do dia em que começa",
+    );
   });
 });
 

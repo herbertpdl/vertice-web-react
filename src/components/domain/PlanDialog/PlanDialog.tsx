@@ -21,19 +21,37 @@ const levelOptions = Object.entries(planLevelLabels).map(([value, label]) => ({
   label,
 }));
 
+export interface PlanDialogApi {
+  create: typeof createTrainingPlan;
+  update: typeof updateTrainingPlan;
+}
+
+const defaultApi: PlanDialogApi = { create: createTrainingPlan, update: updateTrainingPlan };
+
 interface PlanDialogProps {
   clientId: number;
   plan?: TrainingPlan;
   onClose: () => void;
   onSuccess?: (plan: TrainingPlan) => void;
+  /** Injected by stories (no BFF in Storybook); defaults to the real calls. */
+  api?: PlanDialogApi;
+  /** Pinned by stories so the date rules don't move with the calendar. Defaults to today. */
+  today?: string;
 }
 
-export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogProps) {
+export function PlanDialog({
+  clientId,
+  plan,
+  onClose,
+  onSuccess,
+  api = defaultApi,
+  today,
+}: PlanDialogProps) {
   const queryClient = useQueryClient();
   const isEditing = Boolean(plan);
   // Frozen at mount: both the schema and the fields' bounds read it, and "today" moving under an
   // open dialog would invalidate what the trainer already picked.
-  const [minStartDate] = useState(() => minPlanStartDate(plan?.startDate));
+  const [minStartDate] = useState(() => minPlanStartDate(plan?.startDate, today));
 
   const {
     register,
@@ -41,9 +59,10 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
     control,
     setValue,
     setError,
-    formState: { errors },
+    trigger,
+    formState: { errors, isSubmitted },
   } = useForm<TrainingPlanFormInput>({
-    resolver: zodResolver(trainingPlanSchema(minStartDate)),
+    resolver: zodResolver(trainingPlanSchema(minStartDate, plan)),
     defaultValues: {
       name: plan?.name ?? "",
       description: plan?.description ?? "",
@@ -57,11 +76,21 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
   const startDate = useWatch({ control, name: "startDate" });
   const endDate = useWatch({ control, name: "endDate" });
 
+  /**
+   * `DateField` is controlled, not `register`ed, so no change event reaches react-hook-form and
+   * `reValidateMode` never fires on its own — a message would sit there while the trainer fixed
+   * the very thing it complains about. Both dates are re-checked together because the rules are
+   * cross-field, and only after a first submit, so a half-typed date doesn't flash "Informe a
+   * data…" at someone who has not tried to save yet.
+   */
+  function setDate(field: "startDate" | "endDate", nextValue: string) {
+    setValue(field, nextValue, { shouldDirty: true });
+    if (isSubmitted) void trigger(["startDate", "endDate"]);
+  }
+
   const mutation = useMutation({
     mutationFn: (data: TrainingPlanFormInput) =>
-      isEditing && plan
-        ? updateTrainingPlan(plan.id, data)
-        : createTrainingPlan({ ...data, clientId }),
+      isEditing && plan ? api.update(plan.id, data) : api.create({ ...data, clientId }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["trainingPlans", { clientId }] });
       queryClient.invalidateQueries({ queryKey: ["student", clientId, "overview"] });
@@ -102,7 +131,7 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
           <DateField
             label="Início"
             value={startDate}
-            onChange={(value) => setValue("startDate", value)}
+            onChange={(value) => setDate("startDate", value)}
             min={minStartDate}
             error={errors.startDate?.message}
             className="flex-1"
@@ -110,7 +139,7 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
           <DateField
             label="Término"
             value={endDate}
-            onChange={(value) => setValue("endDate", value)}
+            onChange={(value) => setDate("endDate", value)}
             // A plan can't end on the day it starts, so the earliest end is the day after.
             // `trainingPlanSchema` enforces the same rule; the calendar just stops offering
             // the days it would reject.

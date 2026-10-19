@@ -32,9 +32,14 @@ function civilDay(isoDate: string): Date {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-/** Back to `yyyy-MM-dd` from the UTC parts, never from a formatted string. */
+/**
+ * Back to `yyyy-MM-dd` from the UTC parts, never from a formatted string. The year is padded to
+ * four digits too: a business date compares and sorts as a plain string, so a three-digit year
+ * would sort above every real one and would not match the `yyyy-MM-dd` shape the schemas check.
+ */
 function toIsoDate(date: Date): string {
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+  const year = String(date.getUTCFullYear()).padStart(4, "0");
+  return `${year}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
 
 export function monthOf(isoDate: string): CalendarMonth {
@@ -97,10 +102,16 @@ export function isWithin(isoDate: string, min?: string, max?: string): boolean {
   return true;
 }
 
+/**
+ * Applied in order rather than as two early returns, so crossed bounds (`min` after `max`, which
+ * a caller can produce transiently while both ends of a range are being edited) still resolve to
+ * `max` instead of returning a date above it.
+ */
 export function clampDate(isoDate: string, min?: string, max?: string): string {
-  if (min && isoDate < min) return min;
-  if (max && isoDate > max) return max;
-  return isoDate;
+  let clamped = isoDate;
+  if (min && clamped < min) clamped = min;
+  if (max && clamped > max) clamped = max;
+  return clamped;
 }
 
 /**
@@ -114,13 +125,66 @@ export function parseBrDate(text: string): string | null {
   const [, day, month, year] = match.map(Number);
   if (month < 1 || month > 12 || day < 1) return null;
   const candidate = new Date(Date.UTC(year, month - 1, day));
-  if (candidate.getUTCMonth() + 1 !== month || candidate.getUTCDate() !== day) return null;
+  // The year is checked along with the rest because `Date.UTC` maps 0-99 onto 1900-1999: without
+  // this, `01/01/0026` — a plausible slip for 2026 — would be accepted and stored as 1926.
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() + 1 !== month ||
+    candidate.getUTCDate() !== day
+  ) {
+    return null;
+  }
   return toIsoDate(candidate);
 }
 
-/** Digits in, `dd/mm/aaaa` out — what the field shows while it is being typed into. */
+/** How many digits each of `dd`, `mm` and `aaaa` holds. */
+const SEGMENT_LENGTHS = [2, 2, 4];
+
+/**
+ * What the field shows while it is being typed into.
+ *
+ * Each `/`-delimited segment is filled in turn and whatever overflows carries into the next, so
+ * the separators are reconstructed from a bare digit stream (typing from empty, or a paste) *and*
+ * an edit inside one segment leaves the ones after it alone. Re-deriving the whole string from
+ * the digit stream instead would make a backspace in `31/10/2026` reflow every later digit into
+ * `31/02/026` — mangling the month and year to fix the day, which is the most likely edit there
+ * is on a date that is already filled in.
+ */
 export function maskBrDate(text: string): string {
-  const digits = text.replace(/\D/g, "").slice(0, 8);
-  const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)];
-  return parts.filter((part) => part.length > 0).join("/");
+  const parts = text.replace(/[^\d/]/g, "").split("/");
+  const segments: string[] = [];
+  let carry = "";
+  for (const [index, length] of SEGMENT_LENGTHS.entries()) {
+    const available = carry + (parts[index] ?? "");
+    segments.push(available.slice(0, length));
+    carry = available.slice(length);
+  }
+
+  // Drop the empty tail, so a half-typed date carries no trailing separators...
+  while (segments.length > 1 && segments[segments.length - 1] === "") segments.pop();
+  const last = segments.length - 1;
+  // ...but close a segment that is full, so the next digit lands in the one after it.
+  const closed = last < SEGMENT_LENGTHS.length - 1 && segments[last].length === SEGMENT_LENGTHS[last];
+  return segments.join("/") + (closed ? "/" : "");
+}
+
+/**
+ * Where the caret belongs in a freshly masked string, given how many digits preceded it before
+ * the edit. Without this the caret jumps to the end on every keystroke that is not an append.
+ */
+export function caretAfterDigits(masked: string, digits: number): number {
+  if (digits <= 0) return 0;
+  let seen = 0;
+  for (let index = 0; index < masked.length; index += 1) {
+    if (masked[index] >= "0" && masked[index] <= "9") {
+      seen += 1;
+      if (seen === digits) return index + 1;
+    }
+  }
+  return masked.length;
+}
+
+/** Digits in `text` before `caret` — the position that survives a re-mask. */
+export function countDigitsBefore(text: string, caret: number): number {
+  return (text.slice(0, caret).match(/\d/g) ?? []).length;
 }
