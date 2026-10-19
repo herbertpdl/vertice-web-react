@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,6 +8,8 @@ import { Button, DateField, Dialog, DialogFooter, Dropdown, TextField } from "@/
 import { apiErrorMessage } from "@/lib/api/errorMessages";
 import { createTrainingPlan, updateTrainingPlan } from "@/lib/api/trainingPlans";
 import {
+  minPlanEndDate,
+  minPlanStartDate,
   trainingPlanSchema,
   planLevelLabels,
   type TrainingPlanFormInput,
@@ -28,6 +31,9 @@ interface PlanDialogProps {
 export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogProps) {
   const queryClient = useQueryClient();
   const isEditing = Boolean(plan);
+  // Frozen at mount: both the schema and the fields' bounds read it, and "today" moving under an
+  // open dialog would invalidate what the trainer already picked.
+  const [minStartDate] = useState(() => minPlanStartDate(plan?.startDate));
 
   const {
     register,
@@ -37,7 +43,7 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
     setError,
     formState: { errors },
   } = useForm<TrainingPlanFormInput>({
-    resolver: zodResolver(trainingPlanSchema),
+    resolver: zodResolver(trainingPlanSchema(minStartDate)),
     defaultValues: {
       name: plan?.name ?? "",
       description: plan?.description ?? "",
@@ -97,6 +103,7 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
             label="Início"
             value={startDate}
             onChange={(value) => setValue("startDate", value)}
+            min={minStartDate}
             error={errors.startDate?.message}
             className="flex-1"
           />
@@ -104,9 +111,10 @@ export function PlanDialog({ clientId, plan, onClose, onSuccess }: PlanDialogPro
             label="Término"
             value={endDate}
             onChange={(value) => setValue("endDate", value)}
-            // The schema's own rule (`trainingPlanSchema`'s refine) says the plan can't end
-            // before it starts; the calendar just stops offering those days.
-            min={startDate || undefined}
+            // A plan can't end on the day it starts, so the earliest end is the day after.
+            // `trainingPlanSchema` enforces the same rule; the calendar just stops offering
+            // the days it would reject.
+            min={minPlanEndDate(startDate, minStartDate)}
             error={errors.endDate?.message}
             className="flex-1"
           />

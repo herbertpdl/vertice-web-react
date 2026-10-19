@@ -47,7 +47,7 @@ export const Bounded: Story = {
     value: "2026-11-20",
     min: "2026-11-10",
     max: "2026-11-30",
-    helpText: "Só os dias entre 10 e 30 de novembro podem ser escolhidos.",
+    helpText: "O calendário só oferece os dias entre 10 e 30 de novembro.",
   },
 };
 

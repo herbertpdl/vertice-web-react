@@ -177,8 +177,11 @@ export function DateField({
   function handleTextChange(event: React.ChangeEvent<HTMLInputElement>) {
     const masked = maskBrDate(event.target.value);
     setDraft(masked);
-    const parsed = parseBrDate(masked);
-    onChange(parsed && isWithin(parsed, min, max) ? parsed : "");
+    // A typed date is committed even when it falls outside `min`/`max`. The bounds stop the
+    // calendar *offering* those days, but swallowing a typed one would report it as an empty
+    // field ("Informe a data…") instead of letting the schema say what is actually wrong with
+    // it ("O plano precisa terminar depois do dia em que começa").
+    onChange(parseBrDate(masked) ?? "");
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLElement>) {
