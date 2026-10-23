@@ -82,6 +82,24 @@ export const MissingGroup: Story = {
   },
 };
 
+/** Videos play in the client app's YouTube player: any other link is refused (R8). */
+export const VideoNotYouTube: Story = {
+  play: async ({ canvas, userEvent, args }) => {
+    const body = within(document.body);
+    await userEvent.type(canvas.getByLabelText("Nome do exercício"), "Remada Unilateral no Banco");
+    await userEvent.click(groupsTrigger(canvas));
+    await userEvent.click(await body.findByRole("option", { name: "Costas" }));
+    await userEvent.keyboard("{Escape}");
+    await userEvent.type(canvas.getByLabelText("URL do vídeo (opcional)"), "https://vimeo.com/824512");
+    await userEvent.tab();
+    await expect(
+      await canvas.findByText("Só aceitamos vídeos do YouTube (youtube.com ou youtu.be)."),
+    ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Criar exercício" })).toBeDisabled();
+    await expect(args.api!.create).not.toHaveBeenCalled();
+  },
+};
+
 export const SubmitEnabledWhenValid: Story = {
   play: async ({ canvas, userEvent, args }) => {
     const body = within(document.body);

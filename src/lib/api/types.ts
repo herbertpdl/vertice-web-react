@@ -111,6 +111,7 @@ export type WorkoutLog = Schemas["WorkoutLog"];
 export type WorkoutFeedback = Schemas["WorkoutFeedback"];
 
 export type EnrichedFeedback = Schemas["EnrichedFeedback"];
+export type FeedbackRating = Schemas["FeedbackRating"];
 
 /** `GET /dashboard`. */
 export type DashboardData = Schemas["Dashboard"];

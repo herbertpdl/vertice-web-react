@@ -70,8 +70,6 @@ export const restSeconds = z
   .min(0)
   .max(REST_SECONDS_MAX, `No máximo ${REST_SECONDS_MAX} segundos`);
 
-/** Only `http:` / `https:` URLs may be linked: the catalog is shared, so `javascript:`/`data:` never. */
-export const HTTP_URL_PATTERN = /^https?:\/\/\S+$/;
 /** Render side: lenient on scheme case, for data stored before the rule. */
 const RENDERABLE_URL_PATTERN = /^https?:\/\/\S+$/i;
 

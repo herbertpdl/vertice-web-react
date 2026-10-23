@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@0a983439c29b586eb18fc5b334cd59c8d6b39ee8:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@acb90ab4cb3e1dcaad221d37349a1f4858aa3243:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -95,6 +95,26 @@ export interface paths {
          * @description Any authenticated role. LGPD art. 18 III. Every field is optional and an omitted one keeps the stored value. The role cannot change. `cpf`: a string sets it (the mask `GET /auth/me` returns is refused), `null` removes it (a trainer’s CPF is required). `cref` is a trainer’s only. No email verification yet.
          */
         patch: operations["updateMe"];
+        trace?: never;
+    };
+    "/api/auth/me/trainer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The client’s trainer and the contacts they share
+         * @description Roles: CLIENT. The caller’s active trainer: the name always; `email`, `whatsapp`, `instagram` only when the trainer shows them and filled them in (`""` otherwise). 404 when the client has no active trainer.
+         */
+        get: operations["getMyTrainer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/auth/me/export": {
@@ -634,11 +654,31 @@ export interface paths {
         };
         /**
          * The “do a workout” screen in one call
-         * @description Roles: TRAINER, CLIENT. Starts (or resumes) the week’s log and merges in what was recorded last time per set (`lastPerformed`). A CLIENT’s `clientId` is ignored; a TRAINER must pass the client of the workout’s plan.
+         * @description Roles: TRAINER, CLIENT. Starts (or resumes) the week’s log and merges in what was recorded last time per set (`lastPerformed`) and this session’s (`current`). A CLIENT’s `clientId` is ignored; a TRAINER must pass the client of the workout’s plan. 409 when no log exists for an earlier week (logs are only started in the current one).
          */
         get: operations["getWorkoutSession"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workouts/{workoutId}/session/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redo the week’s finished workout
+         * @description Roles: CLIENT. Starts a new session next to the week’s completed one (or returns the one already in progress), in the same `WorkoutSession` shape. Finishing it replaces the completed session; discarding it keeps the original. Current week only (409 for an earlier one).
+         */
+        post: operations["restartWorkoutSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -676,7 +716,7 @@ export interface paths {
         put?: never;
         /**
          * Send feedback on a workout log
-         * @description Roles: CLIENT. On their own log.
+         * @description Roles: CLIENT. On their own log. 409 unless the session is completed, or when it was finished automatically (no feedback then).
          */
         post: operations["submitWorkoutFeedback"];
         delete?: never;
@@ -700,6 +740,46 @@ export interface paths {
          */
         post: operations["recordSetLog"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workout-sessions/{workoutLogId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Discard a session in progress
+         * @description Roles: CLIENT. On their own log: deletes it with its set logs. 409 once it is completed.
+         */
+        delete: operations["discardWorkoutLog"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workout-sessions/{workoutLogId}/sets/{exerciseSetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Untick a set
+         * @description Roles: CLIENT. On their own log: deletes the set’s log (none is fine). 409 once the session is completed.
+         */
+        delete: operations["deleteSetLog"];
         options?: never;
         head?: never;
         patch?: never;
@@ -845,11 +925,25 @@ export interface components {
                 completed: boolean;
             }[];
         };
+        ClientTrainer: {
+            name: string;
+            /** @description `""` unless the trainer shows it. */
+            email: string;
+            /** @description Digits with area code; `""` unless the trainer shows it. */
+            whatsapp: string;
+            /** @description Handle without `@`; `""` unless the trainer shows it. */
+            instagram: string;
+        };
         CloneWorkoutRequest: {
             targetTrainingPlanId: number;
             name: string;
             dayOfWeek: components["schemas"]["DayOfWeek"];
         };
+        /**
+         * @description Who finished it: the client, or the weekly rollover (`AUTO`); `""` in progress.
+         * @enum {string}
+         */
+        CompletionKind: "CLIENT" | "AUTO" | "";
         Consent: {
             /** @description Terms of Use / Privacy Policy version accepted, null if never. */
             termsVersion: string | null;
@@ -944,7 +1038,12 @@ export interface components {
             workoutId: number;
             trainingPlanId: number;
             clientId: number;
+            /** @description `""` when the client only rated the workout. */
             text: string;
+            /** @description Null on feedback given before ratings existed. */
+            rating: components["schemas"]["FeedbackRating"] | null;
+            /** @description The session was replaced by a redo finished in the same week. */
+            replaced: boolean;
             /** @description ISO-8601 instant, UTC (`Z`). An absolute point in time. Format it for display in a time zone (the business zone is America/Sao_Paulo) — never read the clock or the calendar day off the string, and never assume a fixed -03:00 (instants from before 2019 are -02:00). */
             createdAt: string;
             clientName: string;
@@ -1013,6 +1112,11 @@ export interface components {
             restSeconds?: number;
             notes?: string;
         };
+        /**
+         * @description How hard the workout felt, hardest first.
+         * @enum {string}
+         */
+        FeedbackRating: "VERY_HARD" | "HARD" | "JUST_RIGHT" | "EASY" | "VERY_EASY";
         FullWorkout: {
             id: number;
             name: string;
@@ -1053,6 +1157,14 @@ export interface components {
             /** @description `""` for anyone but a trainer who set one. */
             cref: string;
             role: components["schemas"]["Role"];
+            /** @description A trainer's WhatsApp, digits only; `""` when none. */
+            whatsapp: string;
+            /** @description A trainer's Instagram handle without `@`; `""` when none. */
+            instagram: string;
+            /** @description Whether the trainer shows their e-mail to their clients. */
+            showEmail: boolean;
+            showWhatsapp: boolean;
+            showInstagram: boolean;
             consent: components["schemas"]["Consent"];
         };
         MuscleGroup: {
@@ -1087,7 +1199,7 @@ export interface components {
         };
         RecordSetLogRequest: {
             exerciseSetId: number;
-            weight: string;
+            weight: string | "";
             reps: number;
         };
         RegisterRequest: {
@@ -1116,7 +1228,7 @@ export interface components {
             id: number;
             workoutLogId: number;
             exerciseSetId: number;
-            /** @description Decimal string. */
+            /** @description Decimal string; `""` when the set was ticked without a weight. */
             weight: string;
             reps: number;
             /** @description ISO-8601 instant, UTC (`Z`). An absolute point in time. Format it for display in a time zone (the business zone is America/Sao_Paulo) — never read the clock or the calendar day off the string, and never assume a fixed -03:00 (instants from before 2019 are -02:00). */
@@ -1125,7 +1237,10 @@ export interface components {
         /** @enum {string} */
         SetStrategy: "STRAIGHT" | "WARM_UP" | "BACKOFF" | "DROPSET" | "REST_PAUSE" | "CLUSTER" | "AMRAP" | "ISOMETRIC_HOLD" | "FAILURE";
         SubmitFeedbackRequest: {
-            text: string;
+            /** @enum {string} */
+            rating: "VERY_HARD" | "HARD" | "JUST_RIGHT" | "EASY" | "VERY_EASY";
+            /** @default  */
+            text?: string;
         };
         TrainingPlan: {
             id: number;
@@ -1173,6 +1288,11 @@ export interface components {
             email?: string;
             cpf?: string | null;
             cref?: string | null;
+            whatsapp?: string | null;
+            instagram?: string | null;
+            showEmail?: boolean;
+            showWhatsapp?: boolean;
+            showInstagram?: boolean;
         };
         UpdateTrainingPlanRequest: {
             name: string;
@@ -1218,7 +1338,12 @@ export interface components {
             workoutId: number;
             trainingPlanId: number;
             clientId: number;
+            /** @description `""` when the client only rated the workout. */
             text: string;
+            /** @description Null on feedback given before ratings existed. */
+            rating: components["schemas"]["FeedbackRating"] | null;
+            /** @description The session was replaced by a redo finished in the same week. */
+            replaced: boolean;
             /** @description ISO-8601 instant, UTC (`Z`). An absolute point in time. Format it for display in a time zone (the business zone is America/Sao_Paulo) — never read the clock or the calendar day off the string, and never assume a fixed -03:00 (instants from before 2019 are -02:00). */
             createdAt: string;
         };
@@ -1232,7 +1357,14 @@ export interface components {
             startedAt: string;
             /** @description ISO-8601 instant, `""` until the workout is completed. */
             completedAt: string;
+            status: components["schemas"]["WorkoutLogStatus"];
+            completionKind: components["schemas"]["CompletionKind"];
         };
+        /**
+         * @description `SUPERSEDED`: replaced by a redo finished in the same week (never in the week list).
+         * @enum {string}
+         */
+        WorkoutLogStatus: "IN_PROGRESS" | "COMPLETED" | "SUPERSEDED";
         WorkoutRequest: {
             name: string;
             dayOfWeek: components["schemas"]["DayOfWeek"];
@@ -1265,6 +1397,8 @@ export interface components {
                     notes: string;
                     /** @description What the client recorded last time, null if never. */
                     lastPerformed: components["schemas"]["SetLog"] | null;
+                    /** @description What this session recorded for the set (it's ticked), null if not: resumes a session on another device. */
+                    current: components["schemas"]["SetLog"] | null;
                 }[];
             }[];
             workoutLog: components["schemas"]["WorkoutLog"];
@@ -1529,6 +1663,44 @@ export interface operations {
             };
             /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, `ACTIVE_CLIENTS`). */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMyTrainer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trainer card. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientTrainer"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found (`NOT_FOUND`). */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3899,6 +4071,85 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, `ACTIVE_CLIENTS`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    restartWorkoutSession: {
+        parameters: {
+            query?: {
+                /** @description A business date, and a Monday. Defaults to the current week’s Monday in America/Sao_Paulo. */
+                weekStartDate?: string;
+            };
+            header?: never;
+            path: {
+                workoutId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workout, its sets and the redo session. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkoutSession"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found (`NOT_FOUND`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, `ACTIVE_CLIENTS`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     listWorkoutLogs: {
@@ -4024,6 +4275,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, `ACTIVE_CLIENTS`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     recordSetLog: {
@@ -4049,6 +4309,137 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SetLog"];
                 };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found (`NOT_FOUND`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, `ACTIVE_CLIENTS`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    discardWorkoutLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workoutLogId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Discarded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found (`NOT_FOUND`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, `ACTIVE_CLIENTS`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteSetLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workoutLogId: number;
+                exerciseSetId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unticked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
             400: {

@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { youtubeVideoId } from "@/lib/youtube";
 import {
   DESCRIPTION_MAX,
-  HTTP_URL_PATTERN,
   NAME_MAX,
   VIDEO_URL_MAX,
   boundedText,
@@ -16,13 +16,13 @@ export const exerciseSchema = z.object({
     .array(z.number().int().positive())
     .min(1, "Selecione pelo menos um grupo muscular"),
   description: boundedText(DESCRIPTION_MAX),
-  // http(s) only, as vertice-api (`^https?://\S+$`): the catalog is shared, so a `javascript:` or
-  // `data:` link must never be stored.
+  // YouTube only (R8), as vertice-api and the BFF: the client app plays videos in an embedded
+  // YouTube player. The same parser on every repo, so what one accepts the others do.
   videoUrl: z
     .string()
     .trim()
     .max(VIDEO_URL_MAX, tooLong(VIDEO_URL_MAX))
-    .regex(HTTP_URL_PATTERN, "Use um link começando com http:// ou https://")
+    .refine((value) => youtubeVideoId(value) !== null, "Só aceitamos vídeos do YouTube (youtube.com ou youtu.be).")
     .optional()
     .or(z.literal("")),
 });

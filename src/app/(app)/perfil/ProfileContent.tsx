@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DeleteAccountDialog, type DeleteAccountApi } from "@/components/domain/DeleteAccountDialog";
-import { Button, PageLoadingOverlay, TextField } from "@/components/ui";
+import { Button, PageLoadingOverlay, Switch, TextField } from "@/components/ui";
 import { exportMyData, updateMe, type UpdateMeInput } from "@/lib/api/auth";
 import { apiErrorMessage } from "@/lib/api/errorMessages";
 import { rateLimitedMessage } from "@/lib/api/rateLimit";
@@ -13,6 +13,7 @@ import type { Me } from "@/lib/api/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { saveFile } from "@/lib/download";
 import { maskCpf } from "@/lib/masks/cpf";
+import { maskPhone } from "@/lib/masks/phone";
 import {
   profileChanges,
   profileDefaults,
@@ -118,6 +119,7 @@ function ProfileForm({ me, api }: { me: Me; api: ProfileApi }) {
     defaultValues: profileDefaults(me),
   });
   const newCpf = useWatch({ control, name: "newCpf" });
+  const [email, whatsapp, instagram] = useWatch({ control, name: ["email", "whatsapp", "instagram"] });
 
   const save = useMutation({
     mutationFn: (changes: UpdateMeInput) => api.updateMe(changes),
@@ -176,6 +178,44 @@ function ProfileForm({ me, api }: { me: Me; api: ProfileApi }) {
             {...register("cref")}
           />
         )}
+        {isTrainer && (
+          <div className="flex w-full flex-col gap-[var(--space-4)] border-t border-[var(--color-border)] pt-[var(--space-4)]">
+            <div className="flex flex-col gap-[4px]">
+              <h3 className="font-heading text-[length:var(--text-md)] font-semibold text-[color:var(--color-text-primary)]">
+                Contato para alunos
+              </h3>
+              <p className="text-[length:var(--text-sm)] leading-[1.5] text-[color:var(--color-text-secondary)]">
+                Seu nome sempre aparece para seus alunos. Escolha quais contatos eles podem ver no app.
+              </p>
+            </div>
+            <TextField
+              label="WhatsApp"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="(11) 98765-4321"
+              helpText="DDD e número."
+              error={errors.whatsapp?.message}
+              value={whatsapp}
+              onChange={(event) =>
+                setValue("whatsapp", maskPhone(event.target.value), { shouldDirty: true, shouldValidate: true })
+              }
+            />
+            <TextField
+              label="Instagram"
+              autoComplete="off"
+              autoCapitalize="none"
+              placeholder="@seu.usuario"
+              helpText="Só o usuário, sem o link."
+              error={errors.instagram?.message}
+              {...register("instagram")}
+            />
+            <div className="flex w-full flex-col gap-[var(--space-3)]">
+              <ContactSwitch control={control} name="showEmail" label="Mostrar e-mail" value={email.trim()} />
+              <ContactSwitch control={control} name="showWhatsapp" label="Mostrar WhatsApp" value={whatsapp} />
+              <ContactSwitch control={control} name="showInstagram" label="Mostrar Instagram" value={handleOf(instagram)} />
+            </div>
+          </div>
+        )}
         <div className="flex w-full items-center justify-end gap-[var(--space-3)]">
           {saved && !isDirty && (
             <span role="status" className="text-[13px] text-[color:var(--color-success)]">
@@ -188,6 +228,49 @@ function ProfileForm({ me, api }: { me: Me; api: ProfileApi }) {
         </div>
       </form>
     </Section>
+  );
+}
+
+/** "@rafael.treina" as the switch shows it, from what's typed (with or without the @). */
+function handleOf(instagram: string): string {
+  const handle = instagram.trim().replace(/^@/, "");
+  return handle === "" ? "" : `@${handle}`;
+}
+
+/** One "mostrar aos alunos" switch with the contact it shares (R5). */
+function ContactSwitch({
+  control,
+  name,
+  label,
+  value,
+}: {
+  control: Control<ProfileInput>;
+  name: "showEmail" | "showWhatsapp" | "showInstagram";
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex w-full items-center gap-[var(--space-3)]">
+      <div className="flex min-w-0 flex-1 flex-col gap-[2px]">
+        <span className="text-[length:var(--text-base)] text-[color:var(--color-text-primary)]">{label}</span>
+        <span className="truncate text-[length:var(--text-sm)] text-[color:var(--color-text-secondary)]">
+          {value === "" ? "Não informado" : value}
+        </span>
+      </div>
+      <Controller
+        control={control}
+        name={name}
+        render={({ field }) => (
+          <Switch
+            id={`profile-${name}`}
+            aria-label={`${label} aos alunos`}
+            checked={field.value}
+            onChange={(event) => field.onChange(event.target.checked)}
+            onBlur={field.onBlur}
+          />
+        )}
+      />
+    </div>
   );
 }
 

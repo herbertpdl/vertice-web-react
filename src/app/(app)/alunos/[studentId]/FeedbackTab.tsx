@@ -2,8 +2,10 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { RatingChip, ReplacedSessionTag } from "@/components/domain/RatingChip";
 import { ListRowSkeleton } from "@/components/ui";
 import { fetchFeedback } from "@/lib/api/feedback";
+import { FeedbackText } from "@/components/domain/FeedbackText";
 import { formatRelativeTime } from "@/lib/format";
 
 export function FeedbackTab({ clientId }: { clientId: number }) {
@@ -55,12 +57,14 @@ export function FeedbackTab({ clientId }: { clientId: number }) {
               {formatRelativeTime(item.createdAt)}
             </span>
           </div>
-          <p className="text-[length:var(--text-base)] leading-[1.5] text-[color:var(--color-text-secondary)]">
-            &ldquo;{item.text}&rdquo;
-          </p>
-          <span className="w-fit rounded-[var(--radius-full)] bg-[var(--color-surface-active)] px-[10px] py-[4px] text-[length:var(--text-xs)] font-semibold text-[color:var(--color-text-secondary)]">
-            {item.trainingPlanName}
-          </span>
+          <FeedbackText text={item.text} />
+          <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+            <span className="w-fit rounded-[var(--radius-full)] bg-[var(--color-surface-active)] px-[10px] py-[4px] text-[length:var(--text-xs)] font-semibold text-[color:var(--color-text-secondary)]">
+              {item.trainingPlanName}
+            </span>
+            {item.rating ? <RatingChip rating={item.rating} /> : null}
+            {item.replaced ? <ReplacedSessionTag /> : null}
+          </div>
         </div>
       ))}
     </div>

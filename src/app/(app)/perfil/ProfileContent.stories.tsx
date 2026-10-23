@@ -12,6 +12,11 @@ const trainer: Me = {
   cpf: "***.***.***-25",
   cref: "012345-G/SP",
   role: "TRAINER",
+  whatsapp: "",
+  instagram: "",
+  showEmail: false,
+  showWhatsapp: false,
+  showInstagram: false,
   consent: {
     termsVersion: "2026-10-draft",
     termsAcceptedAt: "2026-10-14T12:00:00.000Z",
@@ -81,6 +86,32 @@ export const Client: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByLabelText("Nome")).toHaveValue("Marina Costa");
     await expect(canvas.queryByLabelText("CREF (opcional)")).toBeNull();
+    await expect(canvas.queryByRole("heading", { name: "Contato para alunos" })).toBeNull();
+  },
+};
+
+/** A trainer's contacts for their clients, and which ones clients see (R4–R6). */
+export const TrainerContacts: Story = {
+  play: async ({ canvas, userEvent, args }) => {
+    await expect(canvas.getByRole("heading", { name: "Contato para alunos" })).toBeVisible();
+    await expect(
+      canvas.getByText("Seu nome sempre aparece para seus alunos. Escolha quais contatos eles podem ver no app."),
+    ).toBeVisible();
+    await userEvent.type(canvas.getByLabelText("WhatsApp"), "+55 11 98765-4321");
+    await expect(canvas.getByLabelText("WhatsApp")).toHaveValue("(11) 98765-4321");
+    await userEvent.type(canvas.getByLabelText("Instagram"), "@ana.treinos");
+    const showWhatsapp = canvas.getByRole("switch", { name: "Mostrar WhatsApp aos alunos" });
+    await expect(showWhatsapp).not.toBeChecked();
+    await userEvent.click(showWhatsapp);
+    await expect(showWhatsapp).toBeChecked();
+    await userEvent.click(saveButton(canvas));
+    await waitFor(() =>
+      expect(args.api!.updateMe).toHaveBeenCalledWith({
+        whatsapp: "11987654321",
+        instagram: "ana.treinos",
+        showWhatsapp: true,
+      }),
+    );
   },
 };
 

@@ -31,23 +31,23 @@ describe("safeHttpUrl", () => {
 describe("exerciseSchema bounds", () => {
   const valid = { name: "Remada", muscleGroupIds: [1], description: "", videoUrl: "" };
 
-  it("accepts only http(s) video URLs", () => {
-    expect(ok(exerciseSchema, { ...valid, videoUrl: "https://example.com/a" })).toBe(true);
-    expect(ok(exerciseSchema, { ...valid, videoUrl: "http://example.com/a" })).toBe(true);
+  it("accepts only http(s) YouTube video URLs", () => {
+    expect(ok(exerciseSchema, { ...valid, videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" })).toBe(true);
+    expect(ok(exerciseSchema, { ...valid, videoUrl: "http://youtu.be/dQw4w9WgXcQ" })).toBe(true);
+    expect(ok(exerciseSchema, { ...valid, videoUrl: "https://example.com/a" })).toBe(false);
     expect(ok(exerciseSchema, { ...valid, videoUrl: "javascript:alert(1)" })).toBe(false);
     expect(ok(exerciseSchema, { ...valid, videoUrl: "data:text/html;base64,AAAA" })).toBe(false);
     expect(ok(exerciseSchema, { ...valid, videoUrl: "ftp://example.com/a" })).toBe(false);
-    // The API's pattern is case-sensitive, so the form must refuse these too.
-    expect(ok(exerciseSchema, { ...valid, videoUrl: "HTTP://a.com" })).toBe(false);
-    expect(ok(exerciseSchema, { ...valid, videoUrl: "HTTPS://x" })).toBe(false);
+    expect(ok(exerciseSchema, { ...valid, videoUrl: "javascript://youtu.be/dQw4w9WgXcQ" })).toBe(false);
   });
 
   it("caps lengths at the API's columns", () => {
     expect(ok(exerciseSchema, { ...valid, name: "a".repeat(255) })).toBe(true);
     expect(ok(exerciseSchema, { ...valid, name: "a".repeat(256) })).toBe(false);
     expect(ok(exerciseSchema, { ...valid, description: "a".repeat(256) })).toBe(false);
-    expect(ok(exerciseSchema, { ...valid, videoUrl: `https://a.com/${"a".repeat(486)}` })).toBe(true);
-    expect(ok(exerciseSchema, { ...valid, videoUrl: `https://a.com/${"a".repeat(487)}` })).toBe(false);
+    const youtube = "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=";
+    expect(ok(exerciseSchema, { ...valid, videoUrl: youtube + "1".repeat(500 - youtube.length) })).toBe(true);
+    expect(ok(exerciseSchema, { ...valid, videoUrl: youtube + "1".repeat(501 - youtube.length) })).toBe(false);
   });
 
   it("refuses a blank name and trims the accepted one", () => {
@@ -81,11 +81,12 @@ describe("names, descriptions and emails", () => {
   });
 
   it("applies the same rules to the profile and sign-up", () => {
-    expect(profileSchema.parse({ name: " Ana ", email: " A@B.com", newCpf: "", cref: "" })).toMatchObject({
+    const contacts = { whatsapp: "", instagram: "", showEmail: false, showWhatsapp: false, showInstagram: false };
+    expect(profileSchema.parse({ name: " Ana ", email: " A@B.com", newCpf: "", cref: "", ...contacts })).toMatchObject({
       name: "Ana",
       email: "a@b.com",
     });
-    expect(ok(profileSchema, { name: "Ana", email: "a@b.com", newCpf: "", cref: "1".repeat(21) })).toBe(false);
+    expect(ok(profileSchema, { name: "Ana", email: "a@b.com", newCpf: "", cref: "1".repeat(21), ...contacts })).toBe(false);
     const register = {
       name: "Ana",
       email: "a@b.com",
