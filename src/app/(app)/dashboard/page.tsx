@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, CircleCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { FeedbackText } from "@/components/domain/FeedbackText";
+import { RatingChip, ReplacedSessionTag } from "@/components/domain/RatingChip";
 import { Button, ListRowSkeleton, MetricCard } from "@/components/ui";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { fetchDashboard } from "@/lib/api/dashboard";
@@ -154,13 +156,15 @@ export default function DashboardPage() {
                           {formatRelativeTime(item.createdAt)}
                         </span>
                       </div>
-                      <p className="text-[length:var(--text-base)] leading-[1.5] text-[color:var(--color-text-secondary)]">
-                        &ldquo;{item.text}&rdquo;
-                      </p>
-                      <div className="flex w-full items-center justify-between">
-                        <span className="rounded-[var(--radius-full)] bg-[var(--color-surface-active)] px-[10px] py-[4px] text-[length:var(--text-xs)] font-semibold text-[color:var(--color-text-secondary)]">
-                          {item.trainingPlanName}
-                        </span>
+                      <FeedbackText text={item.text} />
+                      <div className="flex w-full items-center justify-between gap-[var(--space-3)]">
+                        <div className="flex flex-wrap items-center gap-[var(--space-2)]">
+                          <span className="rounded-[var(--radius-full)] bg-[var(--color-surface-active)] px-[10px] py-[4px] text-[length:var(--text-xs)] font-semibold text-[color:var(--color-text-secondary)]">
+                            {item.trainingPlanName}
+                          </span>
+                          {item.rating ? <RatingChip rating={item.rating} /> : null}
+                          {item.replaced ? <ReplacedSessionTag /> : null}
+                        </div>
                         <Link
                           href={`/alunos/${item.clientId}`}
                           className="flex items-center gap-1 text-[length:var(--text-sm)] font-semibold text-[color:var(--color-primary)]"

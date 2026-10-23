@@ -39,7 +39,7 @@ export const supino: Exercise = {
   id: 1,
   name: "Supino Reto com Barra",
   description: DESCRIPTION,
-  videoUrl: "https://example.com/supino",
+  videoUrl: "https://www.youtube.com/watch?v=SupinoReto1",
   muscleGroups: groups("Peito", "Tríceps"),
   isStarter: true,
 };
@@ -55,7 +55,7 @@ export const agachamento: Exercise = {
   id: 3,
   name: "Agachamento Livre",
   description: DESCRIPTION,
-  videoUrl: "https://example.com/agachamento",
+  videoUrl: "https://youtu.be/Agachament1",
   muscleGroups: groups("Quadríceps", "Glúteos", "Posteriores de coxa"),
   isStarter: true,
 };
@@ -74,9 +74,9 @@ export const catalog: Exercise[] = [
   supino,
   puxada,
   agachamento,
-  { id: 4, name: "Supino Inclinado com Halteres", description: DESCRIPTION, videoUrl: "https://example.com/inclinado", muscleGroups: groups("Peito", "Ombros"), isStarter: true },
+  { id: 4, name: "Supino Inclinado com Halteres", description: DESCRIPTION, videoUrl: "https://youtu.be/SupinoIncl1", muscleGroups: groups("Peito", "Ombros"), isStarter: true },
   { id: 5, name: "Crucifixo na Polia", description: DESCRIPTION, videoUrl: "", muscleGroups: groups("Peito"), isStarter: true },
-  { id: 6, name: "Desenvolvimento Militar", description: DESCRIPTION, videoUrl: "https://example.com/militar", muscleGroups: groups("Ombros", "Tríceps"), isStarter: true },
+  { id: 6, name: "Desenvolvimento Militar", description: DESCRIPTION, videoUrl: "https://youtu.be/Desenvolvi1", muscleGroups: groups("Ombros", "Tríceps"), isStarter: true },
   remadaPropria,
 ];
 

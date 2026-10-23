@@ -28,6 +28,11 @@ function me(consent: Consent): Me {
     cpf: "***.***.***-25",
     cref: "",
     role: "TRAINER",
+    whatsapp: "",
+    instagram: "",
+    showEmail: false,
+    showWhatsapp: false,
+    showInstagram: false,
     consent,
   };
 }

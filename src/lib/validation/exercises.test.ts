@@ -20,12 +20,11 @@ describe("exerciseSchema", () => {
     expect(exerciseSchema.safeParse({ ...valid, muscleGroupIds: [2, 4, 12] }).success).toBe(true);
   });
 
-  it("accepts an empty videoUrl and rejects a non-URL", () => {
+  it("accepts no video or a YouTube one, nothing else (R8)", () => {
     expect(exerciseSchema.safeParse({ ...valid, videoUrl: "" }).success).toBe(true);
-    expect(
-      exerciseSchema.safeParse({ ...valid, videoUrl: "https://example.com/remada" }).success,
-    ).toBe(true);
-    expect(messages({ ...valid, videoUrl: "not a url" })).toEqual(["Use um link começando com http:// ou https://"]);
+    expect(exerciseSchema.safeParse({ ...valid, videoUrl: "https://youtu.be/dQw4w9WgXcQ" }).success).toBe(true);
+    expect(messages({ ...valid, videoUrl: "https://vimeo.com/824512" })).toEqual(["Só aceitamos vídeos do YouTube (youtube.com ou youtu.be)."]);
+    expect(messages({ ...valid, videoUrl: "not a url" })).toEqual(["Só aceitamos vídeos do YouTube (youtube.com ou youtu.be)."]);
   });
 
   it("requires a name", () => {

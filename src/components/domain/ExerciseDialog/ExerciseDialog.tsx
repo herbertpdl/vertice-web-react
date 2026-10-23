@@ -283,6 +283,7 @@ export function ExerciseDialog({
         <TextField
           label="URL do vídeo (opcional)"
           placeholder="https://..."
+          helpText="Cole um link do YouTube."
           error={errors.videoUrl?.message}
           {...register("videoUrl")}
         />

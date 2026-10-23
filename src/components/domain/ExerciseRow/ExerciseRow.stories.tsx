@@ -43,7 +43,7 @@ export const Own: Story = {
 export const WithVideo: Story = {
   play: async ({ canvas }) => {
     const link = canvas.getByRole("link", { name: "Vídeo de Supino Reto com Barra" });
-    await expect(link).toHaveAttribute("href", "https://example.com/supino");
+    await expect(link).toHaveAttribute("href", "https://www.youtube.com/watch?v=SupinoReto1");
   },
 };
 
