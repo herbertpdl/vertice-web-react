@@ -34,6 +34,9 @@ export type ConsentType = Schemas["ConsentRequest"]["type"];
 /** The `user` in the login and register responses. */
 export type SessionUser = Schemas["SessionUser"];
 
+/** `POST /auth/password/setup`: whose first access it was (role and email only). */
+export type PasswordSetupResult = Schemas["PasswordSetupResult"];
+
 /**
  * `GET /clients/:id`, the overview's `student`, and the `POST`/`PATCH /clients` responses. `cpf`
  * is masked (`***.***.***-25`, `""` when the client has none) except in the response to

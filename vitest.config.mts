@@ -19,7 +19,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/lib/**/*.test.ts', 'src/app/api/**/*.test.ts', 'src/proxy.test.ts'],
+          include: ['src/lib/**/*.test.ts', 'src/app/api/**/*.test.ts', 'src/app/**/route.test.ts', 'src/proxy.test.ts'],
         },
         resolve: {
           alias: {

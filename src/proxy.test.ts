@@ -31,6 +31,17 @@ describe("proxy: route guard and redirect", () => {
     expect([...url.searchParams.keys()]).toEqual(["redirect"]);
   });
 
+  it("sends a signed-out visit to /perfil to /login too", () => {
+    const url = new URL(location(visit("/perfil"))!);
+    expect(url.pathname).toBe("/login");
+    expect(url.searchParams.get("redirect")).toBe("/perfil");
+  });
+
+  it("lets /baixar-app through with or without a session", () => {
+    expect(location(visit("/baixar-app"))).toBeNull();
+    expect(location(visit("/baixar-app", { session: true }))).toBeNull();
+  });
+
   it("sends a signed-in visit to /login to the redirect path", () => {
     const res = visit("/login?redirect=%2Falunos%2F42%3Ftab%3Dplanos", { session: true });
     expect(location(res)).toBe("https://app.vertice.test/alunos/42?tab=planos");

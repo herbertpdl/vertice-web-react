@@ -1,7 +1,7 @@
 import { apiClient, apiErrorFrom } from "./client";
 import type { components } from "./schema";
 import { isMaskedCpf } from "./students";
-import type { Consent, Me, SessionUser } from "./types";
+import type { Consent, Me, PasswordSetupResult, SessionUser } from "./types";
 
 // These go to this app's own /api/auth/* route handlers (not the /api/bff proxy): they set or
 // clear the session cookie, or need no session at all. Failures throw an ApiError, so callers
@@ -45,9 +45,12 @@ export function register(input: {
   return authRequest<{ user: SessionUser }>("/api/auth/register", input);
 }
 
-/** First access: redeem a setup token from the link the trainer shared. No session needed. */
+/**
+ * First access: redeem a setup token from the link the trainer shared. No session needed. The
+ * answer says whose account it was, so a client can be sent to the mobile app.
+ */
 export async function setupPassword(input: { token: string; newPassword: string }) {
-  await authRequest<void>("/api/auth/password/setup", input);
+  return authRequest<PasswordSetupResult>("/api/auth/password/setup", input);
 }
 
 export async function logout(): Promise<void> {
