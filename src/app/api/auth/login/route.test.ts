@@ -22,7 +22,7 @@ function post(body: unknown, headers: Record<string, string> = {}) {
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
-  fetchMock.mockResolvedValue(Response.json({ token: "jwt", user: { id: 1 } }));
+  fetchMock.mockResolvedValue(Response.json({ token: "jwt", user: { id: 1, role: "TRAINER" } }));
 });
 
 afterEach(() => {
@@ -45,6 +45,26 @@ describe("POST /api/auth/login", () => {
     });
     expect(setSession).toHaveBeenCalledWith("jwt", false);
   });
+
+  it.each(["CLIENT", "ADMIN"])(
+    "refuses a %s's correct password with 403 TRAINERS_ONLY: no session, no token in the answer",
+    async (role) => {
+      fetchMock.mockResolvedValue(
+        Response.json({ token: "client-jwt", user: { id: 2, name: "Bia", email: "bia@example.com", role } }),
+      );
+      const res = await POST(post({ email: "bia@example.com", password: "x" }));
+      expect(res.status).toBe(403);
+      const body = await res.text();
+      expect(JSON.parse(body)).toEqual({
+        error: {
+          code: "TRAINERS_ONLY",
+          message: "O acesso de alunos é feito somente pelo aplicativo Vertice.",
+        },
+      });
+      expect(body).not.toContain("client-jwt");
+      expect(setSession).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects a malformed body with 400 before calling the BFF", async () => {
     const res = await POST(post({ email: "not-an-email" }));

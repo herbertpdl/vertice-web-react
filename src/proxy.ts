@@ -5,7 +5,7 @@ import { safeRedirectPath } from "@/lib/safeRedirect";
 
 const SESSION_COOKIE = "vertice_session";
 const AUTH_PATHS = ["/login", "/cadastro"];
-const PROTECTED_PREFIXES = ["/dashboard", "/alunos", "/planos", "/exercicios"];
+const PROTECTED_PREFIXES = ["/dashboard", "/alunos", "/planos", "/exercicios", "/perfil"];
 // Reachable with or without a session (exact match): the first-access link a trainer shares may
 // be opened in a browser where someone (the trainer, testing it) is signed in, and the legal texts
 // are linked from the registration form and from inside the app.

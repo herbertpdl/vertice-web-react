@@ -43,7 +43,7 @@ The dev server is pinned to port `5173` (not Next's usual `3000`) since `3000` i
 
 Besides the Storybook story tests (every `src/**/*.stories.tsx`, per `.storybook/main.ts`),
 `vitest.config.mts` has a `unit` project (node environment, `src/lib/**/*.test.ts`,
-`src/app/api/**/*.test.ts` and `src/proxy.test.ts`) for pure modules (the workout editor's
+`src/app/api/**/*.test.ts`, `src/app/**/route.test.ts` and `src/proxy.test.ts`) for pure modules (the workout editor's
 autosave engine, validation schemas, `forwardedFor`) and for the route handlers and the proxy,
 which tests call directly with a
 `NextRequest` (mock `fetch` and `@/lib/session`; `server-only` is aliased to a no-op). Pages
@@ -60,7 +60,11 @@ The browser never calls `vertice-bff` directly. `src/lib/api/client.ts` (`apiCli
 that set/clear that cookie; they parse the body with the Zod schemas in
 `src/lib/validation/auth.ts` and build the upstream body explicitly (register hardcodes
 `role: "TRAINER"`). `/api/auth/password/setup` redeems a first-access token from the public
-`/definir-senha?token=` page. Every BFF call sends `bffHeaders(request, …)`, which adds
+`/definir-senha?token=` page; its answer (`{role, email}`) picks the success screen: a trainer
+gets the web login, a client is sent to the mobile app (`AppDownload`: on a phone "Abrir o app",
+`verticemobile://login?email=`, plus store links; on a computer a QR code of `/baixar-app`, the
+route that redirects a phone to its store; store URLs in `src/lib/appLinks.ts`, placeholders until
+the app is published). Every BFF call sends `bffHeaders(request, …)`, which adds
 `X-Forwarded-For` for the BFF's per-IP rate limits (README, "Deployment"; `TRUSTED_PROXY_HOPS`,
 required in production: unset, `src/instrumentation.ts` exits at boot and the call throws);
 use it, and `relayBffResponse` (keeps `Retry-After`, `Content-Disposition` on a 2xx for the
@@ -72,7 +76,13 @@ must carry `Origin`), 415 for a non-JSON body. The BFF proxy encodes each path s
 is `HttpOnly`, `SameSite=Strict`, `Secure` when the server runs with `NODE_ENV=production`.
 `src/proxy.ts` is the edge guard: no cookie → `/login?redirect=<path>`, cookie on an auth page →
 the `redirect` path or `/dashboard`, `/definir-senha`, `/termos` and `/privacidade` public either
-way. Inside `(app)`, `TermsConsentGate` replaces the page with a blocking notice until `GET
+way. **The web is for trainers only** (web-trainer-only-access): `/api/auth/login` answers a
+non-TRAINER's correct password with a web-only `403 TRAINERS_ONLY` and sets no session, and
+`LoginForm` shows "O acesso de alunos é feito somente pelo aplicativo Vertice." (also on
+`/login?motivo=app`); `src/lib/auth/trainerOnly.ts` holds the rule and the copy. Inside `(app)`,
+`TermsConsentGate` renders nothing for a non-TRAINER `me`: it signs the session out to
+`/login?motivo=app` (`useSignOut(to)`), and `AppHeader` shows the trainer navigation only once `me`
+is a trainer. The gate also replaces the page with a blocking notice until `GET
 /auth/me`'s `consent.termsVersion` equals `LEGAL_VERSIONS.terms` (`src/lib/legal/versions.ts`, the
 version of the draft texts this build ships; register sends it as `acceptedTermsVersion`). It fails
 closed (no `me` → error state with "Tentar novamente", never the page) and `console.warn`s when the
