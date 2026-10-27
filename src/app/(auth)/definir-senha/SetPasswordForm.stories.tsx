@@ -2,12 +2,19 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, waitFor } from "storybook/test";
 import { SetPasswordForm, SETUP_TOKEN_STORAGE_KEY } from "./SetPasswordForm";
 import { ApiError } from "@/lib/api/client";
+import type { PasswordSetupResult } from "@/lib/api/types";
+import type { AppDownloadDevice } from "@/components/domain/AppDownload";
 
 const TOKEN = "q2Zt8kV0b1xWmN4pR7sYcE3hJ6uA9dLfG5oTiK8wBzM";
+const CLIENT_EMAIL = "bia+treino@example.com";
 
 const meta = {
   component: SetPasswordForm,
-  args: { token: TOKEN, submit: fn(async () => undefined) },
+  args: {
+    token: TOKEN,
+    submit: fn(async (): Promise<PasswordSetupResult> => ({ role: "CLIENT", email: CLIENT_EMAIL })),
+    device: (): AppDownloadDevice => "phone",
+  },
   beforeEach: () => {
     sessionStorage.removeItem(SETUP_TOKEN_STORAGE_KEY);
     return () => sessionStorage.removeItem(SETUP_TOKEN_STORAGE_KEY);
@@ -24,7 +31,11 @@ async function fillAndSubmit({ canvas, userEvent }: Parameters<Play>[0]) {
   await userEvent.click(canvas.getByRole("button", { name: "Definir senha" }));
 }
 
-/** Opened from the link: the token is kept for the tab, then the success state. */
+/**
+ * Opened from the link on a phone by a client: the token is kept for the tab, then the client's
+ * success state sends them to the app (R10, R10a, R10b): "Abrir o app" with their email, the
+ * store links, and no web login.
+ */
 export const FromLink: Story = {
   play: async (context) => {
     const { canvas, args } = context;
@@ -33,6 +44,48 @@ export const FromLink: Story = {
     await expect(args.submit).toHaveBeenCalledWith({ token: TOKEN, newPassword: "senha-forte-123" });
     await expect(await canvas.findByRole("heading", { name: "Senha definida" })).toBeVisible();
     await expect(sessionStorage.getItem(SETUP_TOKEN_STORAGE_KEY)).toBeNull();
+    await expect(canvas.getByRole("link", { name: "Abrir o app" })).toHaveAttribute(
+      "href",
+      "verticemobile://login?email=bia%2Btreino%40example.com",
+    );
+    await expect(canvas.getByRole("link", { name: /App Store/ })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: /Google Play/ })).toBeVisible();
+    await expect(canvas.queryByRole("link", { name: "Ir para o login" })).toBeNull();
+    await expect(canvas.queryByRole("img", { name: /QR code/ })).toBeNull();
+  },
+};
+
+/** A client on a computer: the QR code instead of the button and the store links (R10c, E14). */
+export const ClientOnComputer: Story = {
+  args: { device: (): AppDownloadDevice => "computer" },
+  play: async (context) => {
+    const { canvas } = context;
+    await fillAndSubmit(context);
+    await expect(await canvas.findByRole("img", { name: "QR code para baixar o app Vertice" })).toBeVisible();
+    await expect(canvas.getByText("Aponte a câmera do celular para baixar o app Vertice.")).toBeVisible();
+    await expect(canvas.queryByRole("link", { name: "Abrir o app" })).toBeNull();
+    await expect(canvas.queryByRole("link", { name: /App Store/ })).toBeNull();
+    await expect(canvas.queryByRole("link", { name: "Ir para o login" })).toBeNull();
+  },
+};
+
+/** An older BFF answers with no body: the password is set and today's screen shows, no crash. */
+export const NoAccountInTheAnswer: Story = {
+  args: { submit: fn(async () => undefined as unknown as PasswordSetupResult) },
+  play: async (context) => {
+    await fillAndSubmit(context);
+    await expect(await context.canvas.findByRole("link", { name: "Ir para o login" })).toBeVisible();
+  },
+};
+
+/** A trainer's first access keeps today's screen, with the web login (R11). */
+export const Trainer: Story = {
+  args: { submit: fn(async (): Promise<PasswordSetupResult> => ({ role: "TRAINER", email: "ana@example.com" })) },
+  play: async (context) => {
+    const { canvas } = context;
+    await fillAndSubmit(context);
+    await expect(await canvas.findByRole("link", { name: "Ir para o login" })).toHaveAttribute("href", "/login");
+    await expect(canvas.queryByRole("link", { name: "Abrir o app" })).toBeNull();
   },
 };
 

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useRouter } from "@storybook/nextjs-vite/navigation.mock";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, waitFor, within } from "storybook/test";
 import { TermsConsentGate } from "./TermsConsentGate";
 import { withSeededQueries } from "@/components/domain/storyQuery";
 import { ApiError } from "@/lib/api/client";
@@ -189,5 +189,28 @@ export const RefetchFailedAccepted: Story = {
   decorators: [failedRefetch(me(accepted))],
   play: async ({ canvas }) => {
     await expect(canvas.getByText(PAGE)).toBeVisible();
+  },
+};
+
+/**
+ * A client's session (R6, R7): never the page, not even the consent notice; it is signed out and
+ * sent to the login with the "use the app" message.
+ */
+export const ClientSession: Story = {
+  decorators: [seeded({ ...me(accepted), role: "CLIENT" })],
+  play: async ({ canvas }) => {
+    await waitFor(() => expect(useRouter().push).toHaveBeenCalledWith("/login?motivo=app"));
+    await expect(canvas.queryByText(PAGE)).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Aceitar" })).toBeNull();
+  },
+};
+
+/** An admin's session gets the same: the web is the trainer's (R5). */
+export const AdminSession: Story = {
+  decorators: [seeded({ ...me(noConsent), role: "ADMIN" })],
+  play: async ({ canvas }) => {
+    await waitFor(() => expect(useRouter().push).toHaveBeenCalledWith("/login?motivo=app"));
+    await expect(canvas.queryByText(PAGE)).toBeNull();
+    await expect(canvas.queryByRole("heading", { name: "Antes de continuar" })).toBeNull();
   },
 };

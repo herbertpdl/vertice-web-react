@@ -6,6 +6,7 @@ import { Header, type HeaderNavItem } from "../Header";
 import type { Role } from "@/lib/api/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useSignOut } from "@/lib/auth/useSignOut";
+import { isTrainer } from "@/lib/auth/trainerOnly";
 
 /** Keyed by the contract's `Role`, so a member added or renamed in the spec fails typecheck. */
 const ROLE_LABELS: Record<Role, string> = {
@@ -20,11 +21,15 @@ export function AppHeader() {
   const { data: user } = useCurrentUser();
   const handleSignOut = useSignOut();
 
-  const navItems: HeaderNavItem[] = [
-    { label: "Início", href: "/dashboard", active: pathname.startsWith("/dashboard") },
-    { label: "Alunos", href: "/alunos", active: pathname.startsWith("/alunos") },
-    { label: "Exercícios", href: "/exercicios", active: pathname.startsWith("/exercicios") },
-  ];
+  // The trainer's navigation only once `me` says it is a trainer: a client's session is signed out
+  // by `TermsConsentGate` and never sees it, not even while `me` loads (R6).
+  const navItems: HeaderNavItem[] = isTrainer(user?.role)
+    ? [
+        { label: "Início", href: "/dashboard", active: pathname.startsWith("/dashboard") },
+        { label: "Alunos", href: "/alunos", active: pathname.startsWith("/alunos") },
+        { label: "Exercícios", href: "/exercicios", active: pathname.startsWith("/exercicios") },
+      ]
+    : [];
 
   return (
     <Header

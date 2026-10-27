@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@acb90ab4cb3e1dcaad221d37349a1f4858aa3243:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@88e5b71282bb758e96f418d03fd5f13fb33a8175:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -188,7 +188,7 @@ export interface paths {
         put?: never;
         /**
          * Choose a password with a first-access token
-         * @description Public: no token needed. The token comes from `POST /clients` or `POST /clients/{id}/setup-token`. An unknown, expired (72h) or used token is 400 `INVALID_SETUP_TOKEN`. Failed attempts are rate limited.
+         * @description Public: no token needed. The token comes from `POST /clients` or `POST /clients/{id}/setup-token`. An unknown, expired (72h) or used token is 400 `INVALID_SETUP_TOKEN`. Failed attempts are rate limited. On success the answer says whose first access it was (`role`, `email`), never before the token is used: the web shows a CLIENT the “use the app” screen with the email filled in. No session is created; log in normally.
          */
         post: operations["setupPassword"];
         delete?: never;
@@ -654,7 +654,7 @@ export interface paths {
         };
         /**
          * The “do a workout” screen in one call
-         * @description Roles: TRAINER, CLIENT. Starts (or resumes) the week’s log and merges in what was recorded last time per set (`lastPerformed`) and this session’s (`current`). A CLIENT’s `clientId` is ignored; a TRAINER must pass the client of the workout’s plan. 409 when no log exists for an earlier week (logs are only started in the current one).
+         * @description Roles: CLIENT. Starts (or resumes) the week’s log and merges in what was recorded last time per set (`lastPerformed`) and this session’s (`current`). The caller’s own session: CLIENT only (a trainer reads logs through `GET /workout-logs`). 409 when no log exists for an earlier week (logs are only started in the current one).
          */
         get: operations["getWorkoutSession"];
         put?: never;
@@ -1175,6 +1175,12 @@ export interface components {
             token: string;
             newPassword: string;
         };
+        PasswordSetupResult: {
+            /** @description Whose first access it was: the web shows a CLIENT the “use the app” screen. */
+            role: components["schemas"]["Role"];
+            /** @description The account’s email, so the client can be sent to the app with it filled in. */
+            email: string;
+        };
         PasswordSetupToken: {
             /** @description Single-use, URL-safe. Shown once: upstream only stores its hash. */
             token: string;
@@ -1241,6 +1247,8 @@ export interface components {
             rating: "VERY_HARD" | "HARD" | "JUST_RIGHT" | "EASY" | "VERY_EASY";
             /** @default  */
             text?: string;
+            /** @description Idempotency key: a resend with the same key returns the stored feedback, not a duplicate. */
+            clientKey?: string;
         };
         TrainingPlan: {
             id: number;
@@ -1861,12 +1869,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Password set; log in normally. No body. */
-            204: {
+            /** @description Password set: the account’s role and email. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PasswordSetupResult"];
+                };
             };
             /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
             400: {
@@ -4015,8 +4025,6 @@ export interface operations {
             query?: {
                 /** @description A business date, and a Monday. Defaults to the current week’s Monday in America/Sao_Paulo. */
                 weekStartDate?: string;
-                /** @description Required for a TRAINER. */
-                clientId?: number;
             };
             header?: never;
             path: {

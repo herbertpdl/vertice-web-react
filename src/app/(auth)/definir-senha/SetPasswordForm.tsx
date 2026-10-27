@@ -5,9 +5,12 @@ import Link from "next/link";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, TextField } from "@/components/ui";
+import { AppDownload, type AppDownloadDevice } from "@/components/domain/AppDownload";
 import { setupPassword } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { rateLimitedMessage } from "@/lib/api/rateLimit";
+import type { PasswordSetupResult } from "@/lib/api/types";
+import { isTrainer } from "@/lib/auth/trainerOnly";
 import {
   PASSWORD_HELP_TEXT,
   setPasswordSchema,
@@ -37,17 +40,31 @@ function storeToken(token: string | null) {
   }
 }
 
+/**
+ * A phone gets the app button and store links, a computer the QR code (R10a–R10c). Decided once,
+ * when the success screen appears: it never renders on the server, so there is no hydration
+ * mismatch. A touch-first device (phone or tablet) counts as a phone.
+ */
+function detectDevice(): AppDownloadDevice {
+  return window.matchMedia("(pointer: coarse)").matches ? "phone" : "computer";
+}
+
 export function SetPasswordForm({
   token: tokenFromUrl,
   submit = setupPassword,
+  device = detectDevice,
 }: {
   token: string;
   /** Injectable for stories (no BFF in Storybook); defaults to the real API call. */
   submit?: typeof setupPassword;
+  /** Injectable for stories; defaults to the pointer media query. */
+  device?: () => AppDownloadDevice;
 }) {
   // `undefined` until the mount effect has looked in sessionStorage (no flash of "incompleto").
   const [token, setToken] = useState<string | undefined>(tokenFromUrl || undefined);
-  const [done, setDone] = useState(false);
+  // `account` is missing only from a BFF older than the `{role, email}` answer (a rollback or a
+  // mixed rollout): that case keeps the trainer screen, as before this change.
+  const [done, setDone] = useState<{ account?: PasswordSetupResult; device: AppDownloadDevice } | null>(null);
   const [tokenRejected, setTokenRejected] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -91,9 +108,9 @@ export function SetPasswordForm({
   async function onSubmit(data: SetPasswordInput) {
     setFormError(null);
     try {
-      await submit({ token: token!, newPassword: data.newPassword });
+      const account = await submit({ token: token!, newPassword: data.newPassword });
       storeToken(null);
-      setDone(true);
+      setDone({ account, device: device() });
     } catch (error) {
       if (error instanceof ApiError && error.code === "INVALID_SETUP_TOKEN") {
         storeToken(null);
@@ -104,6 +121,23 @@ export function SetPasswordForm({
         );
       }
     }
+  }
+
+  // The web is the trainer's (web-trainer-only-access R10, R11): a client is sent to the app.
+  if (done?.account && !isTrainer(done.account.role)) {
+    return (
+      <div className="flex w-full max-w-[380px] flex-col gap-[var(--space-6)]">
+        <div className="flex flex-col gap-[6px]">
+          <h1 className="font-heading text-[length:var(--text-2xl)] font-bold text-[color:var(--color-text-primary)]">
+            Senha definida
+          </h1>
+          <p className="text-[13px] leading-[1.5] text-[color:var(--color-text-secondary)]">
+            Pronto! Agora entre no aplicativo Vertice com seu e-mail e a nova senha.
+          </p>
+        </div>
+        <AppDownload email={done.account.email} device={done.device} />
+      </div>
+    );
   }
 
   if (done) {

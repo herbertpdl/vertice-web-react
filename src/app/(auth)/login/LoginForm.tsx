@@ -9,6 +9,7 @@ import { Button, Checkbox, TextField } from "@/components/ui";
 import { login } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { apiErrorMessage } from "@/lib/api/errorMessages";
+import { APP_ONLY_MESSAGE, TRAINERS_ONLY_CODE } from "@/lib/auth/trainerOnly";
 import { safeRedirectPath } from "@/lib/safeRedirect";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth";
 
@@ -19,12 +20,15 @@ export function LoginForm() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   // Set by "Excluir conta" (DeleteAccountDialog) once the account is gone and the session cleared.
   const accountDeleted = searchParams.get("aviso") === "conta-excluida";
+  // Set by the app's gate when a client's (or admin's) session reaches a trainer page (R7).
+  const appOnly = searchParams.get("motivo") === "app";
 
   const {
     register,
     handleSubmit,
     control,
     setValue,
+    resetField,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -43,6 +47,8 @@ export function LoginForm() {
       router.refresh();
     } catch (error) {
       setFormError(loginErrorMessage(error));
+      // The e-mail stays; a refused client starts over in the app anyway.
+      if (error instanceof ApiError && error.code === TRAINERS_ONLY_CODE) resetField("password");
     }
   }
 
@@ -69,9 +75,12 @@ export function LoginForm() {
         </div>
       )}
 
-      {formError && (
-        <div className="rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[var(--color-danger)]/10 px-[14px] py-[10px] text-[13px] text-[color:var(--color-danger)]">
-          {formError}
+      {(formError ?? (appOnly ? APP_ONLY_MESSAGE : null)) && (
+        <div
+          role="alert"
+          className="rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[var(--color-danger)]/10 px-[14px] py-[10px] text-[13px] text-[color:var(--color-danger)]"
+        >
+          {formError ?? APP_ONLY_MESSAGE}
         </div>
       )}
 
@@ -129,5 +138,6 @@ export function LoginForm() {
 
 function loginErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 401) return "E-mail ou senha inválidos";
+  if (error instanceof ApiError && error.code === TRAINERS_ONLY_CODE) return APP_ONLY_MESSAGE;
   return apiErrorMessage(error, "Não foi possível entrar");
 }

@@ -42,3 +42,13 @@ export const AccountDeleted: Story = {
     await expect(canvas.getByRole("status")).toHaveTextContent("Sua conta foi excluída.");
   },
 };
+
+/** Where the app's gate sends a client's (or admin's) session: the "use the app" message (R7). */
+export const SentToTheApp: Story = {
+  beforeEach: () => stub("motivo=app"),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "O acesso de alunos é feito somente pelo aplicativo Vertice.",
+    );
+  },
+};
