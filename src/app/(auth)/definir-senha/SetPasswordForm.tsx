@@ -62,7 +62,9 @@ export function SetPasswordForm({
 }) {
   // `undefined` until the mount effect has looked in sessionStorage (no flash of "incompleto").
   const [token, setToken] = useState<string | undefined>(tokenFromUrl || undefined);
-  const [done, setDone] = useState<{ account: PasswordSetupResult; device: AppDownloadDevice } | null>(null);
+  // `account` is missing only from a BFF older than the `{role, email}` answer (a rollback or a
+  // mixed rollout): that case keeps the trainer screen, as before this change.
+  const [done, setDone] = useState<{ account?: PasswordSetupResult; device: AppDownloadDevice } | null>(null);
   const [tokenRejected, setTokenRejected] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -122,7 +124,7 @@ export function SetPasswordForm({
   }
 
   // The web is the trainer's (web-trainer-only-access R10, R11): a client is sent to the app.
-  if (done && !isTrainer(done.account.role)) {
+  if (done?.account && !isTrainer(done.account.role)) {
     return (
       <div className="flex w-full max-w-[380px] flex-col gap-[var(--space-6)]">
         <div className="flex flex-col gap-[6px]">

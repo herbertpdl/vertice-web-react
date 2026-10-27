@@ -42,7 +42,10 @@ export function TermsConsentGate({ children, api = { recordConsent } }: TermsCon
   useEffect(() => {
     if (nonTrainer && !leaving.current) {
       leaving.current = true;
-      void leaveForTheApp();
+      // A failed sign-out (network) is tried again on the next render instead of hanging here.
+      leaveForTheApp().catch(() => {
+        leaving.current = false;
+      });
     }
   }, [nonTrainer, leaveForTheApp]);
 

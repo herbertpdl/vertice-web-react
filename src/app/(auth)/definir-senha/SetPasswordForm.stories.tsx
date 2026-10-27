@@ -69,6 +69,15 @@ export const ClientOnComputer: Story = {
   },
 };
 
+/** An older BFF answers with no body: the password is set and today's screen shows, no crash. */
+export const NoAccountInTheAnswer: Story = {
+  args: { submit: fn(async () => undefined as unknown as PasswordSetupResult) },
+  play: async (context) => {
+    await fillAndSubmit(context);
+    await expect(await context.canvas.findByRole("link", { name: "Ir para o login" })).toBeVisible();
+  },
+};
+
 /** A trainer's first access keeps today's screen, with the web login (R11). */
 export const Trainer: Story = {
   args: { submit: fn(async (): Promise<PasswordSetupResult> => ({ role: "TRAINER", email: "ana@example.com" })) },
