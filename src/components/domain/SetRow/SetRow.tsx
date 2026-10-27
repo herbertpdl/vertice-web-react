@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, type DragEvent } from "react";
-import { Copy, GripVertical, Lock, X } from "lucide-react";
+import { Copy, GripVertical, Lock, MessageSquareText, X } from "lucide-react";
 import { Dropdown } from "@/components/ui";
-import { REPS_MAX, REST_SECONDS_MAX } from "@/lib/validation/bounds";
-import { setStrategyLabels, type SetStrategyFormInput } from "@/lib/validation/exerciseSets";
+import { NOTES_MAX, REPS_MAX, REST_SECONDS_MAX } from "@/lib/validation/bounds";
+import {
+  setStrategyDescription,
+  setStrategyLabels,
+  type SetStrategyFormInput,
+} from "@/lib/validation/exerciseSets";
 import type { EditorSet, SetFields } from "@/lib/workoutEditor/model";
 
 const strategyOptions = Object.entries(setStrategyLabels).map(([value, label]) => ({
@@ -123,6 +127,10 @@ export function SetRow({
   // Only a drag that starts on the grip handle moves the row, so text
   // selection inside the cells keeps working.
   const [armed, setArmed] = useState(false);
+  const notes = set.notes ?? "";
+  // A set that already has a description opens with it showing.
+  const [describing, setDescribing] = useState(notes !== "");
+  const descriptionId = `set-${set.key}-description`;
 
   const shell = dragging
     ? "rounded-[var(--radius-md)] border border-[var(--color-primary)] bg-[var(--color-surface-hover)] px-[8px] py-[4px] shadow-[0_8px_24px_#00000080]"
@@ -146,85 +154,134 @@ export function SetRow({
         setArmed(false);
         onDragEnd?.();
       }}
-      className={`grid w-full items-center ${SET_GRID} ${shell}`}
+      className={`flex w-full flex-col gap-[var(--space-2)] ${shell}`}
     >
-      <button
-        type="button"
-        aria-label={`Arrastar série ${setNumber}`}
-        onPointerDown={() => setArmed(true)}
-        onPointerUp={() => setArmed(false)}
-        className={`flex h-[14px] w-[14px] cursor-grab items-center justify-center ${
-          dragging ? "text-[color:var(--color-primary)]" : "text-[color:var(--color-text-tertiary)]"
-        }`}
-      >
-        <GripVertical width={14} height={14} />
-      </button>
-      <span className="text-[13px] font-semibold text-[color:var(--color-text-tertiary)]">
-        {setNumber}
-      </span>
-      <Dropdown
-        size="compact"
-        options={strategyOptions}
-        value={set.strategy}
-        onChange={(value) => onUpdate({ strategy: value as SetStrategyFormInput })}
-      />
-      <Cell
-        kind="integer"
-        bounds={{ max: REPS_MAX }}
-        ariaLabel={`Reps da série ${setNumber}`}
-        value={set.reps !== undefined ? String(set.reps) : ""}
-        placeholder="reps"
-        onCommit={(v) => onUpdate({ reps: v === "" ? undefined : Number(v) })}
-      />
-      <Cell
-        kind="decimal"
-        bounds={{ intDigits: 4, decDigits: 2 }}
-        ariaLabel={`Peso da série ${setNumber}`}
-        value={set.weight ?? ""}
-        placeholder="kg"
-        onCommit={(v) => onUpdate({ weight: v === "" ? undefined : v })}
-      />
-      <Cell
-        kind="decimal"
-        bounds={{ intDigits: 3, decDigits: 2 }}
-        ariaLabel={`%1RM da série ${setNumber}`}
-        value={set.loadPercentage ?? ""}
-        placeholder="%"
-        onCommit={(v) => onUpdate({ loadPercentage: v === "" ? undefined : v })}
-      />
-      <Cell
-        kind="integer"
-        bounds={{ max: REST_SECONDS_MAX }}
-        ariaLabel={`Descanso da série ${setNumber}`}
-        value={set.restSeconds !== undefined ? String(set.restSeconds) : ""}
-        placeholder="s"
-        onCommit={(v) => onUpdate({ restSeconds: v === "" ? undefined : Number(v) })}
-      />
-      <div className="flex items-center gap-[6px] pl-[2px]">
+      <div className={`grid w-full items-center ${SET_GRID}`}>
         <button
           type="button"
-          onClick={onDuplicate}
-          disabled={duplicateDisabled}
-          aria-label={`Duplicar série ${setNumber}`}
-          className="flex h-[18px] w-[18px] items-center justify-center text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-primary)] disabled:opacity-35"
+          aria-label={`Arrastar série ${setNumber}`}
+          onPointerDown={() => setArmed(true)}
+          onPointerUp={() => setArmed(false)}
+          className={`flex h-[14px] w-[14px] cursor-grab items-center justify-center ${
+            dragging ? "text-[color:var(--color-primary)]" : "text-[color:var(--color-text-tertiary)]"
+          }`}
         >
-          <Copy width={15} height={15} />
+          <GripVertical width={14} height={14} />
         </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Remover série ${setNumber}`}
-          className="flex h-[18px] w-[18px] items-center justify-center text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-danger)]"
-        >
-          <X width={15} height={15} />
-        </button>
-        {refused && (
-          <span className="ml-[10px] flex items-center gap-[6px] rounded-[var(--radius-full)] bg-[#ff5c5c26] px-[10px] py-[3px] text-[11px] font-semibold whitespace-nowrap text-[color:var(--color-danger)]">
-            <Lock width={11} height={11} />
-            Remoção desfeita — desempenho registrado por um aluno
-          </span>
-        )}
+        <span className="text-[13px] font-semibold text-[color:var(--color-text-tertiary)]">
+          {setNumber}
+        </span>
+        <Dropdown
+          size="compact"
+          options={strategyOptions}
+          value={set.strategy}
+          onChange={(value) => onUpdate({ strategy: value as SetStrategyFormInput })}
+        />
+        <Cell
+          kind="integer"
+          bounds={{ max: REPS_MAX }}
+          ariaLabel={`Reps da série ${setNumber}`}
+          value={set.reps !== undefined ? String(set.reps) : ""}
+          placeholder="reps"
+          onCommit={(v) => onUpdate({ reps: v === "" ? undefined : Number(v) })}
+        />
+        <Cell
+          kind="decimal"
+          bounds={{ intDigits: 4, decDigits: 2 }}
+          ariaLabel={`Peso da série ${setNumber}`}
+          value={set.weight ?? ""}
+          placeholder="kg"
+          onCommit={(v) => onUpdate({ weight: v === "" ? undefined : v })}
+        />
+        <Cell
+          kind="decimal"
+          bounds={{ intDigits: 3, decDigits: 2 }}
+          ariaLabel={`%1RM da série ${setNumber}`}
+          value={set.loadPercentage ?? ""}
+          placeholder="%"
+          onCommit={(v) => onUpdate({ loadPercentage: v === "" ? undefined : v })}
+        />
+        <Cell
+          kind="integer"
+          bounds={{ max: REST_SECONDS_MAX }}
+          ariaLabel={`Descanso da série ${setNumber}`}
+          value={set.restSeconds !== undefined ? String(set.restSeconds) : ""}
+          placeholder="s"
+          onCommit={(v) => onUpdate({ restSeconds: v === "" ? undefined : Number(v) })}
+        />
+        <div className="flex items-center gap-[6px] pl-[2px]">
+          <button
+            type="button"
+            onClick={() => setDescribing((open) => !open)}
+            aria-label={`Descrição da estratégia da série ${setNumber}`}
+            aria-expanded={describing}
+            aria-controls={describing ? descriptionId : undefined}
+            className={`flex h-[18px] w-[18px] items-center justify-center hover:text-[color:var(--color-primary)] ${
+              notes !== ""
+                ? "text-[color:var(--color-primary)]"
+                : describing
+                  ? "text-[color:var(--color-text-secondary)]"
+                  : "text-[color:var(--color-text-tertiary)]"
+            }`}
+          >
+            <MessageSquareText width={15} height={15} />
+          </button>
+          <button
+            type="button"
+            onClick={onDuplicate}
+            disabled={duplicateDisabled}
+            aria-label={`Duplicar série ${setNumber}`}
+            className="flex h-[18px] w-[18px] items-center justify-center text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-primary)] disabled:opacity-35"
+          >
+            <Copy width={15} height={15} />
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Remover série ${setNumber}`}
+            className="flex h-[18px] w-[18px] items-center justify-center text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-danger)]"
+          >
+            <X width={15} height={15} />
+          </button>
+          {refused && (
+            <span className="ml-[10px] flex items-center gap-[6px] rounded-[var(--radius-full)] bg-[#ff5c5c26] px-[10px] py-[3px] text-[11px] font-semibold whitespace-nowrap text-[color:var(--color-danger)]">
+              <Lock width={11} height={11} />
+              Remoção desfeita — desempenho registrado por um aluno
+            </span>
+          )}
+        </div>
       </div>
+      {describing && (
+        <div className="ml-[58px] flex max-w-[690px] flex-col gap-[6px]">
+          <label htmlFor={descriptionId} className="text-[12px] font-semibold text-[color:var(--color-text-secondary)]">
+            Descrição da estratégia<span className="sr-only"> da série {setNumber}</span>{" "}
+            <span className="font-normal text-[color:var(--color-text-tertiary)]">(opcional)</span>
+          </label>
+          <textarea
+            id={descriptionId}
+            rows={2}
+            value={notes}
+            maxLength={NOTES_MAX}
+            placeholder={`Padrão: ${setStrategyDescription(set.strategy, (set.durationSeconds ?? 0) > 0)}`}
+            // A dragged set or exercise carries its key as text: dropped here, the browser would type
+            // it into the description (and autosave would send it). The drop still bubbles to the
+            // card, so a set moved within its own exercise still moves.
+            onDrop={(event) => event.preventDefault()}
+            onChange={(event) => onUpdate({ notes: event.target.value === "" ? undefined : event.target.value })}
+            className="resize-none rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] px-[10px] py-[8px] text-[13px] leading-[19px] text-[color:var(--color-text-primary)] outline-none placeholder:text-[color:var(--color-text-tertiary)] focus:border-[var(--color-primary)]"
+          />
+          <div className="flex justify-between gap-[var(--space-4)] text-[11px] text-[color:var(--color-text-tertiary)]">
+            <span>
+              {notes.trim() === ""
+                ? `Vazio: o aluno vê a descrição padrão de ${setStrategyLabels[set.strategy]}.`
+                : `O aluno vê esta descrição no lugar da padrão de ${setStrategyLabels[set.strategy]}.`}
+            </span>
+            <span aria-label={`${notes.length} de ${NOTES_MAX} caracteres`}>
+              {notes.length}/{NOTES_MAX}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
