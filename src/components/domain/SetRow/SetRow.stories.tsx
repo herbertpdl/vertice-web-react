@@ -37,6 +37,36 @@ export const Default: Story = {
 };
 export const Empty: Story = { args: { set: set({ strategy: "DROPSET" }), setNumber: 3 } };
 export const Dragging: Story = { args: { dragging: true } };
+
+/** 💬 opens the strategy's description; empty, it shows the default the client would see. */
+export const DescriptionToggle: Story = {
+  args: { set: set({ id: 104, strategy: "FAILURE" }) },
+  play: async ({ canvas, userEvent, args }) => {
+    const toggle = canvas.getByRole("button", { name: "Descrição da estratégia da série 2" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    const field = canvas.getByLabelText(/Descrição da estratégia/, { selector: "textarea" });
+    await expect(field).toHaveAttribute(
+      "placeholder",
+      "Padrão: Faça repetições até não conseguir completar mais nenhuma com boa técnica.",
+    );
+    await expect(canvas.getByText("Vazio: o aluno vê a descrição padrão de Falha.")).toBeVisible();
+    await userEvent.type(field, "P");
+    await expect(args.onUpdate).toHaveBeenLastCalledWith({ notes: "P" });
+  },
+};
+
+/** A set with a description opens with it showing; clearing it sends no notes. */
+export const WithDescription: Story = {
+  args: { set: set({ id: 105, strategy: "DROPSET", notes: "Tire 10 kg duas vezes, sem descanso." }) },
+  play: async ({ canvas, userEvent, args }) => {
+    const field = canvas.getByLabelText(/Descrição da estratégia/, { selector: "textarea" });
+    await expect(field).toHaveValue("Tire 10 kg duas vezes, sem descanso.");
+    await expect(canvas.getByText("36/255")).toBeVisible();
+    await userEvent.clear(field);
+    await expect(args.onUpdate).toHaveBeenLastCalledWith({ notes: undefined });
+  },
+};
 export const Refused: Story = {
   args: { refused: true },
   play: async ({ canvas }) => {
