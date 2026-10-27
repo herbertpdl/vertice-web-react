@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, fn } from "storybook/test";
+import { createEvent, expect, fireEvent, fn } from "storybook/test";
 import { SetRow } from "./SetRow";
 import { set } from "../storyFixtures";
 
@@ -53,6 +53,18 @@ export const DescriptionToggle: Story = {
     await expect(canvas.getByText("Vazio: o aluno vê a descrição padrão de Falha.")).toBeVisible();
     await userEvent.type(field, "P");
     await expect(args.onUpdate).toHaveBeenLastCalledWith({ notes: "P" });
+  },
+};
+
+/** A dragged set dropped on the description never types its key into it (it would be saved). */
+export const DropOnDescription: Story = {
+  args: { set: set({ id: 106, strategy: "DROPSET", notes: "Tire 10 kg." }) },
+  play: async ({ canvas, args }) => {
+    const field = canvas.getByLabelText("Descrição da estratégia da série 2 (opcional)", { selector: "textarea" });
+    const drop = createEvent.drop(field);
+    fireEvent(field, drop);
+    await expect(drop.defaultPrevented).toBe(true);
+    await expect(args.onUpdate).not.toHaveBeenCalled();
   },
 };
 

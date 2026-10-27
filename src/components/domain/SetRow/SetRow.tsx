@@ -254,7 +254,7 @@ export function SetRow({
       {describing && (
         <div className="ml-[58px] flex max-w-[690px] flex-col gap-[6px]">
           <label htmlFor={descriptionId} className="text-[12px] font-semibold text-[color:var(--color-text-secondary)]">
-            Descrição da estratégia{" "}
+            Descrição da estratégia<span className="sr-only"> da série {setNumber}</span>{" "}
             <span className="font-normal text-[color:var(--color-text-tertiary)]">(opcional)</span>
           </label>
           <textarea
@@ -263,6 +263,10 @@ export function SetRow({
             value={notes}
             maxLength={NOTES_MAX}
             placeholder={`Padrão: ${setStrategyDescription(set.strategy, (set.durationSeconds ?? 0) > 0)}`}
+            // A dragged set or exercise carries its key as text: dropped here, the browser would type
+            // it into the description (and autosave would send it). The drop still bubbles to the
+            // card, so a set moved within its own exercise still moves.
+            onDrop={(event) => event.preventDefault()}
             onChange={(event) => onUpdate({ notes: event.target.value === "" ? undefined : event.target.value })}
             className="resize-none rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] px-[10px] py-[8px] text-[13px] leading-[19px] text-[color:var(--color-text-primary)] outline-none placeholder:text-[color:var(--color-text-tertiary)] focus:border-[var(--color-primary)]"
           />
