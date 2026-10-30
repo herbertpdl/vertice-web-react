@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 import type { components } from "./schema";
-import type { Exercise, ExercisePage, ExerciseProgressPoint } from "./types";
+import type { Exercise, ExercisePage, ExerciseProgressPoint, ProgressExercise } from "./types";
 
 export interface ExerciseListParams {
   muscleGroupId?: number | null;
@@ -43,22 +43,17 @@ export function fetchExercisesPage(params: ExerciseListParams & { cursor?: strin
   });
 }
 
-/** Under the same prefix, so a catalog change invalidates it too. */
-export const allExercisesQueryKey = ["exercises", "all"] as const;
-
 /**
- * Every visible exercise, page by page. Only the student progress dropdown uses it until that
- * becomes a searchable picker (spec §6): never use it for a picker or the catalog.
+ * The progress picker's options for a student (spec: progress-exercise-picker): only exercises
+ * with recorded loads, most recently trained first. Under the `["exercises"]` prefix, so a
+ * rename in the catalog refreshes it too.
  */
-export async function fetchAllExercises(): Promise<Exercise[]> {
-  const all: Exercise[] = [];
-  let cursor: string | null = null;
-  do {
-    const page: ExercisePage = await fetchExercisesPage({ cursor, limit: 50 });
-    all.push(...page.exercises);
-    cursor = page.nextCursor;
-  } while (cursor !== null);
-  return all;
+export function progressExercisesQueryKey(clientId: number) {
+  return ["exercises", "with-progress", clientId] as const;
+}
+
+export function fetchProgressExercises(clientId: number) {
+  return apiClient.get<ProgressExercise[]>("/exercises/with-progress", { clientId });
 }
 
 export function fetchExercise(id: number) {

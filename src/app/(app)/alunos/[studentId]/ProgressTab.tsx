@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dropdown } from "@/components/ui";
-import { allExercisesQueryKey, fetchAllExercises, fetchExerciseProgress } from "@/lib/api/exercises";
+import { fetchExerciseProgress, fetchProgressExercises, progressExercisesQueryKey } from "@/lib/api/exercises";
 import { formatDateShort } from "@/lib/format";
 
 export function ProgressTab({ clientId }: { clientId: number }) {
-  // Still every exercise, walked page by page: this dropdown is out of lazy-exercise-search's
-  // scope until it becomes a searchable picker (spec §6).
-  const { data: exercises } = useQuery({
-    queryKey: allExercisesQueryKey,
-    queryFn: fetchAllExercises,
+  // Only the exercises this student has recorded loads for, most recent first (spec:
+  // progress-exercise-picker): never the catalog, most of which would chart nothing.
+  const exercises = useQuery({
+    queryKey: progressExercisesQueryKey(clientId),
+    queryFn: () => fetchProgressExercises(clientId),
   });
   const [exerciseId, setExerciseId] = useState<string>("");
 
@@ -31,14 +31,32 @@ export function ProgressTab({ clientId }: { clientId: number }) {
       <div className="w-[320px]">
         <Dropdown
           label="Exercício"
-          placeholder="Selecione um exercício"
-          options={(exercises ?? []).map((ex) => ({ value: String(ex.id), label: ex.name }))}
+          placeholder={exercises.isPending ? "Carregando exercícios..." : "Selecione um exercício"}
+          options={(exercises.data ?? []).map((ex) => ({ value: String(ex.id), label: ex.name }))}
           value={exerciseId}
           onChange={setExerciseId}
+          disabled={!exercises.data?.length}
         />
       </div>
 
-      {exerciseId === "" ? (
+      {/* Only before anything loaded: a failed background refetch keeps the options and chart. */}
+      {exercises.data === undefined && exercises.isError ? (
+        <p className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
+          Não foi possível carregar os exercícios{" "}
+          <button
+            type="button"
+            onClick={() => exercises.refetch()}
+            className="font-semibold text-[color:var(--color-primary)]"
+          >
+            Tentar novamente
+          </button>
+        </p>
+      ) : exercises.data?.length === 0 ? (
+        <p className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
+          Nenhuma carga registrada ainda. A evolução aparece quando o aluno concluir um treino
+          registrando a carga.
+        </p>
+      ) : exerciseId === "" ? (
         <p className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
           Selecione um exercício para ver a evolução de carga do aluno.
         </p>

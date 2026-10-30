@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@c84b5bf77aaadd52d8edfcafa9dbfbec089f5bc5:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@53de4b86bfd5b714e3b49e449a50183e944ee09d:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -307,6 +307,26 @@ export interface paths {
          * @description Roles: TRAINER. Private to the caller (`isStarter: false`). Duplicate names are allowed.
          */
         post: operations["createExercise"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exercises/with-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exercises with progress for a client
+         * @description Roles: TRAINER, CLIENT. The exercises `GET /exercises/:id/progress` has points for (a weighted set in a completed session), most recently trained first. A TRAINER only gets exercises their catalog shows them. A CLIENT’s `clientId` is ignored (their own is used); a TRAINER must pass one of their clients. Not paged: bounded by what the client has trained.
+         */
+        get: operations["listProgressExercises"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1195,6 +1215,10 @@ export interface components {
         };
         /** @enum {string} */
         PlanLevel: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+        ProgressExercise: {
+            id: number;
+            name: string;
+        };
         ProgressPoint: {
             /** @description Business date, `YYYY-MM-DD`: a calendar day in America/Sao_Paulo, with no time and no zone. Never put it through a UTC conversion — `new Date("2026-10-31")` is UTC midnight, which renders as 30/10/2026 in Brazil. */
             weekStartDate: string;
@@ -2399,6 +2423,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Exercise"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProgressExercises: {
+        parameters: {
+            query?: {
+                /** @description Required for a TRAINER. */
+                clientId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The exercises. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressExercise"][];
                 };
             };
             /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
