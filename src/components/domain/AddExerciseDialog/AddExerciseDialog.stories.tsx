@@ -123,6 +123,80 @@ export const FilteredByGroup: Story = {
   },
 };
 
+/**
+ * Coming back from the prompt, an older search's rows never stand in for the new one: "sup" is
+ * still loading, so skeletons, not the Costas rows.
+ */
+export const NoStaleRowsAfterIdle: Story = {
+  decorators: [
+    withSeededQueries(
+      {
+        [groupsKey]: muscleGroups,
+        [JSON.stringify(exercisesQueryKey({ muscleGroupId: 2 }))]: exercisePages([puxada, remadaPropria]),
+      },
+      { pending: [JSON.stringify(exercisesQueryKey({ q: "sup" }))] },
+    ),
+  ],
+  play: async (context) => {
+    const { canvas, userEvent } = context;
+    const body = within(document.body);
+    await userEvent.click(canvas.getByRole("button", { name: "Todos os grupos" }));
+    await userEvent.click(await body.findByRole("option", { name: "Costas" }));
+    await canvas.findByRole("button", { name: "Adicionar Puxada Alta na Polia" });
+    await userEvent.click(canvas.getByRole("button", { name: "Costas" }));
+    await userEvent.click(await body.findByRole("option", { name: "Todos os grupos" }));
+    await canvas.findByText(hint);
+    await searchFor(context, "sup");
+    await waitFor(() => expect(canvas.queryByText(hint)).toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await expect(canvas.queryAllByRole("button", { name: /^Adicionar / })).toHaveLength(0);
+  },
+};
+
+const realFetch = globalThis.fetch;
+
+/**
+ * Pages load as the list's end scrolls into view, one after another (the sentinel re-observes
+ * after each page). Only the first page is seeded; the stubbed BFF answers the next two.
+ */
+export const LoadsMorePages: Story = {
+  decorators: [
+    withSeededQueries({
+      [groupsKey]: muscleGroups,
+      [JSON.stringify(exercisesQueryKey({ muscleGroupId: 1 }))]: {
+        pages: [{ exercises: [supino], nextCursor: "30" }],
+        pageParams: [null],
+      },
+    }),
+  ],
+  beforeEach: () => {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const cursor = new URL(String(input), window.location.origin).searchParams.get("cursor");
+      return Response.json(
+        cursor === "30"
+          ? { exercises: [catalog[3]], nextCursor: "60" }
+          : { exercises: [crucifixo], nextCursor: null },
+      );
+    }) as typeof fetch;
+    return () => {
+      globalThis.fetch = realFetch;
+    };
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Todos os grupos" }));
+    await userEvent.click(await within(document.body).findByRole("option", { name: "Peito" }));
+    await expect(
+      await canvas.findByRole("button", { name: "Adicionar Crucifixo na Polia" }, { timeout: 3000 }),
+    ).toBeVisible();
+    const adds = canvas.getAllByRole("button", { name: /^Adicionar / });
+    await expect(adds.map((b) => b.getAttribute("aria-label"))).toEqual([
+      `Adicionar ${supino.name}`,
+      `Adicionar ${catalog[3]!.name}`,
+      "Adicionar Crucifixo na Polia",
+    ]);
+  },
+};
+
 /** Create mode shares the dialog form's rule: no group, no submit (R40). */
 export const CreateMissingGroup: Story = {
   play: async ({ canvas, userEvent }) => {
