@@ -70,6 +70,9 @@ export type MuscleGroup = Schemas["MuscleGroup"];
 
 export type Exercise = Schemas["Exercise"];
 
+/** One page of `GET /exercises`: follow `nextCursor` (same filter) for more; `null` on the last. */
+export type ExercisePage = Schemas["ExercisePage"];
+
 /**
  * One point of `GET /exercises/:id/progress`. `weight` is a **number** here, unlike every other
  * decimal in this contract (which crosses the wire as a string): the BFF parses it before

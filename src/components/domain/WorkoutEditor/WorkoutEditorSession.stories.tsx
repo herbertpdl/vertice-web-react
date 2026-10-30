@@ -4,9 +4,10 @@ import { expect, fn, waitFor, within } from "storybook/test";
 import { WorkoutEditorSession, type WorkoutEditorSessionProps } from "./WorkoutEditor";
 import {
   agachamentoCard,
-  catalog,
+  exercisePages,
   fakeTransport,
   muscleGroups,
+  puxada,
   puxadaCard,
   recentWorkouts,
   supinoCard,
@@ -31,7 +32,8 @@ const meta = {
   },
   decorators: [
     withSeededQueries({
-      [JSON.stringify(exercisesQueryKey({}))]: catalog,
+      // What the picker gets for "pux" (it loads nothing before 3 letters).
+      [JSON.stringify(exercisesQueryKey({ q: "pux" }))]: exercisePages([puxada]),
       [JSON.stringify(muscleGroupsQueryKey)]: muscleGroups,
       '["recentWorkouts"]': recentWorkouts,
       '["workout",42,"full"]': treinoAFull,
@@ -80,7 +82,8 @@ export const NewEmpty: Story = {
 export const FirstExerciseCreatesIt: Story = {
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getAllByRole("button", { name: "+ Adicionar exercício" })[0]);
-    await userEvent.click(canvas.getByRole("button", { name: "Adicionar Puxada Alta na Polia" }));
+    await userEvent.type(canvas.getByLabelText("Buscar exercício por nome"), "pux");
+    await userEvent.click(await canvas.findByRole("button", { name: "Adicionar Puxada Alta na Polia" }));
     await expect(canvas.getByText("Puxada Alta na Polia")).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: "Usar treino existente como base" }),

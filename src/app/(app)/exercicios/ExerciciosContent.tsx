@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Button, Dropdown, TableRowSkeleton, TextField } from "@/components/ui";
+import { useQuery } from "@tanstack/react-query";
+import { Button, Dropdown, Spinner, TableRowSkeleton, TextField } from "@/components/ui";
 import { ExerciseDialog } from "@/components/domain/ExerciseDialog";
 import { EXERCISE_COLUMN_WIDTHS, ExerciseRow } from "@/components/domain/ExerciseRow";
-import { exercisesQueryKey, fetchExercises } from "@/lib/api/exercises";
 import { fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
-import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { useExerciseSearch } from "@/lib/hooks/useExerciseSearch";
+import { useLoadMoreRef } from "@/lib/hooks/useLoadMoreRef";
 import type { Exercise } from "@/lib/api/types";
 
 const HEADERS = [
@@ -18,9 +18,10 @@ const HEADERS = [
   { label: "", width: EXERCISE_COLUMN_WIDTHS.edit },
 ];
 
-function subtitle(count: number, filtered: boolean) {
-  if (filtered) return count === 1 ? "1 exercício encontrado" : `${count} exercícios encontrados`;
-  return count === 1 ? "1 exercício no catálogo" : `${count} exercícios no catálogo`;
+/** Pages load as the list scrolls, so with more to come only a lower bound is known. */
+function subtitle(count: number, hasMore: boolean) {
+  if (hasMore) return `Mais de ${count} exercícios encontrados`;
+  return count === 1 ? "1 exercício encontrado" : `${count} exercícios encontrados`;
 }
 
 export function ExerciciosContent() {
@@ -28,7 +29,6 @@ export function ExerciciosContent() {
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [muscleGroupId, setMuscleGroupId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
-  const q = useDebouncedValue(search.trim(), 300);
 
   const groups = useQuery({
     queryKey: muscleGroupsQueryKey,
@@ -36,12 +36,14 @@ export function ExerciciosContent() {
     staleTime: Infinity,
   });
 
-  // Filtering, search and ordering are server-side: rows render in array order.
-  const list = useQuery({
-    queryKey: exercisesQueryKey({ muscleGroupId, q }),
-    queryFn: () => fetchExercises({ muscleGroupId, q }),
-    placeholderData: keepPreviousData,
-  });
+  // Never the whole catalog: nothing until 3+ letters or a group, then one page at a time as the
+  // list scrolls (lazy-exercise-search). Filtering, search and ordering are server-side: rows
+  // render in array order.
+  const list = useExerciseSearch(search, muscleGroupId);
+  const loadMoreRef = useLoadMoreRef(
+    () => void list.fetchNextPage(),
+    list.hasNextPage && !list.isFetchingNextPage && !list.isError,
+  );
 
   const filterOptions = groups.isError
     ? []
@@ -58,7 +60,11 @@ export function ExerciciosContent() {
             Catálogo de exercícios
           </h1>
           <p className="text-[length:var(--text-base)] text-[color:var(--color-text-secondary)]">
-            {list.data ? subtitle(list.data.length, muscleGroupId !== null || q !== "") : " "}
+            {list.idle
+              ? "Busque por nome ou escolha um grupo muscular"
+              : list.exercises
+                ? subtitle(list.exercises.length, list.hasNextPage)
+                : " "}
           </p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>Novo exercício</Button>
@@ -90,7 +96,7 @@ export function ExerciciosContent() {
         />
       </div>
 
-      {list.isError && list.data && (
+      {list.isError && list.exercises && (
         <div
           role="alert"
           className="flex w-full items-center justify-between gap-[10px] rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[#ff5c5c14] py-[8px] pr-[8px] pl-[14px]"
@@ -98,7 +104,11 @@ export function ExerciciosContent() {
           <span className="text-[length:var(--text-sm)] text-[color:var(--color-text-primary)]">
             Não foi possível carregar os exercícios · Verifique sua conexão e tente novamente.
           </span>
-          <Button variant="outline" size="sm" onClick={() => list.refetch()}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => (list.isFetchNextPageError ? list.fetchNextPage() : list.refetch())}
+          >
             Tentar novamente
           </Button>
         </div>
@@ -117,13 +127,22 @@ export function ExerciciosContent() {
           ))}
         </div>
 
-        {list.isPending ? (
+        {list.idle ? (
+          <div className="flex w-full flex-col items-center gap-2 border-t border-[var(--color-border)] px-[var(--space-5)] py-[var(--space-12)] text-center">
+            <p className="text-[length:var(--text-md)] font-semibold text-[color:var(--color-text-primary)]">
+              Busque um exercício
+            </p>
+            <p className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
+              Digite ao menos 3 letras ou escolha um grupo muscular.
+            </p>
+          </div>
+        ) : list.isPending ? (
           <div className="flex flex-col">
             {[0, 1, 2, 3, 4].map((i) => (
               <TableRowSkeleton key={i} className="border-t border-[var(--color-border)]" />
             ))}
           </div>
-        ) : list.isError && !list.data ? (
+        ) : list.isError && !list.exercises ? (
           <div className="flex w-full flex-col items-center gap-2 border-t border-[var(--color-border)] px-[var(--space-5)] py-[var(--space-12)] text-center">
             <p className="text-[length:var(--text-md)] font-semibold text-[color:var(--color-text-primary)]">
               Não foi possível carregar os exercícios
@@ -137,7 +156,7 @@ export function ExerciciosContent() {
               </Button>
             </div>
           </div>
-        ) : list.data.length === 0 ? (
+        ) : !list.exercises || list.exercises.length === 0 ? (
           <div className="flex w-full flex-col items-center gap-2 border-t border-[var(--color-border)] px-[var(--space-5)] py-[var(--space-12)] text-center">
             <p className="text-[length:var(--text-md)] font-semibold text-[color:var(--color-text-primary)]">
               Nenhum exercício encontrado
@@ -147,9 +166,21 @@ export function ExerciciosContent() {
             </p>
           </div>
         ) : (
-          list.data.map((exercise) => (
-            <ExerciseRow key={exercise.id} exercise={exercise} onEdit={setEditingExercise} />
-          ))
+          <>
+            {list.exercises.map((exercise) => (
+              <ExerciseRow key={exercise.id} exercise={exercise} onEdit={setEditingExercise} />
+            ))}
+            {list.hasNextPage && <div ref={loadMoreRef} aria-hidden className="h-px w-full" />}
+            {list.isFetchingNextPage && (
+              <div
+                role="status"
+                aria-label="Carregando mais exercícios"
+                className="flex justify-center border-t border-[var(--color-border)] py-[var(--space-4)]"
+              >
+                <Spinner />
+              </div>
+            )}
+          </>
         )}
       </div>
 
