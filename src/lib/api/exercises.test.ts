@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { exerciseSearch, fetchAllExercises, fetchExercisesPage } from "./exercises";
+import { exerciseSearch, fetchExercisesPage, fetchProgressExercises } from "./exercises";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -10,7 +10,6 @@ afterEach(() => {
   fetchMock.mockReset();
 });
 
-const row = (id: number) => ({ id, name: `E${id}`, description: "", videoUrl: "", muscleGroups: [], isStarter: true });
 const sentUrl = (call: number) => new URL(String(fetchMock.mock.calls[call]![0]), "http://localhost");
 
 describe("exerciseSearch", () => {
@@ -46,16 +45,14 @@ describe("fetchExercisesPage", () => {
   });
 });
 
-describe("fetchAllExercises", () => {
-  it("follows nextCursor until the last page, 50 at a time", async () => {
-    fetchMock
-      .mockResolvedValueOnce(Response.json({ exercises: [row(1), row(2)], nextCursor: "50" }))
-      .mockResolvedValueOnce(Response.json({ exercises: [row(3)], nextCursor: null }));
+describe("fetchProgressExercises", () => {
+  it("asks for the student's exercises with progress, one request", async () => {
+    fetchMock.mockImplementation(async () => Response.json([{ id: 9, name: "Supino" }]));
 
-    const all = await fetchAllExercises();
+    await expect(fetchProgressExercises(4)).resolves.toEqual([{ id: 9, name: "Supino" }]);
 
-    expect(all.map((e) => e.id)).toEqual([1, 2, 3]);
-    expect(Object.fromEntries(sentUrl(0).searchParams)).toEqual({ limit: "50" });
-    expect(Object.fromEntries(sentUrl(1).searchParams)).toEqual({ limit: "50", cursor: "50" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sentUrl(0).pathname).toBe("/api/bff/exercises/with-progress");
+    expect(Object.fromEntries(sentUrl(0).searchParams)).toEqual({ clientId: "4" });
   });
 });

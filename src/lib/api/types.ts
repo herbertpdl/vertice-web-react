@@ -73,6 +73,9 @@ export type Exercise = Schemas["Exercise"];
 /** One page of `GET /exercises`: follow `nextCursor` (same filter) for more; `null` on the last. */
 export type ExercisePage = Schemas["ExercisePage"];
 
+/** One option of the progress picker: an exercise the student has weighted, completed sets for. */
+export type ProgressExercise = Schemas["ProgressExercise"];
+
 /**
  * One point of `GET /exercises/:id/progress`. `weight` is a **number** here, unlike every other
  * decimal in this contract (which crosses the wire as a string): the BFF parses it before
