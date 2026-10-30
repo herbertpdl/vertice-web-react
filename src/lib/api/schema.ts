@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@88e5b71282bb758e96f418d03fd5f13fb33a8175:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@ffc2dacb43133964d2986f1e579a552c173ee81e:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -297,8 +297,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List the exercise catalog
-         * @description Roles: TRAINER, ADMIN. A trainer sees the starter set and their own exercises; an ADMIN the starter set only. In upstream order: do not re-sort client-side. An empty `muscleGroupId` or `q` means no filter.
+         * One page of the exercise catalog
+         * @description Roles: TRAINER, ADMIN. A trainer sees the starter set and their own exercises; an ADMIN the starter set only. In upstream order: do not re-sort client-side. An empty `muscleGroupId` or `q` means no filter. Always paged (30 by default, at most 50): follow `nextCursor` with the same filter for more.
          */
         get: operations["listExercises"];
         put?: never;
@@ -1071,6 +1071,12 @@ export interface components {
             muscleGroups: components["schemas"]["MuscleGroup"][];
             /** @description Part of the shared, read-only starter set. */
             isStarter: boolean;
+        };
+        ExercisePage: {
+            /** @description In upstream order: do not re-sort client-side. */
+            exercises: components["schemas"]["Exercise"][];
+            /** @description Send back as `cursor` (same filter) for the next page; `null` on the last page. */
+            nextCursor: string | null;
         };
         ExerciseRequest: {
             name: string;
@@ -2315,6 +2321,10 @@ export interface operations {
                 muscleGroupId?: number;
                 /** @description Case-insensitive name search, trimmed. */
                 q?: string;
+                /** @description Page size; 30 when absent. */
+                limit?: number;
+                /** @description `nextCursor` of the previous page. Opaque; a malformed one is a 400. */
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -2322,13 +2332,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The exercises. */
+            /** @description One page of exercises. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Exercise"][];
+                    "application/json": components["schemas"]["ExercisePage"];
                 };
             };
             /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */

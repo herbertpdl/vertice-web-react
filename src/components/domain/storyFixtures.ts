@@ -80,6 +80,20 @@ export const catalog: Exercise[] = [
   remadaPropria,
 ];
 
+/**
+ * A loaded `useExerciseSearch` cache entry (`useInfiniteQuery` data): one page per argument, the
+ * last with no `nextCursor`. Seed it under `exercisesQueryKey({...})`.
+ */
+export function exercisePages(...pages: Exercise[][]) {
+  return {
+    pages: pages.map((exercises, i) => ({
+      exercises,
+      nextCursor: i < pages.length - 1 ? String((i + 1) * 30) : null,
+    })),
+    pageParams: pages.map((_, i) => (i === 0 ? null : String(i * 30))),
+  };
+}
+
 let n = 0;
 const key = (prefix: string) => `${prefix}${++n}`;
 

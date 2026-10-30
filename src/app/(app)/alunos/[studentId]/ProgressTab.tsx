@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dropdown } from "@/components/ui";
-import { exercisesQueryKey, fetchExercises, fetchExerciseProgress } from "@/lib/api/exercises";
+import { allExercisesQueryKey, fetchAllExercises, fetchExerciseProgress } from "@/lib/api/exercises";
 import { formatDateShort } from "@/lib/format";
 
 export function ProgressTab({ clientId }: { clientId: number }) {
+  // Still every exercise, walked page by page: this dropdown is out of lazy-exercise-search's
+  // scope until it becomes a searchable picker (spec §6).
   const { data: exercises } = useQuery({
-    queryKey: exercisesQueryKey({}),
-    queryFn: () => fetchExercises(),
+    queryKey: allExercisesQueryKey,
+    queryFn: fetchAllExercises,
   });
   const [exerciseId, setExerciseId] = useState<string>("");
 

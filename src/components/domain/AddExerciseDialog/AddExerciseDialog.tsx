@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlert, CirclePlay, Search } from "lucide-react";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   Dialog,
@@ -12,13 +12,15 @@ import {
   Dropdown,
   ListRowSkeleton,
   MultiSelect,
+  Spinner,
   TextField,
 } from "@/components/ui";
-import { createExercise, exercisesQueryKey, fetchExercises } from "@/lib/api/exercises";
+import { createExercise } from "@/lib/api/exercises";
 import { fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 import { exerciseSchema, type ExerciseFormInput } from "@/lib/validation/exercises";
 import { safeHttpUrl } from "@/lib/validation/bounds";
-import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { useExerciseSearch } from "@/lib/hooks/useExerciseSearch";
+import { useLoadMoreRef } from "@/lib/hooks/useLoadMoreRef";
 import { MAX_EXERCISES } from "@/lib/workoutEditor/model";
 import type { Exercise } from "@/lib/api/types";
 
@@ -34,16 +36,16 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
   const [mode, setMode] = useState<"search" | "create">("search");
   const [search, setSearch] = useState("");
   const [muscleGroupId, setMuscleGroupId] = useState<number | null>(null);
-  const q = useDebouncedValue(search.trim(), 300);
   const queryClient = useQueryClient();
 
-  // Same key helper as the catalog, so either screen's list serves the other from cache.
-  // Filtering, search and ordering are server-side: rows render in array order.
-  const list = useQuery({
-    queryKey: exercisesQueryKey({ muscleGroupId, q }),
-    queryFn: () => fetchExercises({ muscleGroupId, q }),
-    placeholderData: keepPreviousData,
-  });
+  // Same hook as the catalog, so either screen's pages serve the other from cache. Nothing is
+  // fetched until 3+ letters or a group (lazy-exercise-search); filtering, search and ordering are
+  // server-side: rows render in array order, one page at a time.
+  const list = useExerciseSearch(search, muscleGroupId);
+  const loadMoreRef = useLoadMoreRef(
+    () => void list.fetchNextPage(),
+    list.hasNextPage && !list.isFetchingNextPage && !list.isError,
+  );
   const groups = useQuery({
     queryKey: muscleGroupsQueryKey,
     queryFn: fetchMuscleGroups,
@@ -165,9 +167,15 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
             />
           </div>
           <div className="flex max-h-[320px] flex-col gap-[var(--space-2)] overflow-y-auto">
-            {list.isPending &&
+            {list.idle && (
+              <p className="py-[var(--space-4)] text-center text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
+                Digite ao menos 3 letras ou escolha um grupo muscular
+              </p>
+            )}
+            {!list.idle &&
+              list.isPending &&
               [0, 1, 2, 3].map((i) => <ListRowSkeleton key={i} className="!w-full" />)}
-            {list.isError && !list.data && (
+            {!list.idle && list.isError && !list.exercises && (
               <p className="py-[var(--space-4)] text-center text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
                 Não foi possível carregar os exercícios{" "}
                 <button
@@ -179,7 +187,7 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
                 </button>
               </p>
             )}
-            {list.data?.map((exercise) => (
+            {list.exercises?.map((exercise) => (
               <div
                 key={exercise.id}
                 className="flex w-full items-center justify-between gap-[var(--space-3)] rounded-[var(--radius-md)] bg-[var(--color-bg)] p-[var(--space-3)]"
@@ -218,7 +226,25 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
                 </Button>
               </div>
             ))}
-            {list.isSuccess && list.data.length === 0 && (
+            {list.hasNextPage && <div ref={loadMoreRef} aria-hidden className="h-px w-full shrink-0" />}
+            {list.isFetchingNextPage && (
+              <div role="status" aria-label="Carregando mais exercícios" className="flex justify-center py-[var(--space-2)]">
+                <Spinner size="sm" />
+              </div>
+            )}
+            {list.isFetchNextPageError && (
+              <p className="py-[var(--space-2)] text-center text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
+                Não foi possível carregar mais exercícios{" "}
+                <button
+                  type="button"
+                  onClick={() => list.fetchNextPage()}
+                  className="font-semibold text-[color:var(--color-primary)]"
+                >
+                  Tentar novamente
+                </button>
+              </p>
+            )}
+            {list.isSuccess && list.exercises?.length === 0 && (
               <p className="py-[var(--space-4)] text-center text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
                 Não encontrou o exercício?{" "}
                 <button
