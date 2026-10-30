@@ -39,7 +39,8 @@ export function ProgressTab({ clientId }: { clientId: number }) {
         />
       </div>
 
-      {exercises.isError ? (
+      {/* Only before anything loaded: a failed background refetch keeps the options and chart. */}
+      {exercises.data === undefined && exercises.isError ? (
         <p className="text-[length:var(--text-sm)] text-[color:var(--color-text-tertiary)]">
           Não foi possível carregar os exercícios{" "}
           <button
