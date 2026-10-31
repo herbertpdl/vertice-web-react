@@ -98,6 +98,25 @@ A `vertice-local` repo with a `docker-compose.yml` also exists for running all o
 containers with one command, but native runs (as above) avoid Docker image-cache/rebuild pain,
 especially for this frontend.
 
+## Deployment: the image
+
+`Dockerfile.prod` builds the deployed image: Next's standalone server (`output: "standalone"` in
+`next.config.ts`, so only the traced `node_modules` ship), with `public/` and `.next/static`
+beside it, run as the `node` user on port 3000 with `NODE_ENV=production`. The ECS tasks are
+ARM64, so pin the platform:
+
+```sh
+docker build --platform linux/arm64 -f Dockerfile.prod -t vertice-web .
+```
+
+The deploy sets `BFF_URL` and `TRUSTED_PROXY_HOPS` (below). On AWS the chain is CloudFront ──▶
+load balancer ──▶ Next, two proxies that each append to `X-Forwarded-For`, so
+`TRUSTED_PROXY_HOPS=2`; `BFF_URL` is the BFF's private Service Connect address
+(`http://vertice-bff:3000`), never its public URL, or the BFF would see the NAT/public address
+instead of this server and every web user would share one rate-limit bucket. `GET /healthz` is the
+liveness check (no BFF call). The image has no curl, so a container health check runs Node:
+`node -e "fetch('http://localhost:3000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"`.
+
 ## Deployment: client IPs and the BFF's rate limits
 
 The BFF rate-limits auth routes (and all traffic, more loosely) per client IP. The browser never

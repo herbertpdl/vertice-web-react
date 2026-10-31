@@ -236,8 +236,10 @@ vs. business dates") are the source of truth, restated for clients in
 
 ## Running
 
-This app runs natively only — there is no `Dockerfile` — since it's the piece of the stack most
-affected by slow Docker image rebuilds/caching. It runs on Node 22: `.nvmrc` says `22` (CI reads
+For development this app runs natively only — there is no dev `Dockerfile` — since it's the piece of
+the stack most affected by slow Docker image rebuilds/caching. `Dockerfile.prod` builds the
+deployed image only (Next's `output: "standalone"` server; see the README's "Deployment: the
+image"); `GET /healthz` is its liveness check. It runs on Node 22: `.nvmrc` says `22` (CI reads
 it) and `package.json` has `"engines": { "node": ">=22 <23" }` (npm warns on other versions).
 Update `package-lock.json` with Node 22's npm 10 (`npx npm@10 install …` on a newer Node): npm 11
 drops some optional wasm entries that npm 10's `npm ci` in CI then reports as missing. It needs `vertice-bff` on `:3000` (which in turn needs

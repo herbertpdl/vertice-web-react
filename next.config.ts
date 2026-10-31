@@ -28,6 +28,8 @@ export default function config(phase: string): NextConfig {
   const isDevServer = phase === PHASE_DEVELOPMENT_SERVER;
   return {
     reactCompiler: true,
+    // `.next/standalone`: a minimal server.js plus only the traced node_modules (Dockerfile.prod).
+    output: "standalone",
     poweredByHeader: false,
     images: {
       // Allowlist for the image optimizer (/_next/image). Only the brand mark in
