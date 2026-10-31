@@ -1,0 +1,21 @@
+# Production image: Next's standalone server (`output: "standalone"`) on the Node runtime,
+# non-root. Build for the deploy platform: `docker build --platform linux/arm64 -f Dockerfile.prod .`
+
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+# The standalone server serves public/ and .next/static only when they sit beside it.
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
+COPY --from=build --chown=node:node /app/public ./public
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]
