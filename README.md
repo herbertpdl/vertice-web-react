@@ -113,7 +113,10 @@ The deploy sets `BFF_URL` and `TRUSTED_PROXY_HOPS` (below). On AWS the chain is 
 load balancer ──▶ Next, two proxies that each append to `X-Forwarded-For`, so
 `TRUSTED_PROXY_HOPS=2`; `BFF_URL` is the BFF's private Service Connect address
 (`http://vertice-bff:3000`), never its public URL, or the BFF would see the NAT/public address
-instead of this server and every web user would share one rate-limit bucket. `GET /healthz` is the
+instead of this server and every web user would share one rate-limit bucket. Two hops is only
+right while the load balancer appends to `X-Forwarded-For` (the ALB default, `append`; never
+`preserve`) and refuses requests that don't come through CloudFront (its secret origin header);
+otherwise a browser picks the entry this server forwards. `GET /healthz` is the
 liveness check (no BFF call). The image has no curl, so a container health check runs Node:
 `node -e "fetch('http://localhost:3000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"`.
 
