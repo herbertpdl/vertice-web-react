@@ -109,7 +109,10 @@ ARM64, so pin the platform:
 docker build --platform linux/arm64 -f Dockerfile.prod -t vertice-web .
 ```
 
-The deploy sets `BFF_URL` and `TRUSTED_PROXY_HOPS` (below). On AWS the chain is CloudFront ──▶
+The deploy sets `BFF_URL` and `TRUSTED_PROXY_HOPS` (below), and `HOSTNAME=0.0.0.0` again in the
+task's own environment: ECS/Fargate (like Kubernetes) overwrites the image's `HOSTNAME` with the
+task's hostname, and the standalone server then listens on that address only, so the
+`localhost` health check below fails and the task is replaced in a loop. On AWS the chain is CloudFront ──▶
 load balancer ──▶ Next, two proxies that each append to `X-Forwarded-For`, so
 `TRUSTED_PROXY_HOPS=2`; `BFF_URL` is the BFF's private Service Connect address
 (`http://vertice-bff:3000`), never its public URL, or the BFF would see the NAT/public address
