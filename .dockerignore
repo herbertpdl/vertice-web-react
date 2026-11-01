@@ -5,3 +5,6 @@ node_modules
 coverage
 storybook-static
 *.log
+# CI/deploy config only: keeps workflow and task-definition edits from busting the build cache
+.aws
+.github

@@ -34,6 +34,12 @@ CI (`.github/workflows/ci.yml`, on every PR and push to `main`) runs two jobs: `
 `test:storybook`). Run the same commands locally before pushing. The build needs no BFF and no
 env.
 
+On pushes to `main` (and manual runs on `main`), the `deploy` job at the end of `ci.yml`
+deploys to ECS once every CI job passed: GitHub OIDC role `vertice-web-deploy`, `Dockerfile.prod`
+for arm64, task definition [`.aws/task-definition.json`](.aws/task-definition.json) (the deployed
+config; change it by PR, never in the console). See the README's "Continuous deployment" for
+the gate, rollback and cross-repo order. Don't rename the CI jobs the deploy `needs`.
+
 Read form values with `useWatch({ control, name })`, not `useForm().watch()`: `watch` makes the
 React Compiler skip the whole component (`react-hooks/incompatible-library` warning).
 

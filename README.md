@@ -74,6 +74,54 @@ version in `.nvmrc`:
 
 Dependabot (`.github/dependabot.yml`) opens weekly npm and GitHub Actions updates.
 
+## Continuous deployment
+
+Every push to `main` deploys to the `vertice` ECS cluster (us-east-2) once all of CI has passed on
+that commit: the `deploy` job at the end of
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml). Pull requests never deploy.
+
+1. The job runs only while the repository variable `DEPLOY_ENABLED` is `true` (Settings →
+   Secrets and variables → Actions → Variables; unset it to freeze deploys). It deploys only a
+   commit that is still the head of `main`, checked when the job starts and again just before
+   the rollout: CI runs once per commit, so an older commit whose CI finishes last, or a re-run of
+   an old run, must not overwrite a newer deploy. A superseded commit is skipped with a notice.
+2. It runs on a native arm64 runner and assumes the `vertice-web-deploy` IAM role through GitHub
+   OIDC (no AWS keys stored in GitHub; the role trusts only this repository's `main`). It builds
+   `Dockerfile.prod` for `linux/arm64`, pushes it to ECR `vertice-web` tagged with the first 12
+   characters of the commit SHA (tags are immutable; a re-run of the head commit reuses the pushed image), registers
+   [`.aws/task-definition.json`](.aws/task-definition.json) with that image as a new revision of the
+   `vertice-web` family, and updates the `vertice-web` service.
+3. It then waits, up to 10 minutes, for the rollout to finish. If the new
+   task never becomes healthy, the service's deployment circuit breaker rolls back to the
+   previous revision and the job fails.
+
+One deploy of the service runs at a time (concurrency group `deploy-vertice-web`): later ones
+wait in order (`queue: max`) and are never cancelled, so the head of `main` always gets its turn. To redeploy the head of `main` without a new commit, run the CI workflow
+manually on `main` (Actions → CI → Run workflow).
+
+**The task definition is the file.** `.aws/task-definition.json` is the deployed configuration:
+CPU/memory, environment and the health check; a secret appears only as its ARN, never as a value.
+Change it in a pull request; the deploy registers it as is. A change made in the AWS console is
+overwritten by the next deploy.
+
+**Rolling back** means pointing the service at an earlier task-definition revision (each one pins
+its image tag):
+
+```sh
+aws ecs list-task-definitions --region us-east-2 --family-prefix vertice-web --sort DESC --max-items 5
+aws ecs update-service --region us-east-2 --cluster vertice --service vertice-web \
+  --task-definition vertice-web:<revision>
+aws ecs wait services-stable --region us-east-2 --cluster vertice --services vertice-web
+```
+
+The next push to `main` deploys again, so revert the bad commit in a pull request (or unset
+`DEPLOY_ENABLED` until it is fixed).
+
+**Order across repositories.** The pipelines are independent. When a change spans repositories,
+merge in the order the spec's "Merge and deploy order" gives (by default vertice-api, then
+vertice-bff, then vertice-web-react / vertice-mobile; removals go the other way), and wait for the
+previous repository's deploy job to finish before merging the next one.
+
 ## Running the full stack
 
 This app talks to `vertice-bff` (server-side only, via `BFF_URL` — see `.env.local.example`),
