@@ -71,7 +71,7 @@ describe("proxy: route guard and redirect", () => {
     expect(location(visit("/definir-senha?token=t", { session: true }))).toBeNull();
   });
 
-  it.each(["/termos", "/privacidade"])("renders %s with or without a session", (path) => {
+  it.each(["/termos", "/privacidade", "/suporte"])("renders %s with or without a session", (path) => {
     for (const session of [false, true]) {
       const res = visit(path, { session });
       expect(location(res)).toBeNull();
