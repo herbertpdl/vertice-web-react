@@ -7,9 +7,9 @@ const SESSION_COOKIE = "vertice_session";
 const AUTH_PATHS = ["/login", "/cadastro"];
 const PROTECTED_PREFIXES = ["/dashboard", "/alunos", "/planos", "/exercicios", "/perfil"];
 // Reachable with or without a session (exact match): the first-access link a trainer shares may
-// be opened in a browser where someone (the trainer, testing it) is signed in, and the legal texts
-// are linked from the registration form and from inside the app.
-const PUBLIC_PATHS = ["/definir-senha", "/termos", "/privacidade"];
+// be opened in a browser where someone (the trainer, testing it) is signed in; the legal texts are
+// linked from the registration form and from inside the app, and `/suporte` from the store listings.
+const PUBLIC_PATHS = ["/definir-senha", "/termos", "/privacidade", "/suporte"];
 
 /** Renders the page, with a per-request nonce in the CSP (see `src/lib/csp.ts`). */
 function renderWithCsp(request: NextRequest): NextResponse {
