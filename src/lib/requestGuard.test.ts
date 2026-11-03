@@ -19,6 +19,31 @@ describe("isSameOriginRequest", () => {
     expect(isSameOriginRequest(request(method, headers))).toBe(true);
   });
 
+  // The standalone server builds request.url from its listen address, not from Host.
+  function standalone(method: string, headers: Record<string, string>) {
+    return new NextRequest("http://0.0.0.0:3000/api/x", { method, headers });
+  }
+
+  it("allows an older browser behind CloudFront and the ALB (Origin host = Host header)", () => {
+    expect(
+      isSameOriginRequest(standalone("POST", { Host: "www.vertice.fit", Origin: "https://www.vertice.fit" })),
+    ).toBe(true);
+  });
+
+  it("compares the Host header case-insensitively", () => {
+    expect(
+      isSameOriginRequest(standalone("POST", { Host: "WWW.Vertice.fit", Origin: "https://www.vertice.fit" })),
+    ).toBe(true);
+  });
+
+  it.each([
+    ["another site", { Host: "www.vertice.fit", Origin: "https://evil.example" }],
+    ["a sibling subdomain", { Host: "www.vertice.fit", Origin: "https://evil.vertice.fit" }],
+    ["the listen address", { Host: "www.vertice.fit", Origin: "http://0.0.0.0:3000" }],
+  ])("refuses an older browser's request from %s behind the proxy", (_label, headers) => {
+    expect(isSameOriginRequest(standalone("POST", headers))).toBe(false);
+  });
+
   it.each([
     ["cross-site", "POST", { "Sec-Fetch-Site": "cross-site", Origin: "https://evil.example" }],
     ["same-site (sibling subdomain)", "POST", { "Sec-Fetch-Site": "same-site", Origin: "http://evil.web.test" }],
