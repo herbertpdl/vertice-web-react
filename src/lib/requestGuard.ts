@@ -11,9 +11,10 @@ import { NextResponse } from "next/server";
 //   so only non-browser clients go without.
 // - `Sec-Fetch-Site` (all current browsers) then decides: only `same-origin` passes; `none`
 //   (typed URL, bookmark) passes for safe methods only.
-// - Otherwise `Origin` (older browsers): its host must be this request's host. The host, not the
-//   full origin: behind a TLS-terminating proxy that doesn't send X-Forwarded-Proto, Next sees
-//   `http:` while the browser says `https:`.
+// - Otherwise `Origin` (older browsers): its host must be the request's `Host` header. The host,
+//   not the full origin: behind a TLS-terminating proxy that doesn't send X-Forwarded-Proto, Next
+//   sees `http:` while the browser says `https:`. The header, not `request.url`: the standalone
+//   server builds that URL from the address it listens on (`0.0.0.0:3000` on Fargate).
 // - A safe method (GET/HEAD/OPTIONS) with neither header is allowed (plain navigations, curl).
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -58,7 +59,8 @@ export function isSameOriginRequest(request: Request): boolean {
 
   const fetchSite = request.headers.get("sec-fetch-site");
   if (fetchSite) return fetchSite === "same-origin" || (safe && fetchSite === "none");
-  return !origin || hostOf(origin) === new URL(request.url).host;
+  const host = request.headers.get("host") ?? new URL(request.url).host;
+  return !origin || hostOf(origin) === host.toLowerCase();
 }
 
 /**
