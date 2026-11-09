@@ -13,10 +13,13 @@ interface EditorFooterProps {
   onFinish: () => void;
 }
 
-/** The editor's single save status (R9) plus its only action, "Concluir" (R11). */
+/**
+ * The editor's single save status (R9) plus its only action, "Concluir" (R11). Sticky to the
+ * viewport bottom so both stay visible however long the workout gets.
+ */
 export function EditorFooter({ status, errorMessage, finishing, onRetry, onFinish }: EditorFooterProps) {
   return (
-    <div className="flex w-full items-center justify-between border-t border-[var(--color-border)] bg-[var(--color-surface)] px-[var(--space-8)] py-[var(--space-4)]">
+    <div className="sticky bottom-0 z-10 flex w-full items-center justify-between border-t border-[var(--color-border)] bg-[var(--color-surface)] px-[var(--space-8)] py-[var(--space-4)]">
       <div
         role="status"
         aria-live="polite"

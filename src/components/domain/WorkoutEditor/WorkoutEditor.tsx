@@ -200,6 +200,24 @@ export function WorkoutEditorSession({
     return () => document.removeEventListener("click", handler, true);
   }, [guardLinks]);
 
+  // The name/day/actions row is sticky; once it is pinned to the viewport top it
+  // gets a bottom border so the cards visibly scroll under it.
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarStuck, setToolbarStuck] = useState(false);
+  useEffect(() => {
+    const update = () => {
+      const top = toolbarRef.current?.getBoundingClientRect().top;
+      setToolbarStuck(top !== undefined && top <= 0 && window.scrollY > 0);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
   const atCap = draft.exercises.length >= MAX_EXERCISES;
   const offerClone = state.offersClone;
   const crumbName = draft.name.trim() || DEFAULT_WORKOUT_NAME;
@@ -311,7 +329,15 @@ export function WorkoutEditorSession({
           )}
         </div>
 
-        <div className="flex w-full items-start justify-between gap-[var(--space-4)]">
+        {/* Sticks to the top while the list scrolls, so "Adicionar exercício" stays one click
+            away. The negative margins keep the resting layout unchanged while letting the
+            background cover the page gutters once stuck. */}
+        <div
+          ref={toolbarRef}
+          className={`sticky top-0 z-10 -mx-[var(--space-8)] -my-[var(--space-4)] flex items-start justify-between gap-[var(--space-4)] border-b bg-[var(--color-bg)] px-[var(--space-8)] py-[var(--space-4)] ${
+            toolbarStuck ? "border-[var(--color-border)]" : "border-transparent"
+          }`}
+        >
           <div className="flex items-start gap-[var(--space-4)]">
             <TextField
               label="Nome do treino"
