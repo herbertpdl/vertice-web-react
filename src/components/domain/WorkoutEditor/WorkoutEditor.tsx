@@ -203,7 +203,32 @@ export function WorkoutEditorSession({
   // The name/day/actions row is sticky; once it is pinned to the viewport top it
   // gets a bottom border so the cards visibly scroll under it.
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
   const [toolbarStuck, setToolbarStuck] = useState(false);
+
+  // Both bars are sticky and opaque, so a field focused by keyboard would otherwise be
+  // scrolled only to the viewport edge, right behind one of them (WCAG 2.4.11). Pad the
+  // page's scrollport by their measured heights; the toolbar grows with the cap warning.
+  useEffect(() => {
+    const root = document.documentElement;
+    const gap = 16;
+    const measure = () => {
+      const top = toolbarRef.current?.offsetHeight ?? 0;
+      const bottom = footerRef.current?.offsetHeight ?? 0;
+      root.style.scrollPaddingTop = `${top + gap}px`;
+      root.style.scrollPaddingBottom = `${bottom + gap}px`;
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (toolbarRef.current) observer.observe(toolbarRef.current);
+    if (footerRef.current) observer.observe(footerRef.current);
+    return () => {
+      observer.disconnect();
+      root.style.scrollPaddingTop = "";
+      root.style.scrollPaddingBottom = "";
+    };
+  }, []);
+
   useEffect(() => {
     const update = () => {
       const top = toolbarRef.current?.getBoundingClientRect().top;
@@ -471,6 +496,7 @@ export function WorkoutEditorSession({
       </div>
 
       <EditorFooter
+        ref={footerRef}
         status={status}
         errorMessage={state.errorMessage}
         finishing={finishing}
