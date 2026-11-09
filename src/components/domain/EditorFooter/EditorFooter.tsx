@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { Check, CircleX, Info } from "lucide-react";
 import { Button, Spinner } from "@/components/ui";
 import type { SaveStatus } from "@/lib/workoutEditor/autosave";
@@ -11,12 +12,20 @@ interface EditorFooterProps {
   finishing?: boolean;
   onRetry: () => void;
   onFinish: () => void;
+  /** The editor measures the footer to keep focused fields clear of it (scroll-padding). */
+  ref?: Ref<HTMLDivElement>;
 }
 
-/** The editor's single save status (R9) plus its only action, "Concluir" (R11). */
-export function EditorFooter({ status, errorMessage, finishing, onRetry, onFinish }: EditorFooterProps) {
+/**
+ * The editor's single save status (R9) plus its only action, "Concluir" (R11). Sticky to the
+ * viewport bottom so both stay visible however long the workout gets.
+ */
+export function EditorFooter({ status, errorMessage, finishing, onRetry, onFinish, ref }: EditorFooterProps) {
   return (
-    <div className="flex w-full items-center justify-between border-t border-[var(--color-border)] bg-[var(--color-surface)] px-[var(--space-8)] py-[var(--space-4)]">
+    <div
+      ref={ref}
+      className="sticky bottom-0 z-10 flex w-full items-center justify-between border-t border-[var(--color-border)] bg-[var(--color-surface)] px-[var(--space-8)] py-[var(--space-4)]"
+    >
       <div
         role="status"
         aria-live="polite"
