@@ -1,13 +1,13 @@
 # PRD: Collapsible Exercise Card (Web)
 
 Status: Draft
-Design: pending — the pen.dev design must be updated and approved by the owner first (§10).
+Design: design-ok
 Owner: hebertpdl@gmail.com
 Related: none in `docs/requirements.md` (new requirement from the owner: the exercise card grows
 too big as sets are added, forcing the trainer to scroll too much),
 [docs/prds/create-workout-with-exercises/prd.md](../create-workout-with-exercises/prd.md) (the
 workout editor this changes; its rules are referred to below as `WE-R#`/`WE-E#` and not restated)
-Spec: not yet written (will be `docs/specs/collapsible-exercise-card/spec.md`)
+Spec: [docs/specs/collapsible-exercise-card/spec.md](../../specs/collapsible-exercise-card/spec.md)
 
 ## 1. Summary
 
