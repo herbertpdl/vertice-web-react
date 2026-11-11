@@ -1,8 +1,21 @@
 "use client";
 
-import { useState, type DragEvent } from "react";
-import { Ban, CircleAlert, CirclePlay, GripVertical, Info, Move, Trash2 } from "lucide-react";
-import { Button, TextField } from "@/components/ui";
+import { useId, useState, type DragEvent } from "react";
+import {
+  Ban,
+  ChevronDown,
+  ChevronUp,
+  CircleAlert,
+  CirclePlay,
+  GripVertical,
+  Info,
+  List,
+  MessageSquareText,
+  Move,
+  Trash2,
+} from "lucide-react";
+import { Button, TextField, Tooltip } from "@/components/ui";
+import { setCountLabel } from "@/lib/workoutEditor/collapse";
 import { MAX_SETS, type EditorExercise, type ExerciseFields, type SetFields } from "@/lib/workoutEditor/model";
 import { NOTES_MAX, REST_SECONDS_MAX, safeHttpUrl } from "@/lib/validation/bounds";
 import { SET_GRID, SetRow } from "../SetRow";
@@ -31,6 +44,13 @@ export interface WorkoutExerciseCardProps {
   onDragEnd?: () => void;
   onSetDragStart?: (setKey: string, event: DragEvent<HTMLDivElement>) => void;
   onSetDragEnd?: () => void;
+  /**
+   * Collapsed look (collapsible-exercise-card R2, R5): the header only, with the set count and a
+   * notes icon in place of the rest field; notes, sets and "+ Adicionar série" are not rendered.
+   */
+  collapsed?: boolean;
+  /** The card's own "Ocultar séries" / "Mostrar séries" button (R1); without it the button is not shown. */
+  onToggleCollapsed?: () => void;
 }
 
 const INTEGER = /^\d*$/;
@@ -94,7 +114,12 @@ export function WorkoutExerciseCard({
   onDragEnd,
   onSetDragStart,
   onSetDragEnd,
+  collapsed = false,
+  onToggleCollapsed,
 }: WorkoutExerciseCardProps) {
+  const bodyId = useId();
+  const notesTooltipId = useId();
+  const hasNotes = exercise.notes.trim() !== "";
   const [armed, setArmed] = useState(false);
   // Insertion index for the set being dragged inside this card.
   const [setOverIndex, setSetOverIndex] = useState<number | null>(null);
@@ -156,7 +181,9 @@ export function WorkoutExerciseCard({
         </span>
       )}
 
-      <div className="flex w-full items-start justify-between gap-[var(--space-4)]">
+      <div
+        className={`flex w-full justify-between gap-[var(--space-4)] ${collapsed ? "items-center" : "items-start"}`}
+      >
         <div className="flex items-center gap-[var(--space-3)]">
           <button
             type="button"
@@ -209,108 +236,155 @@ export function WorkoutExerciseCard({
             </div>
           </div>
         </div>
-        <div className="flex items-start gap-[var(--space-4)]">
-          <div className="flex flex-col items-end gap-[2px]">
-            <span className="text-[10px] text-[color:var(--color-text-tertiary)]">
-              Descanso entre séries
-            </span>
-            <RestField
-              value={exercise.restSecondsBetweenSets}
-              onCommit={(restSecondsBetweenSets) => onUpdate({ restSecondsBetweenSets })}
-            />
-          </div>
+        <div className={`flex gap-[var(--space-4)] ${collapsed ? "items-center" : "items-start"}`}>
+          {collapsed ? (
+            <>
+              <span className="flex items-center gap-[6px] text-[12px] font-semibold text-[color:var(--color-text-secondary)]">
+                <List width={14} height={14} className="text-[color:var(--color-text-tertiary)]" />
+                {setCountLabel(exercise.sets.length)}
+              </span>
+              {hasNotes && (
+                <Tooltip id={notesTooltipId} content={exercise.notes} side="bottom" multiline>
+                  <span
+                    role="img"
+                    tabIndex={0}
+                    aria-label="Notas do exercício"
+                    aria-describedby={notesTooltipId}
+                    className="flex h-[26px] w-[26px] items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-text-secondary)] outline-none hover:bg-[var(--color-surface-hover)] hover:text-[color:var(--color-text-primary)] focus-visible:bg-[var(--color-surface-hover)] focus-visible:text-[color:var(--color-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                  >
+                    <MessageSquareText width={15} height={15} />
+                  </span>
+                </Tooltip>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-end gap-[2px]">
+              <span className="text-[10px] text-[color:var(--color-text-tertiary)]">
+                Descanso entre séries
+              </span>
+              <RestField
+                value={exercise.restSecondsBetweenSets}
+                onCommit={(restSecondsBetweenSets) => onUpdate({ restSecondsBetweenSets })}
+              />
+            </div>
+          )}
+          {onToggleCollapsed && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              aria-expanded={!collapsed}
+              aria-controls={bodyId}
+              className={`flex items-center gap-[4px] rounded-[var(--radius-sm)] px-[6px] py-[4px] text-[12px] font-semibold text-[color:var(--color-primary)] outline-none hover:bg-[var(--color-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] ${
+                collapsed ? "" : "mt-[8px]"
+              }`}
+            >
+              {collapsed ? (
+                <ChevronDown width={14} height={14} aria-hidden />
+              ) : (
+                <ChevronUp width={14} height={14} aria-hidden />
+              )}
+              {collapsed ? "Mostrar séries" : "Ocultar séries"}
+            </button>
+          )}
           <button
             type="button"
             onClick={onRemove}
             aria-label={`Remover exercício ${exercise.exercise.name}`}
-            className="mt-[12px] flex h-[17px] w-[17px] items-center justify-center text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-danger)]"
+            className={`flex h-[17px] w-[17px] items-center justify-center text-[color:var(--color-text-tertiary)] hover:text-[color:var(--color-danger)] ${
+              collapsed ? "" : "mt-[12px]"
+            }`}
           >
             <Trash2 width={17} height={17} />
           </button>
         </div>
       </div>
 
-      <TextField
-        label="Notas"
-        placeholder="Adicione observações para este exercício..."
-        value={exercise.notes}
-        maxLength={NOTES_MAX}
-        onChange={(event) => onUpdate({ notes: event.target.value })}
-        className="[&>div]:bg-[var(--color-bg)]"
-      />
+      {!collapsed && (
+        <div id={bodyId} className="flex w-full flex-col gap-[var(--space-4)]">
+          <TextField
+            label="Notas"
+            placeholder="Adicione observações para este exercício..."
+            value={exercise.notes}
+            maxLength={NOTES_MAX}
+            onChange={(event) => onUpdate({ notes: event.target.value })}
+            className="[&>div]:bg-[var(--color-bg)]"
+          />
 
-      {exercise.sets.length === 0 ? (
-        <div className="flex w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] p-[var(--space-4)] text-[12px] text-[color:var(--color-text-tertiary)]">
-          Nenhuma série ainda — este exercício será salvo sem séries
-        </div>
-      ) : (
-        <div
-          role="table"
-          aria-label="Séries"
-          className="flex w-full flex-col gap-[var(--space-2)]"
-          onDragOver={(event) => {
-            if (draggingOwnSet) event.preventDefault();
-          }}
-          onDrop={handleSetsDrop}
-        >
-          <div className={`grid w-full items-center ${SET_GRID}`}>
-            <span />
-            <span className="text-[11px] font-semibold text-[color:var(--color-text-tertiary)]">#</span>
-            {["ESTRATÉGIA", "REPS/DURAÇÃO", "PESO", "%1RM", "DESCANSO"].map((h) => (
-              <span
-                key={h}
-                className="text-[10px] font-semibold tracking-[0.6px] text-[color:var(--color-text-tertiary)]"
-              >
-                {h}
-              </span>
-            ))}
-            <span />
-          </div>
-          {exercise.sets.map((set, index) => (
-            <div key={set.key} className="contents">
-              {draggingOwnSet && setOverIndex === index && <DropIndicator />}
-              <div onDragOver={(event) => handleRowDragOver(event, index)}>
-                <SetRow
-                  set={set}
-                  setNumber={index + 1}
-                  dragging={draggingSetKey === set.key}
-                  refused={refusedSetKeys?.includes(set.key)}
-                  duplicateDisabled={atSetCap}
-                  onUpdate={(patch) => onUpdateSet(set.key, patch)}
-                  onDuplicate={() => onDuplicateSet(set.key)}
-                  onRemove={() => onRemoveSet(set.key)}
-                  onDragStart={(event) => onSetDragStart?.(set.key, event)}
-                  onDragEnd={() => {
-                    setSetOverIndex(null);
-                    onSetDragEnd?.();
-                  }}
-                />
-              </div>
+          {exercise.sets.length === 0 ? (
+            <div className="flex w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] p-[var(--space-4)] text-[12px] text-[color:var(--color-text-tertiary)]">
+              Nenhuma série ainda — este exercício será salvo sem séries
             </div>
-          ))}
-          {draggingOwnSet && setOverIndex === exercise.sets.length && <DropIndicator />}
+          ) : (
+            <div
+              role="table"
+              aria-label="Séries"
+              className="flex w-full flex-col gap-[var(--space-2)]"
+              onDragOver={(event) => {
+                if (draggingOwnSet) event.preventDefault();
+              }}
+              onDrop={handleSetsDrop}
+            >
+              <div className={`grid w-full items-center ${SET_GRID}`}>
+                <span />
+                <span className="text-[11px] font-semibold text-[color:var(--color-text-tertiary)]">#</span>
+                {["ESTRATÉGIA", "REPS/DURAÇÃO", "PESO", "%1RM", "DESCANSO"].map((h) => (
+                  <span
+                    key={h}
+                    className="text-[10px] font-semibold tracking-[0.6px] text-[color:var(--color-text-tertiary)]"
+                  >
+                    {h}
+                  </span>
+                ))}
+                <span />
+              </div>
+              {exercise.sets.map((set, index) => (
+                <div key={set.key} className="contents">
+                  {draggingOwnSet && setOverIndex === index && <DropIndicator />}
+                  <div onDragOver={(event) => handleRowDragOver(event, index)}>
+                    <SetRow
+                      set={set}
+                      setNumber={index + 1}
+                      dragging={draggingSetKey === set.key}
+                      refused={refusedSetKeys?.includes(set.key)}
+                      duplicateDisabled={atSetCap}
+                      onUpdate={(patch) => onUpdateSet(set.key, patch)}
+                      onDuplicate={() => onDuplicateSet(set.key)}
+                      onRemove={() => onRemoveSet(set.key)}
+                      onDragStart={(event) => onSetDragStart?.(set.key, event)}
+                      onDragEnd={() => {
+                        setSetOverIndex(null);
+                        onSetDragEnd?.();
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+              {draggingOwnSet && setOverIndex === exercise.sets.length && <DropIndicator />}
+            </div>
+          )}
+
+          {draggingOwnSet && (
+            <p className="flex items-center gap-[6px] text-[12px] text-[color:var(--color-text-tertiary)]">
+              <Info width={13} height={13} />
+              Arraste para reordenar. Séries só podem ser reordenadas dentro do próprio exercício —
+              soltar em outro exercício devolve a série ao lugar de origem.
+            </p>
+          )}
+
+          <div className="flex items-center gap-[12px]">
+            <Button variant="outline" size="sm" onClick={onAddSet} disabled={atSetCap}>
+              + Adicionar série
+            </Button>
+            {atSetCap && (
+              <span className="flex items-center gap-[6px] text-[12px] text-[color:var(--color-warning)]">
+                <CircleAlert width={13} height={13} />
+                Limite de {MAX_SETS} séries por exercício atingido. Remova uma série para adicionar
+                outra.
+              </span>
+            )}
+          </div>
         </div>
       )}
-
-      {draggingOwnSet && (
-        <p className="flex items-center gap-[6px] text-[12px] text-[color:var(--color-text-tertiary)]">
-          <Info width={13} height={13} />
-          Arraste para reordenar. Séries só podem ser reordenadas dentro do próprio exercício —
-          soltar em outro exercício devolve a série ao lugar de origem.
-        </p>
-      )}
-
-      <div className="flex items-center gap-[12px]">
-        <Button variant="outline" size="sm" onClick={onAddSet} disabled={atSetCap}>
-          + Adicionar série
-        </Button>
-        {atSetCap && (
-          <span className="flex items-center gap-[6px] text-[12px] text-[color:var(--color-warning)]">
-            <CircleAlert width={13} height={13} />
-            Limite de {MAX_SETS} séries por exercício atingido. Remova uma série para adicionar outra.
-          </span>
-        )}
-      </div>
     </div>
   );
 }
