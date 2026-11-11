@@ -32,7 +32,7 @@ export function Tooltip({
       <span
         id={id}
         role="tooltip"
-        className={`font-base pointer-events-none absolute z-20 rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-[12px] py-[8px] text-[12px] font-medium text-[color:var(--color-text-primary)] opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${
+        className={`font-base pointer-events-none absolute z-20 rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] bg-[var(--color-bg)] px-[12px] py-[8px] text-[12px] font-medium text-[color:var(--color-text-primary)] opacity-0 transition-opacity group-has-[:focus-visible]:opacity-100 group-hover:opacity-100 ${
           multiline ? "w-max max-w-[320px] leading-[1.4] whitespace-normal" : "whitespace-nowrap"
         } ${sideClasses[side]}`}
       >

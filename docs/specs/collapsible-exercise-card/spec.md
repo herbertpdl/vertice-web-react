@@ -69,8 +69,9 @@ otherwise; it sets the state to `toggleAll(...)`.
 ## UI kit: `Tooltip`
 
 Two additive props: `id` (for `aria-describedby`) and `multiline` (wraps at `max-w-[320px]`
-instead of `whitespace-nowrap`). It now also opens on `group-focus-within`, not only hover, so
-keyboard users get the same content (R4); this benefits every existing use.
+instead of `whitespace-nowrap`). It now also opens while its trigger has keyboard focus
+(`group-has-[:focus-visible]`), not only on hover, so keyboard users get the same content (R4);
+a mouse click that focuses the trigger does not keep it open after the pointer leaves.
 
 ## Tests
 
