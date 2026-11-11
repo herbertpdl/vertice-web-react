@@ -298,3 +298,73 @@ export const NewWorkoutHasNoDelete: Story = {
     await expect(canvas.queryByRole("button", { name: "Excluir treino" })).toBeNull();
   },
 };
+
+const collapseTransport = fakeTransport();
+
+/**
+ * Collapsing is view state only: cards open expanded, "Recolher todos" / "Expandir todos"
+ * switches every card, and nothing is saved (collapsible-exercise-card R7, R12–R15).
+ */
+export const CollapseAndExpandAll: Story = {
+  args: { workoutId: 42, initial: treinoA, transport: collapseTransport },
+  beforeEach: () => {
+    collapseTransport.calls.length = 0;
+  },
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getAllByRole("button", { name: "Ocultar séries" })).toHaveLength(3);
+
+    const puxada = canvas.getByRole("group", { name: "Exercício 2: Puxada Alta na Polia" });
+    await userEvent.click(within(puxada).getByRole("button", { name: "Ocultar séries" }));
+    await expect(within(puxada).queryByRole("row")).toBeNull();
+    await expect(canvas.getAllByRole("button", { name: "Ocultar séries" })).toHaveLength(2);
+
+    await userEvent.click(canvas.getByRole("button", { name: "Recolher todos" }));
+    await expect(canvas.getAllByRole("button", { name: "Mostrar séries" })).toHaveLength(3);
+    await expect(canvas.queryByRole("row")).toBeNull();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Expandir todos" }));
+    await expect(canvas.getAllByRole("button", { name: "Ocultar séries" })).toHaveLength(3);
+    await expect(canvas.getByRole("button", { name: "Recolher todos" })).toBeVisible();
+
+    // Never saved: the footer stays idle and nothing went to the BFF (R15).
+    await expect(canvas.getByText("As alterações são salvas automaticamente")).toBeVisible();
+    await expect(collapseTransport.calls).toEqual([]);
+  },
+};
+
+/** One exercise: no editor-wide action, the card still toggles on its own (R12, E1). */
+export const SingleExerciseHasNoCollapseAll: Story = {
+  args: {
+    workoutId: 42,
+    initial: { ...treinoA, exercises: [puxadaCard] },
+  },
+  play: async ({ canvas, userEvent }) => {
+    await expect(canvas.queryByRole("button", { name: "Recolher todos" })).toBeNull();
+    await userEvent.click(canvas.getByRole("button", { name: "Ocultar séries" }));
+    await expect(canvas.getByRole("button", { name: "Mostrar séries" })).toBeVisible();
+    await expect(canvas.queryByRole("button", { name: "Expandir todos" })).toBeNull();
+  },
+};
+
+const collapsedRefusal = fakeTransport({ refuseReplace: true, protectedSetIds: [101] });
+
+/** A set removal is refused after its card was collapsed: the set comes back and the card expands (R11, E4). */
+export const RefusedRemovalExpandsCollapsedCard: Story = {
+  args: { workoutId: 42, initial: treinoA, transport: collapsedRefusal },
+  beforeEach: () => {
+    collapsedRefusal.calls.length = 0;
+  },
+  play: async ({ canvas, userEvent }) => {
+    const supino = canvas.getByRole("group", { name: "Exercício 1: Supino Reto com Barra" });
+    await userEvent.click(within(supino).getByRole("button", { name: "Remover série 1" }));
+    await userEvent.click(within(supino).getByRole("button", { name: "Ocultar séries" }));
+    await expect(within(supino).getByText("3 séries")).toBeVisible();
+
+    await canvas.findByRole("alert", undefined, { timeout: 5000 });
+    await expect(within(supino).getByRole("button", { name: "Ocultar séries" })).toBeVisible();
+    await expect(within(supino).getAllByRole("row")).toHaveLength(4);
+    await expect(
+      within(supino).getByText("Remoção desfeita — desempenho registrado por um aluno"),
+    ).toBeVisible();
+  },
+};

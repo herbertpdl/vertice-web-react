@@ -1,7 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, fn } from "storybook/test";
+import { expect, fn, waitFor } from "storybook/test";
 import { WorkoutExerciseCard } from "./WorkoutExerciseCard";
-import { agachamentoCard, exercise, puxadaCard, set, supino, supinoCard } from "../storyFixtures";
+import {
+  agachamento,
+  agachamentoCard,
+  exercise,
+  puxadaCard,
+  set,
+  supino,
+  supinoCard,
+} from "../storyFixtures";
 
 const meta = {
   component: WorkoutExerciseCard,
@@ -93,5 +101,88 @@ export const RefusedRemoval: Story = {
     await expect(
       canvas.getByText("Remoção desfeita — desempenho registrado por um aluno"),
     ).toBeVisible();
+  },
+};
+
+/** The card's own button collapses it (collapsible-exercise-card R1). */
+export const ToggleCollapse: Story = {
+  args: { onToggleCollapsed: fn() },
+  play: async ({ canvas, userEvent, args }) => {
+    const toggle = canvas.getByRole("button", { name: "Ocultar séries" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(toggle);
+    await expect(args.onToggleCollapsed).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Collapsed: header, set count and notes icon; no notes box, sets, rest or "+ Adicionar série" (R2, R5). */
+export const Collapsed: Story = {
+  args: { collapsed: true, onToggleCollapsed: fn() },
+  play: async ({ canvas, userEvent, args }) => {
+    await expect(canvas.getByText("Supino Reto com Barra")).toBeVisible();
+    await expect(canvas.getByText("Peito")).toBeVisible();
+    await expect(canvas.getByText("4 séries")).toBeVisible();
+    await expect(canvas.getByRole("img", { name: "Notas do exercício" })).toBeVisible();
+    await expect(canvas.queryByLabelText("Notas")).toBeNull();
+    await expect(canvas.queryByRole("row")).toBeNull();
+    await expect(canvas.queryByLabelText("Descanso entre séries (segundos)")).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "+ Adicionar série" })).toBeNull();
+    // Removing still works from the collapsed card (R16).
+    await userEvent.click(canvas.getByRole("button", { name: "Remover exercício Supino Reto com Barra" }));
+    await expect(args.onRemove).toHaveBeenCalled();
+    const toggle = canvas.getByRole("button", { name: "Mostrar séries" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    await expect(args.onToggleCollapsed).toHaveBeenCalled();
+  },
+};
+
+/** No sets, no notes, no video: "Nenhuma série", and neither the notes icon nor "Ver vídeo" (R3, E7, E10). */
+export const CollapsedNoSets: Story = {
+  args: {
+    exercise: exercise({ ...agachamento, videoUrl: "" }, { id: 12 }),
+    position: 3,
+    collapsed: true,
+    onToggleCollapsed: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Nenhuma série")).toBeVisible();
+    await expect(canvas.queryByRole("img", { name: "Notas do exercício" })).toBeNull();
+    await expect(canvas.queryByText("Ver vídeo")).toBeNull();
+  },
+};
+
+/** Ten sets read "10 séries", with no cap hint (E6). */
+export const CollapsedAtSetCap: Story = {
+  args: {
+    ...SetCapReached.args,
+    collapsed: true,
+    onToggleCollapsed: fn(),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("10 séries")).toBeVisible();
+    await expect(canvas.queryByText(/Limite de 10 séries/)).toBeNull();
+  },
+};
+
+/** Keyboard focus on the notes icon shows the full note (R4). */
+export const CollapsedNotesOnFocus: Story = {
+  args: { collapsed: true, onToggleCollapsed: fn() },
+  play: async ({ canvas }) => {
+    const icon = canvas.getByRole("img", { name: "Notas do exercício" });
+    await expect(icon).toHaveAccessibleDescription(supinoCard.notes);
+    await expect(canvas.getByRole("tooltip")).toHaveStyle({ opacity: "0" });
+    icon.focus();
+    await expect(icon).toHaveFocus();
+    await waitFor(() => expect(canvas.getByRole("tooltip")).toHaveStyle({ opacity: "1" }));
+  },
+};
+
+/** A collapsed card can be dragged like an expanded one (R17). */
+export const CollapsedDragging: Story = {
+  args: { collapsed: true, onToggleCollapsed: fn(), dragState: "dragging" },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Arrastando")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Arrastar exercício 1" })).toBeVisible();
   },
 };

@@ -19,6 +19,13 @@ import { DAY_ORDER, DAY_NAMES_LONG } from "@/lib/days";
 import { useRedirectOnError } from "@/lib/hooks/useRedirectOnError";
 import type { AutosaveTransport } from "@/lib/workoutEditor/autosave";
 import {
+  allCollapsed,
+  expandRefused,
+  toggleAll,
+  toggleCollapsed,
+  type CollapsedKeys,
+} from "@/lib/workoutEditor/collapse";
+import {
   DEFAULT_WORKOUT_NAME,
   MAX_EXERCISES,
   emptyWorkout,
@@ -166,6 +173,23 @@ export function WorkoutEditorSession({
   const [exerciseOverIndex, setExerciseOverIndex] = useState<number | null>(null);
   const [draggingSet, setDraggingSet] = useState<{ exerciseKey: string; setKey: string } | null>(null);
 
+  // Which cards are collapsed (collapsible-exercise-card PRD). View state only: never in the
+  // draft, so it is never saved and never touches the footer (R15), and every visit starts with
+  // all cards expanded (R7, R8). Keys not in the set are expanded, so new and cloned exercises
+  // start expanded (R9, R10).
+  const [collapsed, setCollapsed] = useState<CollapsedKeys>(() => new Set());
+  // A refused removal brings an exercise or a set back: its card expands so the restored item
+  // and its flag are visible (R11). Adjusted during render when a new refusal arrives.
+  const [seenRefusal, setSeenRefusal] = useState(refusal);
+  if (refusal !== seenRefusal) {
+    setSeenRefusal(refusal);
+    if (refusal) {
+      const next = expandRefused(draft.exercises, collapsed, refusal);
+      if (next !== collapsed) setCollapsed(next);
+    }
+  }
+  const everyCardCollapsed = allCollapsed(draft.exercises, collapsed);
+
   // Leaving warns only while something could still be lost (R12). A hard
   // unload (reload, tab close) kills a pending save, so `beforeunload` covers
   // both "saving" and "error".
@@ -312,6 +336,15 @@ export function WorkoutEditorSession({
           {draft.exercises.length} / {MAX_EXERCISES} exercícios
         </span>
       )}
+      {/* One editor-wide action, only with two or more exercises (R12–R14). */}
+      {draft.exercises.length >= 2 && (
+        <Button
+          variant="outline"
+          onClick={() => setCollapsed(toggleAll(draft.exercises, collapsed))}
+        >
+          {everyCardCollapsed ? "Expandir todos" : "Recolher todos"}
+        </Button>
+      )}
       {offerClone && (
         <Button variant="outline" onClick={() => setCloneOpen(true)}>
           Usar treino existente como base
@@ -454,6 +487,8 @@ export function WorkoutEditorSession({
                       exercise={we}
                       position={index + 1}
                       dragState={dragState}
+                      collapsed={collapsed.has(we.key)}
+                      onToggleCollapsed={() => setCollapsed(toggleCollapsed(collapsed, we.key))}
                       refused={refusal?.exerciseKeys.includes(we.key)}
                       refusedSetKeys={refusal?.setKeys}
                       draggingSetKey={draggingSet?.exerciseKey === we.key ? draggingSet.setKey : null}
