@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect, waitFor } from "storybook/test";
 import { Tooltip } from "./Tooltip";
 import { Button } from "../Button";
 
@@ -41,5 +42,20 @@ export const Right: Story = {
   args: { side: "right" },
   play: async ({ canvas, userEvent }) => {
     await userEvent.hover(canvas.getByRole("button"));
+  },
+};
+
+/** Keyboard focus opens it too; `multiline` wraps long content at 320px. */
+export const MultilineOnFocus: Story = {
+  args: {
+    side: "bottom",
+    multiline: true,
+    content:
+      "Manter escápulas retraídas durante todo o movimento. Descer a barra até tocar levemente o peito.",
+  },
+  play: async ({ canvas }) => {
+    canvas.getByRole("button").focus();
+    await waitFor(() => expect(canvas.getByRole("tooltip")).toHaveStyle({ opacity: "1" }));
+    await expect(canvas.getByRole("tooltip").getBoundingClientRect().width).toBeLessThanOrEqual(320);
   },
 };
