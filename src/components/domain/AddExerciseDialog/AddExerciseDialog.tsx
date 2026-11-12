@@ -157,8 +157,7 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
               />
             </div>
             <Dropdown
-              size="compact"
-              className="w-[180px] shrink-0"
+              className="w-[200px] shrink-0"
               placeholder={groups.isError ? "Grupos indisponíveis" : "Todos os grupos"}
               options={filterOptions}
               value={groups.isError ? undefined : String(muscleGroupId ?? "")}
