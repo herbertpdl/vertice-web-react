@@ -123,6 +123,35 @@ export const FilteredByGroup: Story = {
   },
 };
 
+/** The group filter is a standard field: as tall as the search box beside it, so its label never wraps. */
+const expectFilterMatchesSearch = async (canvas: PlayContext["canvas"], filterName: string) => {
+  const search = canvas.getByLabelText("Buscar exercício por nome").parentElement!;
+  const filter = canvas.getByRole("button", { name: filterName });
+  await expect(filter.getBoundingClientRect().height).toBe(search.getBoundingClientRect().height);
+};
+
+/** The longest group name still fits the filter on one line. */
+export const LongGroupNameFits: Story = {
+  play: async ({ canvas, userEvent }) => {
+    await expectFilterMatchesSearch(canvas, "Todos os grupos");
+    await userEvent.click(canvas.getByRole("button", { name: "Todos os grupos" }));
+    await userEvent.click(
+      await within(document.body).findByRole("option", { name: "Posteriores de coxa" }),
+    );
+    await expectFilterMatchesSearch(canvas, "Posteriores de coxa");
+  },
+};
+
+/** GET /muscle-groups failed: the filter is disabled, same size as the search field. */
+export const GroupsUnavailable: Story = {
+  decorators: [withSeededQueries({}, { failing: [groupsKey] })],
+  play: async ({ canvas }) => {
+    const filter = await canvas.findByRole("button", { name: "Grupos indisponíveis" });
+    await expect(filter).toBeDisabled();
+    await expectFilterMatchesSearch(canvas, "Grupos indisponíveis");
+  },
+};
+
 /**
  * Coming back from the prompt, an older search's rows never stand in for the new one: "sup" is
  * still loading, so skeletons, not the Costas rows.
