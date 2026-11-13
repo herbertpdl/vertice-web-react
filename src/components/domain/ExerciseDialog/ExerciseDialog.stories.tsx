@@ -39,6 +39,11 @@ type Story = StoryObj<typeof meta>;
 const groupsTrigger = (canvas: ReturnType<typeof within>) =>
   canvas.getByRole("button", { name: "Grupos musculares" });
 
+const selectedGroups = (canvas: ReturnType<typeof within>) =>
+  within(canvas.getByRole("list", { name: "Selecionados" }))
+    .getAllByRole("listitem")
+    .map((item) => item.textContent);
+
 export const Create: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("heading", { name: "Novo exercício" })).toBeVisible();
@@ -53,7 +58,7 @@ export const EditOwn: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("heading", { name: "Editar exercício" })).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Excluir" })).toBeVisible();
-    await expect(groupsTrigger(canvas)).toHaveTextContent("Costas, Bíceps");
+    await expect(selectedGroups(canvas)).toEqual(["Costas", "Bíceps"]);
     await waitFor(() =>
       expect(canvas.getByRole("button", { name: "Salvar alterações" })).toBeEnabled(),
     );
@@ -109,7 +114,7 @@ export const SubmitEnabledWhenValid: Story = {
     await userEvent.click(await body.findByRole("option", { name: "Costas" }));
     await userEvent.click(body.getByRole("option", { name: "Bíceps" }));
     await userEvent.keyboard("{Escape}");
-    await expect(groupsTrigger(canvas)).toHaveTextContent("Costas, Bíceps");
+    await expect(selectedGroups(canvas)).toEqual(["Costas", "Bíceps"]);
     await waitFor(() => expect(submit).toBeEnabled());
 
     await userEvent.click(submit);
