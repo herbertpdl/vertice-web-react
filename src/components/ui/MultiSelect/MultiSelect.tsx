@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 
 export interface MultiSelectOption {
   value: string;
@@ -36,7 +36,10 @@ function getOptionElements(menu: HTMLElement | null) {
 }
 
 /**
- * A multi-value listbox popover. Same floating mechanics as `Dropdown` (portal
+ * A multi-value listbox popover. The selection is shown as removable tags
+ * between the label and the trigger (derived from `value`, in option order);
+ * the trigger itself always shows the placeholder.
+ * Same floating mechanics as `Dropdown` (portal
  * to <body>, `fixed` from the trigger's rect, flip above, `z-[60]`), but an
  * option click toggles it and keeps the menu open.
  */
@@ -59,9 +62,14 @@ export function MultiSelect({
   // Set when the menu is opened from the keyboard so the first render of the
   // menu moves focus into it (mouse users keep focus on the trigger).
   const focusMenuOnOpenRef = useRef(false);
-  const selectedLabels = options
-    .filter((option) => value.includes(option.value))
-    .map((option) => option.label);
+  const tagsRef = useRef<HTMLUListElement>(null);
+  // Index of the tag whose "x" was activated while it had focus: after the
+  // removal re-renders, focus goes to the tag now at that index (the next
+  // one), else the previous one, else the trigger.
+  const focusTagAfterRemoveRef = useRef<number | null>(null);
+  const selectedOptions = options.filter((option) =>
+    value.includes(option.value),
+  );
   const placement = menuPosition?.placement ?? "bottom";
 
   useLayoutEffect(() => {
@@ -86,10 +94,15 @@ export function MultiSelect({
 
     updatePosition();
 
+    // The tag row sits above the trigger, so adding or removing a tag while
+    // the menu is open moves the trigger: re-measure when the container resizes.
+    const resizeObserver = new ResizeObserver(updatePosition);
+    if (containerRef.current) resizeObserver.observe(containerRef.current);
     window.addEventListener("resize", updatePosition);
     // Capture phase so scrolling inside any ancestor repositions the menu.
     document.addEventListener("scroll", updatePosition, true);
     return () => {
+      resizeObserver.disconnect();
       window.removeEventListener("resize", updatePosition);
       document.removeEventListener("scroll", updatePosition, true);
       setMenuPosition(null);
@@ -104,12 +117,29 @@ export function MultiSelect({
     getOptionElements(menuRef.current)[0]?.focus();
   }, [menuPosition]);
 
+  useEffect(() => {
+    const index = focusTagAfterRemoveRef.current;
+    if (index === null) return;
+    focusTagAfterRemoveRef.current = null;
+    const removeButtons = Array.from(
+      tagsRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    );
+    (
+      removeButtons[Math.min(index, removeButtons.length - 1)] ??
+      triggerRef.current
+    )?.focus();
+  }, [value]);
+
   // Outside clicks: the menu isn't a DOM descendant of the container, so check both refs.
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
-      if (containerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      if (
+        containerRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      )
+        return;
       setOpen(false);
     }
     document.addEventListener("pointerdown", handlePointerDown);
@@ -127,6 +157,16 @@ export function MultiSelect({
       : [...value, optionValue];
     // Always hand back the selection in option order, whatever the click order.
     onChange(options.map((o) => o.value).filter((v) => next.includes(v)));
+  }
+
+  function removeTag(
+    event: React.MouseEvent<HTMLButtonElement>,
+    optionValue: string,
+    index: number,
+  ) {
+    if (document.activeElement === event.currentTarget)
+      focusTagAfterRemoveRef.current = index;
+    toggle(optionValue);
   }
 
   function handleTriggerKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
@@ -181,7 +221,8 @@ export function MultiSelect({
 
   function handleBlur(event: React.FocusEvent<HTMLElement>) {
     const next = event.relatedTarget as Node | null;
-    if (containerRef.current?.contains(next) || menuRef.current?.contains(next)) return;
+    if (containerRef.current?.contains(next) || menuRef.current?.contains(next))
+      return;
     setOpen(false);
   }
 
@@ -211,6 +252,39 @@ export function MultiSelect({
           {label}
         </label>
       )}
+      {selectedOptions.length > 0 && (
+        <ul
+          ref={tagsRef}
+          aria-label="Selecionados"
+          className="flex flex-wrap gap-[6px]"
+        >
+          {selectedOptions.map((option, index) => (
+            <li
+              key={option.value}
+              className={`flex min-w-0 items-center gap-1 rounded-[var(--radius-full)] bg-[var(--color-surface-hover)] py-[4px] ${
+                disabled ? "px-[10px]" : "pr-[4px] pl-[10px]"
+              }`}
+            >
+              <span className="truncate text-[length:var(--text-xs)] leading-4 font-semibold text-[color:var(--color-text-primary)]">
+                {option.label}
+              </span>
+              {!disabled && (
+                <button
+                  type="button"
+                  aria-label={`Remover ${option.label}`}
+                  // A mouse click keeps focus where it is (the trigger or an
+                  // option), so it never blurs the container and closes the menu.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={(event) => removeTag(event, option.value, index)}
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[var(--radius-full)] text-[color:var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-active)] hover:text-[color:var(--color-text-primary)] focus-visible:text-[color:var(--color-text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--color-primary)]"
+                >
+                  <X aria-hidden width={12} height={12} />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       <button
         ref={triggerRef}
         id={id}
@@ -224,14 +298,8 @@ export function MultiSelect({
         onKeyDown={handleTriggerKeyDown}
         className={`flex w-full items-center justify-between gap-2 border bg-[var(--color-surface)] px-[14px] py-[10px] text-[length:var(--text-base)] transition-colors ${triggerRadius} ${borderColor}`}
       >
-        <span
-          className={`min-w-0 truncate text-left ${
-            selectedLabels.length > 0
-              ? "text-[color:var(--color-text-primary)]"
-              : "text-[color:var(--color-text-tertiary)]"
-          }`}
-        >
-          {selectedLabels.length > 0 ? selectedLabels.join(", ") : placeholder}
+        <span className="min-w-0 truncate text-left text-[color:var(--color-text-tertiary)]">
+          {placeholder}
         </span>
         <ChevronDown
           width={16}
@@ -242,7 +310,10 @@ export function MultiSelect({
         />
       </button>
       {error && (
-        <span id={`${id}-error`} className="text-[11px] text-[color:var(--color-danger)]">
+        <span
+          id={`${id}-error`}
+          className="text-[11px] text-[color:var(--color-danger)]"
+        >
           {error}
         </span>
       )}
