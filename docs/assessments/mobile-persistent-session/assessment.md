@@ -4,25 +4,28 @@ Status: Draft
 Owner: hebertpdl@gmail.com
 Related: [vertice-api `docs/prds/mobile-persistent-session/prd.md`](https://github.com/herbertpdl/vertice-api/blob/main/docs/prds/mobile-persistent-session/prd.md) (Approved),
 [vertice-bff assessment](https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/mobile-persistent-session/assessment.md)
-Spec: none needed for this repo unless W1 is taken
+Spec: none needed for this repo
 
 ## 1. Summary
 
 Overall risk: Low. The web keeps its 8-hour login (R5) and needs no change to keep it: its login
 route builds the upstream body explicitly from the generated contract
 (`src/app/api/auth/login/route.ts:18-23`), and its BFF calls forward only `X-Forwarded-For` (`src/lib/bff.ts:41-49`), so it will not send the new mobile-client header
-(vertice-bff B1) and keeps getting 8h tokens. The one behavior change the web inherits is R9: a
-password change anywhere now ends web sessions too, which arrives as the 401 the web already
-handles (`apiClient` logs out and goes to `/login`). No Blocker or High findings.
+(vertice-bff B1) and keeps getting 8h tokens. The web inherits two behavior changes, both
+arriving as the 401 the web already handles (`apiClient` logs out and goes to `/login`): a password
+change made elsewhere (mobile app or a link) now ends web sessions too (R9/R11), and a role change
+ends them (R14). R14 also keeps the web's trainer-only access correct after a role change, since
+that rule is checked only at login (`src/app/api/auth/login/route.ts:31`). No Blocker or High
+findings.
 
 ## 2. PRD coverage map
 
 | Rule | Lands on | Notes |
 |---|---|---|
 | R5, E3 | existing: `src/app/api/auth/login/route.ts` | No mobile-client header forwarded → 8h. |
-| R9, R11 | existing 401 path (`src/lib/api/client.ts`) | W1. |
+| R9, R11, R14 | existing 401 path (`src/lib/api/client.ts:66-81`) | W1. |
 | R12 | existing | Account deletion already ends web sessions. |
-| R1–R4, R6–R8, R10, R13–R19, E1, E2, E4–E9 | n/a | Mobile and BFF only. |
+| R1–R4, R6–R8, R10, R13, R15–R19, E1, E2, E4–E9 | n/a | Mobile and BFF only. |
 
 ## 3. Current state
 
@@ -35,12 +38,16 @@ header, until `.bff-ref` and `schema.ts` are synced.
 
 ### PRD fit
 
-**W1 — Low — changing the password on the web logs that browser out.**
-- What: R9/R10 void every session, including the browser where the password was changed; the
-  web's change-password flow will hit a 401 on its next call.
-- Where: the web's change-password screen and `apiClient`'s 401 → `/login`.
-- Recommendation: after a successful change, log out and show "Senha alterada. Entre com a nova
-  senha." on `/login` instead of a bare redirect. Small; can ride along with the BFF sync.
+**W1 — Low — a web session ends because of a change made elsewhere, with no explanation.**
+- What: the web has no change-password screen (its only password flow is the public
+  `/definir-senha`, which holds no session). But when a trainer changes the password in the mobile
+  app or through a link (R9/R11), or their role changes (R14), every open web tab gets a 401 on its
+  next call and lands on a bare `/login`.
+- Where: `failure()` in `src/lib/api/client.ts:66-81` (401 → logout → `/login`).
+- Recommendation: accept the bare redirect; the PRD keeps the web unchanged (§1, §6 of the PRD).
+  A message would need the BFF to send a distinct error code, since the web cannot tell this 401
+  from a normal 8h expiry; if wanted later, reuse the `?aviso=` notice pattern of
+  `DeleteAccountDialog` (`/login?aviso=conta-excluida`).
 
 ### API contract and backward compatibility
 
@@ -55,7 +62,7 @@ rollout (no web deploy needed for the feature itself).
 ## 6. Testing strategy
 
 Existing route tests for `/api/auth/login` keep asserting the exact upstream body (no mobile
-field). If W1 is taken: a test for the post-change logout and its message.
+field). The 401 → `/login` path is existing behavior; nothing new to test.
 
 ## 7. Rollout
 
@@ -63,7 +70,7 @@ No ordering constraint; sync `.bff-ref` after the BFF change merges.
 
 ## 8. Effort and risk
 
-Size XS (contract sync), S with W1.
+Size XS (contract sync).
 
 ## 9. Questions and assumptions
 
@@ -71,4 +78,5 @@ None.
 
 ## 10. Inputs to the spec
 
-- [ ] Whether to take W1 (post-password-change message) now or later.
+- [ ] Confirm W1: a session ended by a password or role change elsewhere shows the bare `/login`, as
+  an expired one does (a message would need a distinct BFF error code).
