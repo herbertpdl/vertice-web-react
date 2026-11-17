@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@53de4b86bfd5b714e3b49e449a50183e944ee09d:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@55d04cd82f11a9dc20347d3d33ea5c5d58852809:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -40,7 +40,7 @@ export interface paths {
         put?: never;
         /**
          * Log in
-         * @description Public: no token needed. The password is checked by vertice-api. A wrong password, an unknown email and an account with no password yet all get the same 401 `UNAUTHORIZED` “Invalid email or password”. Failed attempts are rate limited.
+         * @description Public: no token needed. The password is checked by vertice-api. A wrong password, an unknown email and an account with no password yet all get the same 401 `UNAUTHORIZED` “Invalid email or password”. Failed attempts are rate limited. With `X-Vertice-Client: mobile` a TRAINER or CLIENT gets a 90-day mobile session, renewable with `POST /auth/session/renew`; without it (and for ADMIN) the 8h web session.
          */
         post: operations["login"];
         delete?: never;
@@ -60,9 +60,29 @@ export interface paths {
         put?: never;
         /**
          * Register a trainer
-         * @description Public: no token needed. Public sign-up is for trainers only (`role: "TRAINER"`); a client is created by their trainer (`POST /clients`). `acceptedTermsVersion` is required: no account is created without an acceptance on record. A taken email or CPF is 409 `CONFLICT`, the same body for both. Every attempt is rate limited.
+         * @description Public: no token needed. Public sign-up is for trainers only (`role: "TRAINER"`); a client is created by their trainer (`POST /clients`). `acceptedTermsVersion` is required: no account is created without an acceptance on record. A taken email or CPF is 409 `CONFLICT`, the same body for both. Every attempt is rate limited. With `X-Vertice-Client: mobile` the session is a 90-day mobile one, as on login.
          */
         post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/session/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew a mobile session
+         * @description Roles: TRAINER, CLIENT. Trades the caller’s mobile session token (from login or register with `X-Vertice-Client: mobile`) for a new one that expires 90 days from now; the old token stays valid until its own expiry. A web (8h) token is 403 `SESSION_NOT_RENEWABLE`, with or without the header: renewal decides from the token alone. vertice-api is asked first, so a token it no longer accepts (deleted user, changed role, password changed since the token was issued) is 401 `UNAUTHENTICATED` and gets no new token. Refusals are rate limited per IP and per user. No body.
+         */
+        post: operations["renewSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -891,6 +911,8 @@ export interface components {
     schemas: {
         AuthSession: {
             token: string;
+            /** @description When `token` expires, an ISO-8601 instant: 8 hours out for a web session, 90 days for a mobile one (`X-Vertice-Client: mobile`). A mobile app renews before this with `POST /api/auth/session/renew`. */
+            expiresAt: string;
             user: components["schemas"]["SessionUser"];
         };
         ChangePasswordRequest: {
@@ -1071,7 +1093,7 @@ export interface components {
             trainingPlanName: string;
         };
         /** @enum {string} */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHORIZED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "PRECONDITION_FAILED" | "TOO_LARGE" | "RATE_LIMITED" | "UPSTREAM_ERROR" | "UPSTREAM_UNAVAILABLE" | "INTERNAL_ERROR" | "INVALID_CURRENT_PASSWORD" | "INVALID_SETUP_TOKEN" | "ACTIVE_CLIENTS";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHORIZED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "PRECONDITION_FAILED" | "TOO_LARGE" | "RATE_LIMITED" | "UPSTREAM_ERROR" | "UPSTREAM_UNAVAILABLE" | "INTERNAL_ERROR" | "INVALID_CURRENT_PASSWORD" | "INVALID_SETUP_TOKEN" | "ACTIVE_CLIENTS" | "SESSION_NOT_RENEWABLE";
         ErrorResponse: {
             error: {
                 /** @description Machine-readable. Key on this, never on `message`. */
@@ -1473,7 +1495,10 @@ export interface operations {
     login: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Sent by the mobile app only. `mobile` on login and register issues a 90-day mobile session that `POST /auth/session/renew` can renew; absent (or any other value) issues the 8h web session. Renewal ignores it and decides from the token alone. */
+                "x-vertice-client"?: "mobile";
+            };
             path?: never;
             cookie?: never;
         };
@@ -1483,7 +1508,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The session token and the user. */
+            /** @description The session token, its expiry and the user. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1524,7 +1549,10 @@ export interface operations {
     register: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Sent by the mobile app only. `mobile` on login and register issues a 90-day mobile session that `POST /auth/session/renew` can renew; absent (or any other value) issues the 8h web session. Renewal ignores it and decides from the token alone. */
+                "x-vertice-client"?: "mobile";
+            };
             path?: never;
             cookie?: never;
         };
@@ -1534,7 +1562,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The session token and the user. */
+            /** @description The session token, its expiry and the user. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -1554,6 +1582,56 @@ export interface operations {
             };
             /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, `ACTIVE_CLIENTS`). */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited (`RATE_LIMITED`); `Retry-After` carries the seconds to wait. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    renewSession: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Sent by the mobile app only. `mobile` on login and register issues a 90-day mobile session that `POST /auth/session/renew` can renew; absent (or any other value) issues the 8h web session. Renewal ignores it and decides from the token alone. */
+                "x-vertice-client"?: "mobile";
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new session token, its expiry and the user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSession"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1955,7 +2033,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2006,7 +2084,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2066,7 +2144,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2122,7 +2200,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2184,7 +2262,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2251,7 +2329,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2309,7 +2387,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2383,7 +2461,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2443,7 +2521,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2493,7 +2571,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2542,7 +2620,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2598,7 +2676,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2669,7 +2747,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2730,7 +2808,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2809,7 +2887,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2860,7 +2938,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2918,7 +2996,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2974,7 +3052,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3045,7 +3123,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3103,7 +3181,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3165,7 +3243,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3223,7 +3301,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3272,7 +3350,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3328,7 +3406,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3399,7 +3477,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3457,7 +3535,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3519,7 +3597,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3577,7 +3655,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3639,7 +3717,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3710,7 +3788,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3766,7 +3844,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3837,7 +3915,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3895,7 +3973,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -3957,7 +4035,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4013,7 +4091,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4084,7 +4162,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4145,7 +4223,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4215,7 +4293,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4287,7 +4365,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4349,7 +4427,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4420,7 +4498,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4485,7 +4563,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4551,7 +4629,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4618,7 +4696,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4665,7 +4743,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4703,7 +4781,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The role or the owner check refuses the caller (`FORBIDDEN`). */
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
             403: {
                 headers: {
                     [name: string]: unknown;
