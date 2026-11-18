@@ -76,6 +76,7 @@ export const Client: Story = {
     await expect(canvas.getByText("148")).toBeVisible();
     // Read only: no inputs and no action buttons; the frame's "Telefone" is left out (§7.1).
     await expect(canvas.queryByRole("textbox")).toBeNull();
+    await expect(canvas.getByRole("link", { name: "Histórico" })).toHaveAttribute("href", "/painel/historico?usuario=2");
     await expect(canvas.queryAllByRole("button")).toHaveLength(0);
     await expect(canvas.queryByText("Telefone")).toBeNull();
   },

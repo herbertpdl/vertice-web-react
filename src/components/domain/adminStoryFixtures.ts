@@ -1,4 +1,5 @@
 import type {
+  AdminActionEntry,
   AdminClientProfile,
   AdminDashboard,
   AdminDirectoryUser,
@@ -134,3 +135,60 @@ export const adminTrainerProfile: AdminTrainerProfile = {
   workoutCount: 312,
   privateExerciseCount: 9,
 };
+
+const carla = { id: 9, name: "Carla Mendes", role: "ADMIN" as const };
+const joao = { id: 10, name: "João Pires", role: "ADMIN" as const };
+
+function historyEntry(id: number, overrides: Partial<AdminActionEntry>): AdminActionEntry {
+  return {
+    id,
+    admin: carla,
+    action: "VIEW_USER_PROFILE",
+    targetUser: null,
+    relatedUser: null,
+    targetExerciseId: null,
+    targetMuscleGroupId: null,
+    subjectLabel: null,
+    reason: null,
+    createdAt: "2026-11-17T12:31:00Z",
+    ...overrides,
+  };
+}
+
+/** `GET /admin/actions/admins`. */
+export const adminActionAdmins = { admins: [carla, joao] };
+
+/** One page of `GET /admin/actions` as frame `TExWT` shows it, newest first. */
+export const adminHistory: AdminActionEntry[] = [
+  historyEntry(6, {
+    action: "SUSPEND_USER",
+    targetUser: { id: 3, name: "Rafael Torres", role: "TRAINER" },
+    reason: "Denúncia de cobrança indevida em análise pelo suporte (ticket #4821).",
+  }),
+  historyEntry(5, {
+    action: "SEND_PASSWORD_RESET_EMAIL",
+    targetUser: { id: 1, name: "Ana Ribeiro", role: "TRAINER" },
+    createdAt: "2026-11-17T12:12:00Z",
+  }),
+  historyEntry(4, {
+    admin: joao,
+    action: "PROMOTE_EXERCISE",
+    targetUser: { id: 1, name: "Ana Ribeiro", role: "TRAINER" },
+    targetExerciseId: 55,
+    subjectLabel: "Elevação pélvica com pausa",
+    createdAt: "2026-11-16T21:40:00Z",
+  }),
+  historyEntry(3, {
+    admin: joao,
+    action: "END_RELATIONSHIP",
+    targetUser: { id: 2, name: "Marina Costa", role: "CLIENT" },
+    relatedUser: { id: 3, name: "Rafael Torres", role: "TRAINER" },
+    createdAt: "2026-11-16T18:02:00Z",
+  }),
+  historyEntry(2, {
+    action: "VIEW_USER_PROFILE",
+    targetUser: { id: 77, name: "Usuário removido", role: "CLIENT" },
+    createdAt: "2026-11-15T13:00:00Z",
+  }),
+  historyEntry(1, { action: "CHANGE_OWN_PASSWORD", createdAt: "2026-11-14T11:00:00Z" }),
+];

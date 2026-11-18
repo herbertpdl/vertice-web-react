@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { z } from "zod";
-import type { DayOfWeek, PlanLevel, SetStrategy } from "@/lib/api/types";
+import type { AdminAction, DayOfWeek, PlanLevel, SetStrategy } from "@/lib/api/types";
+import { ADMIN_ACTIONS } from "@/lib/admin/actions";
 import { setStrategySchema } from "./exerciseSets";
 import { planLevelSchema } from "./trainingPlans";
 import { dayOfWeekSchema } from "./workouts";
@@ -24,5 +25,9 @@ describe("the form enums cover exactly the contract's enums", () => {
 
   it("PlanLevel", () => {
     expectTypeOf<z.infer<typeof planLevelSchema>>().toEqualTypeOf<PlanLevel>();
+  });
+
+  it("AdminAction (the history's label map and filter options)", () => {
+    expectTypeOf<(typeof ADMIN_ACTIONS)[number]>().toEqualTypeOf<AdminAction>();
   });
 });

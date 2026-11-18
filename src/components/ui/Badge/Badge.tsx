@@ -1,6 +1,6 @@
 import { HTMLAttributes } from "react";
 
-export type BadgeVariant = "primary" | "success" | "danger" | "neutral" | "info";
+export type BadgeVariant = "primary" | "success" | "danger" | "neutral" | "info" | "warning";
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
@@ -13,6 +13,8 @@ const variantClasses: Record<BadgeVariant, string> = {
   neutral: "bg-[var(--color-surface-hover)] text-[color:var(--color-text-secondary)]",
   // The admin directory's "Treinador" (pen.dev Admin Badge `vzj0m` with `#4DA6FF26` / `$color-info`).
   info: "bg-[#4da6ff26] text-[color:var(--color-info)]",
+  // The history's "Promoveu exercício" (Admin Badge with `#FFB02026` / `$color-warning`, `TExWT`).
+  warning: "bg-[#ffb02026] text-[color:var(--color-warning)]",
 };
 
 export function Badge({
