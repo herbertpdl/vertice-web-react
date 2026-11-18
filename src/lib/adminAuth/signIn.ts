@@ -26,7 +26,8 @@ export type SignInState =
   | { step: "password"; expired: boolean }
   | {
       step: "enroll";
-      challengeExpiresAt: string;
+      /** When the challenge ends, on this browser's clock (ms). */
+      challengeDeadline: number;
       /** The id of the latest enroll call; an answer to any other is dropped. */
       enrollRequest: number;
       /** `undefined` while the latest call is in flight. */
@@ -34,10 +35,10 @@ export type SignInState =
       enrollFailed: boolean;
       codeError?: string;
     }
-  | { step: "code"; challengeExpiresAt: string; codeError?: string };
+  | { step: "code"; challengeDeadline: number; codeError?: string };
 
 export type SignInEvent =
-  | { type: "loggedIn"; secondFactor: SecondFactor; challengeExpiresAt: string }
+  | { type: "loggedIn"; secondFactor: SecondFactor; challengeDeadline: number }
   /** An enroll call starts (from the login handler or "Gerar novo QR", never from an effect). */
   | { type: "enrollStarted"; request: number }
   | { type: "enrolled"; request: number; provisioningUri: string }
@@ -46,7 +47,7 @@ export type SignInEvent =
   | { type: "enrollFailed"; request: number }
   | { type: "codeRejected" }
   | { type: "codeEdited" }
-  /** CHALLENGE_INVALID, verify 409, or a challenge past `challengeExpiresAt` at submit. */
+  /** CHALLENGE_INVALID, verify 409, or a challenge past its deadline at submit. */
   | { type: "challengeEnded" }
   /** "Voltar para o login". */
   | { type: "backToPassword" };
@@ -60,10 +61,10 @@ export function signInReducer(state: SignInState, event: SignInEvent): SignInSta
     case "loggedIn":
       if (state.step !== "password") return state;
       return event.secondFactor === "ENROLLED"
-        ? { step: "code", challengeExpiresAt: event.challengeExpiresAt }
+        ? { step: "code", challengeDeadline: event.challengeDeadline }
         : {
             step: "enroll",
-            challengeExpiresAt: event.challengeExpiresAt,
+            challengeDeadline: event.challengeDeadline,
             enrollRequest: 0,
             enrollFailed: false,
           };
@@ -75,7 +76,7 @@ export function signInReducer(state: SignInState, event: SignInEvent): SignInSta
       return { ...state, provisioningUri: event.provisioningUri, enrollFailed: false };
     case "alreadyEnrolled":
       if (state.step !== "enroll" || event.request !== state.enrollRequest) return state;
-      return { step: "code", challengeExpiresAt: state.challengeExpiresAt };
+      return { step: "code", challengeDeadline: state.challengeDeadline };
     case "enrollFailed":
       if (state.step !== "enroll" || event.request !== state.enrollRequest) return state;
       return { ...state, enrollFailed: true };
@@ -92,10 +93,12 @@ export function signInReducer(state: SignInState, event: SignInEvent): SignInSta
   }
 }
 
-/** Whether the challenge is past its expiry at `now` (a submit then restarts instead of posting). */
-export function challengeExpired(challengeExpiresAt: string, now: number = Date.now()): boolean {
-  const at = Date.parse(challengeExpiresAt);
-  return Number.isNaN(at) || now >= at;
+/**
+ * Whether the challenge is past its deadline at `now` (a submit then restarts instead of posting).
+ * Both on this browser's clock: the deadline was set from the seconds the server counted.
+ */
+export function challengeExpired(challengeDeadline: number, now: number = Date.now()): boolean {
+  return Number.isNaN(challengeDeadline) || now >= challengeDeadline;
 }
 
 /**

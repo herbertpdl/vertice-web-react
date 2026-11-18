@@ -7,10 +7,9 @@ import { AdminLoginContent } from "./AdminLoginContent";
 type Responder = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
 const URI = "otpauth://totp/Vertice:carla%40vertice.fit?secret=JBSWY3DPEHPK3PXP&issuer=Vertice";
-const FUTURE = () => new Date(Date.now() + 5 * 60_000).toISOString();
 
 const challenge = (secondFactor: "ENROLLED" | "NOT_ENROLLED") => () =>
-  Response.json({ secondFactor, challengeExpiresAt: FUTURE() });
+  Response.json({ secondFactor, challengeExpiresAt: new Date(Date.now() + 300_000).toISOString(), challengeExpiresIn: 300 });
 const error = (status: number, code: string, headers: Record<string, string> = {}) => () =>
   Response.json({ error: { code, message: code } }, { status, headers });
 
@@ -206,6 +205,21 @@ export const CodeIncomplete: Story = {
     await signIn(context);
     await typeCode(context, "1190", "Verificar");
     await expect(await canvas.findByText("Digite os 6 dígitos do código")).toBeVisible();
+    await expect(adminFetch.mock.calls.some(([url]) => url === "/api/admin/auth/verify")).toBe(false);
+  },
+};
+
+/** A challenge past its deadline at submit restarts without posting (deadline counted from receipt). */
+export const ChallengeExpiredAtSubmit: Story = {
+  beforeEach: answer({
+    "/api/admin/auth/login": () =>
+      Response.json({ secondFactor: "ENROLLED", challengeExpiresAt: "2000-01-01T00:00:00Z", challengeExpiresIn: 0 }),
+  }),
+  play: async (context) => {
+    const { canvas } = context;
+    await signIn(context);
+    await typeCode(context, "119034", "Verificar");
+    await expect(await canvas.findByRole("status")).toHaveTextContent("Sua sessão expirou. Entre novamente.");
     await expect(adminFetch.mock.calls.some(([url]) => url === "/api/admin/auth/verify")).toBe(false);
   },
 };

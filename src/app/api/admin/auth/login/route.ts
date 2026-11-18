@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { components } from "@/lib/api/schema";
 import type { AdminChallenge } from "@/lib/api/types";
-import { setAdminChallenge } from "@/lib/adminSession";
+import { CHALLENGE_MAX_AGE_SECONDS, secondsUntil, setAdminChallenge } from "@/lib/adminSession";
 import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from "@/lib/bff";
 import { hostGuard } from "@/lib/host";
 import { withNoStore } from "@/lib/noStore";
@@ -30,7 +30,10 @@ async function post(request: NextRequest) {
 
   const { challenge, challengeExpiresAt, secondFactor } = (await res.json()) as AdminChallenge;
   await setAdminChallenge(challenge, challengeExpiresAt);
-  return NextResponse.json({ secondFactor, challengeExpiresAt });
+  // The seconds left, from this server's clock: the browser counts down from when it gets them,
+  // so a computer whose clock runs fast or slow doesn't misjudge the expiry.
+  const challengeExpiresIn = Math.min(secondsUntil(challengeExpiresAt), CHALLENGE_MAX_AGE_SECONDS);
+  return NextResponse.json({ secondFactor, challengeExpiresAt, challengeExpiresIn });
 }
 
 export const POST = withNoStore(post);

@@ -107,7 +107,11 @@ describe("POST /api/admin/auth/login", () => {
     const res = await login(call("login", { body: { email: "carla@vertice.fit", password: "x", remember: true } }));
     expect(res.status).toBe(200);
     const text = await res.text();
-    expect(JSON.parse(text)).toEqual({ secondFactor: "NOT_ENROLLED", challengeExpiresAt: "2026-11-18T12:05:00Z" });
+    expect(JSON.parse(text)).toEqual({
+      secondFactor: "NOT_ENROLLED",
+      challengeExpiresAt: "2026-11-18T12:05:00Z",
+      challengeExpiresIn: 300,
+    });
     expect(text).not.toContain("secret-challenge");
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     const [url, init] = fetchMock.mock.calls[0];

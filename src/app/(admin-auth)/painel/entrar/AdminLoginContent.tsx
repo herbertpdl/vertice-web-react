@@ -98,9 +98,9 @@ export function AdminLoginContent({ expired, redirect }: AdminLoginContentProps)
     setBusy(true);
     setFormError(null);
     try {
-      const { secondFactor, challengeExpiresAt } = await adminLogin(data);
+      const { secondFactor, challengeDeadline } = await adminLogin(data);
       setCode("");
-      dispatch({ type: "loggedIn", secondFactor, challengeExpiresAt });
+      dispatch({ type: "loggedIn", secondFactor, challengeDeadline });
       if (secondFactor === "NOT_ENROLLED") void startEnroll();
     } catch (error) {
       const failure = signInFailure(error, "login");
@@ -115,7 +115,7 @@ export function AdminLoginContent({ expired, redirect }: AdminLoginContentProps)
   async function onCode(event: React.FormEvent) {
     event.preventDefault();
     if (state.step === "password" || submitting.current || locked) return;
-    if (challengeExpired(state.challengeExpiresAt)) {
+    if (challengeExpired(state.challengeDeadline)) {
       restart();
       return;
     }

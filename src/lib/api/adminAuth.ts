@@ -1,14 +1,25 @@
 import { authRequest } from "./auth";
-import type { AdminChallenge, AdminEnrollment, AdminSession } from "./types";
+import type { AdminEnrollment, AdminSession, SecondFactor } from "./types";
 
 // The admin sign-in (admin-panel spec W7, W15). These go to this app's own `/api/admin/auth/*`
 // handlers, which keep the challenge and the token in host-only cookies: no body here ever
 // carries either. Through `authRequest`, like the www login, so a 401 is a form error the screen
 // shows, not `apiClient`'s sign-out.
 
-/** The password step. The challenge stays server-side; the answer says which step is next. */
-export function adminLogin(input: { email: string; password: string }) {
-  return authRequest<Pick<AdminChallenge, "secondFactor" | "challengeExpiresAt">>("/api/admin/auth/login", input);
+/**
+ * The password step. The challenge stays server-side; the answer says which step is next and when
+ * the challenge ends, as `challengeDeadline` on this browser's clock (`Date.now()` at receipt plus
+ * the seconds the server counted), so a skewed computer clock doesn't misjudge it.
+ */
+export async function adminLogin(input: { email: string; password: string }) {
+  const answer = await authRequest<{ secondFactor: SecondFactor; challengeExpiresIn: number }>(
+    "/api/admin/auth/login",
+    input,
+  );
+  return {
+    secondFactor: answer.secondFactor,
+    challengeDeadline: Date.now() + answer.challengeExpiresIn * 1000,
+  };
 }
 
 /** A new authenticator secret, as an `otpauth://` URI. Keep it in component state only. */
