@@ -371,7 +371,7 @@ deployed and `.bff-ref` points at that BFF merge. One deviation: W11.
 5. **Slice 3:** API VRT-30 → BFF VRT-31 → **web VRT-32**.
 
 **Rollback** goes in reverse order, web first: the previous task definition.
-- Before rolling back VRT-25 (the rest), remove `admin.vertice.fit` from ALB rule 5 first;
+- Before rolling back VRT-25 (the rest), delete the ALB's admin-host rule (priority 6) first;
   otherwise the old build serves the trainer workspace on the admin hostname.
 - **Never roll the web back past VRT-25 PR 1 while BFF VRT-28 is live.** Roll BFF VRT-28 back
   first: it restores the 200 that the web's role check refuses (R3 holds).
@@ -393,9 +393,10 @@ deployed and `.bff-ref` points at that BFF merge. One deviation: W11.
   `_next/static/*` may stay cached. Cookies and query strings are forwarded on those behaviours. `Set-Cookie` is passed
   through untouched: never add a `Domain`, never rewrite cookie names (the `__Host-` prefix needs
   `Secure`, `Path=/` and no `Domain`).
-- **ALB (the required change):** add `admin.vertice.fit` to listener rule 5's host-header
-  condition (the web hosts, next to the origin-header check), which forwards to the **web** target
-  group. Without it the listener's default action answers every admin request with 403. Add it
+- **ALB (the required change):** a listener rule for host `admin.vertice.fit` plus the
+  origin-header check, which forwards to the **web** target group. It is a new rule (priority 6),
+  not a sixth value on rule 5: a rule holds at most 5 condition values, a fixed quota, and rule 5
+  (four web hosts plus the origin header) is full. Without it the listener's default action answers every admin request with 403. Add it
   **last**, after VRT-25 with `ADMIN_HOST` is deployed: until then the hostname answers 403
   instead of serving the trainer workspace. The chain must stay
   CloudFront → ALB → Next, appending to `X-Forwarded-For`, so `TRUSTED_PROXY_HOPS=2` still holds
