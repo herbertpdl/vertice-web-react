@@ -53,7 +53,7 @@ frames were drafted for this assessment, because the existing set covers every s
 | R7–R9, R23, R24 | not applicable to the web | Model behavior |
 | R10 | new: composer | Count UTF-16 units like the existing bounds (`src/lib/validation/bounds.ts`); the counter appears near the limit, and sending is blocked above it (frame `Cz6l0`) |
 | R11 | new: composer | Fixed disclaimer |
-| R12, R13 | new: chat client | Sends `trainingPlanId`, `workoutId` and `toEntries(draft.exercises)` (`src/lib/workoutEditor/model.ts:128`). Never the client's name; the BFF adds the plan context |
+| R12, R13 | new: chat client | Sends the BFF F8 body: `{ trainingPlanId, workoutId?, workout: { exercises }, history, message }`. `exercises` is a keyed variant of `toEntries` (`src/lib/workoutEditor/model.ts:128` drops `key`; add `toKeyedEntries`, F5). `history` is trimmed to the BFF's caps (F9). Never the client's name; the BFF adds the plan context |
 | R14, R15 | chat state + composer | Input locked; "Parar" replaces "Enviar" (`Q9EzR`, `ChSlt`) |
 | R16 | chat client | `AbortController`; needs F3 so the abort reaches the BFF |
 | R17, R18 | chat client | Stream reader; needs F3 |
@@ -200,6 +200,11 @@ narrow widths, the spec should decide whether the panel overlays the editor inst
   - A `fetch` + `ReadableStream` SSE parser as a pure function, unit-tested.
   - Reuse `apiClient`'s 401 behavior: log out and send to `/login`.
   - Map error events through `apiErrorMessage` keyed on `code`.
+  - **History:** each message sends the conversation's earlier turns as text only (role and
+    text). Earlier proposals don't go into the history: the current proposal is already the
+    on-screen `workout` (R36). The chat store trims the history it sends to the BFF's caps
+    (BFF Q4: 20 turns, 40,000 characters), dropping the oldest turns first, so a long session
+    never gets a 400. The screen still shows the whole conversation (R4).
   - Applying a proposal goes through the existing autosave transport. Nothing new to invalidate
     beyond what the editor's saves already invalidate.
 
@@ -234,8 +239,11 @@ owner's decision (Q1).
     id or position guess wrong.
 - **Where:** the BFF ↔ web contract (BFF F8) and new `src/lib/workoutEditor/proposalDiff.ts`.
 - **Recommendation:**
-  - The web sends each on-screen exercise with an opaque key (the model's `key`, `model.ts:53`).
+  - The web sends each on-screen exercise with an opaque key (the model's `key`, `model.ts:53`),
+    through a keyed variant of `toEntries`, which today drops it.
   - Each proposal entry carries back the key of the exercise it modifies, or none when it's new.
+    Entries without a key get a fresh `newKey("e")` when they go into the draft, so the next
+    chained request (E15) can send them.
   - The BFF checks that the keys are among those sent.
   - The diff then compares fields per key against the saved snapshot: changed sets get
     highlighted, unmatched entries are "Novo", and saved exercises with no entry are "Removido".
@@ -255,8 +263,13 @@ owner's decision (Q1).
   (R42, R50) and the engine's hold (F4).
 - **Where:** new `src/lib/assistant/chat.ts` (a pure reducer plus effects at the edge), used by
   `WorkoutEditor.tsx`.
-- **Recommendation:** model it the way the autosave engine was modeled: a plain store with unit
-  tests (vitest `unit` project), never torn down mid-message by a component re-render.
+- **Recommendation:**
+  - Model it like the autosave engine: a plain store with unit tests (vitest `unit` project),
+    never torn down mid-message by a re-render.
+  - Unlike the engine, though, the editor mount owns the store, and unmounting calls `abort()`
+    on its `AbortController`. Back/Forward and `router.push` from elsewhere bypass every guard,
+    so unmount cleanup is what satisfies R50's "leaving anyway stops the message" on those
+    paths. It also gives R5's empty chat on return.
 
 **F7 — Medium — Leave guards for two new states.**
 - **What:**
@@ -270,6 +283,8 @@ owner's decision (Q1).
   - Widen both guards to "busy or in review".
   - Route "Concluir" through the same dialog.
   - Leaving anyway aborts the stream or discards the proposal.
+  - The browser's Back/Forward buttons can't be warned. That's the same limit WE-R12 has today,
+    and unmount cleanup (F6) stops the message on that path.
 
 ### 7. Error handling
 
@@ -279,8 +294,12 @@ owner's decision (Q1).
 - "Não consegui montar o treino";
 - "Interrompido. O treino não foi alterado."
 
-A 409 `CONFLICT` for a message already running (BFF F10) can only happen with two tabs. Show it
-as a normal error with "Tentar novamente".
+A 409 `CONFLICT` for a message already running (BFF F10) can also happen in a single tab:
+- right after "Parar", because the abort takes time to reach the BFF;
+- after the web's own 60-second fallback timer, followed by "Tentar novamente".
+
+The chat client retries a `CONFLICT` that arrives before streaming starts, up to twice, with a
+short backoff (about 500 ms). Only then does it show a normal error with "Tentar novamente".
 
 ### 8. Copy and localization
 
@@ -317,7 +336,8 @@ preserves `Content-Disposition` and `Retry-After` handling and other behavior un
 **`unit` project:**
 - the SSE parser: split chunks, several events in one chunk, heartbeats ignored, an error
   event, a truncated stream;
-- the chat state machine: every transition in §4.6, including closing the panel mid-build and
+- the chat state machine: history trimming to the caps, retrying a `CONFLICT` before streaming,
+  and unmount mid-stream aborting; plus every transition in §4.6, including closing the panel mid-build and
   "Parar" in each state;
 - `proposalDiff`: added, removed and changed cards; duplicate exercises; reordering; matching by
   key; comparison against the saved snapshot after chained proposals (E15, E15a);
