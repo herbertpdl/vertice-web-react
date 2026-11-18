@@ -1,7 +1,7 @@
 # PRD: AI Workout Assistant (Web)
 
 Status: Approved (owner, 2026-11-18)
-Design: pending — frames drafted in pen.dev section "Web — Assistente de IA no editor de treino (ai-workout-assistant)" (`kswLu`), awaiting the owner's review.
+Design: design-ok — approved by the owner on 2026-11-18 after reviewing the pen.dev section "Web — Assistente de IA no editor de treino (ai-workout-assistant)" (`kswLu`).
 Owner: hebertpdl@gmail.com
 Related: none in `docs/requirements.md` (new requirement from the owner: an AI assistant in the
 workout editor that answers training questions and builds workout changes for the trainer to
@@ -76,6 +76,8 @@ cannot send another message until the current one is finished.
 - R3: The trainer opens the chat panel from an AI icon in the editor.
 - R4: Closing and reopening the chat panel without leaving the editor keeps the conversation.
 - R5: Leaving the editor ends the conversation; reopening the workout starts an empty chat.
+- R55: On screens narrower than 1280 pixels, the chat panel opens over the editor on the right,
+  full height, instead of beside it.
 - R6: Nothing a client sees shows whether the assistant was used to build a workout.
 
 **Asking**
@@ -93,6 +95,8 @@ cannot send another message until the current one is finished.
 - R13: The assistant never receives the client's profile (name, email), recorded weights,
   workout logs or feedback; free text the trainer wrote (plan name and description, notes) is
   sent as written.
+- R56: With each message, the assistant receives at most the last 20 turns of the conversation
+  or 40,000 characters, whichever is smaller; older turns stay on screen.
 
 **While a message is being processed**
 
@@ -104,8 +108,8 @@ cannot send another message until the current one is finished.
 - R18: While the assistant builds a change, the chat shows each stage of the work as it happens.
 - R19: While the assistant builds a change, the editor is read-only and shows a "IA montando o
   treino…" overlay.
-- R20: While the assistant answers a question, only the chat input is locked; the editor stays
-  usable.
+- R20: While the assistant answers a question, only the chat input is locked once the answer
+  starts; the editor stays usable.
 - R21: When a message fails, or shows no progress (no new stage and no new text) for 60
   seconds, the chat shows an error with "Tentar novamente",
   the trainer's message stays in the chat, and the editor is unchanged and unlocked.
@@ -127,16 +131,20 @@ cannot send another message until the current one is finished.
   before changing anything.
 - R25: A change is always delivered as a workout proposal shown in the editor, never as a text
   description of the workout.
-- R26: When a proposal arrives, the chat shows only a one-line message that it is ready to
-  review; the assistant does not explain what it changed or why.
+- R26: When a proposal arrives, the chat shows the fixed line "Proposta pronta para revisão no
+  editor."; the assistant does not explain what it changed or why, except for the one line R51
+  requires when part of the request was left out.
 - R27: A proposal can change the workout's exercises, their order, rest, notes and sets.
 - R28: A proposal never changes the workout's name or weekday.
 - R29: A proposal uses only exercises from the trainer's catalog (the starter catalog and the
   trainer's own exercises).
-- R30: When no catalog exercise fits what the trainer asked for, the assistant says so in the
-  chat instead of proposing.
+- R30: When nothing the trainer asked for can be done with catalog exercises, the assistant
+  says so in the chat instead of proposing; when only part of it can, R51 applies.
 - R31: A proposal never has more than 20 exercises or more than 10 sets in an exercise
   (API-R8/R9); when the trainer asks for more, the assistant explains the limit in the chat.
+- R51: When a request can only partly be done (some exercises aren't in the catalog, or it
+  asks for more than the limits allow), the proposal contains what fits, and the chat says in
+  one line what was left out and why.
 - R32: A proposal that cannot be shown as a valid workout is never shown; the chat says the
   assistant could not build the workout and offers "Tentar novamente".
 
@@ -155,9 +163,9 @@ cannot send another message until the current one is finished.
   every manual edit made during review.
 - R40: Applying a proposal on a workout that does not exist yet creates it, named "Novo
   treino" (WE-R3/R4).
-- R41: When applying would remove an exercise or set a client has already recorded data against,
-  that exercise or set stays in the workout and a message names it; everything else is saved
-  (WE-R27).
+- R41: When applying would remove one or more exercises or sets a client has already recorded
+  data against, each of them stays in the workout and one message names them (with WE-R27's
+  granularity: the exercise, plus the set when a set was removed); everything else is saved.
 - R42: Leaving the editor with a proposal in review ("Concluir" or navigating within the app)
   warns that the proposal has not been applied; reloading or closing the tab shows the
   browser's own leave prompt (as WE-R12 does today); leaving anyway discards it.
@@ -172,8 +180,18 @@ outside review the editor behaves exactly as WE describes.
 - R44: While a proposal is in review, "Aplicar" and "Descartar" are offered in addition to
   "Concluir" (WE-R11), and WE-§6's exclusion of a discard action and of other editing modes does
   not apply to review.
-- R45: While a proposal is in review, the editor may say that the proposal is not saved yet
-  (WE-R13 does not apply to review).
+- R45: While a proposal is in review, the footer's save status reads "Proposta em revisão —
+  ainda não salva" (WE-R13 does not apply to review).
+- R52: While a proposal is in review, "Usar treino existente como base" (WE-R24) is not
+  offered.
+- R53: When the trainer sends any message, the editor becomes read-only and any pending or
+  in-progress save is completed first; only then is the message sent, and R21's 60-second timer
+  starts with it. If that save fails, or the last save had already failed, nothing is sent: the
+  chat asks the trainer to save first ("Tentar novamente" in the footer), the editor unlocks,
+  and the message stays so it can be sent again. As soon as the assistant shows it is answering
+  a question, the editor unlocks (R20); when it builds a change, it stays read-only (R19). This
+  way no edit is lost by a later "Descartar", because whether a message is a question or a
+  change is only known once the assistant starts (R23).
 - R46: The leave warnings of R42 and R50 are extra cases of WE-R12, on top of a save in progress or a
   failed save.
 
@@ -192,13 +210,15 @@ outside review the editor behaves exactly as WE describes.
 | E9 | Trainer writes "my client hates squats", which may or may not be a change. | The assistant asks whether to change the workout before proposing. | R24 |
 | E10 | Trainer asks to rename the workout or move it to Friday. | No proposal changes the name or weekday; the assistant says it can only change exercises and sets. | R28 |
 | E11 | Trainer asks for an exercise that is not in their catalog. | The assistant says no catalog exercise fits; no proposal. | R29, R30 |
-| E12 | Trainer asks for 25 exercises. | The assistant explains the 20-exercise limit in the chat. | R31 |
+| E11a | Trainer asks for three exercises; one isn't in the catalog. | A proposal with the two that exist; one line in the chat names the missing one. | R51 |
+| E12 | Trainer asks for 25 exercises. | A proposal with 20 exercises; one line in the chat explains the 20-exercise limit. | R31, R51 |
 | E13 | The assistant produces something that is not a valid workout. | Nothing appears in the editor; the chat offers "Tentar novamente". | R32 |
 | E14 | Trainer changes a weight inside the proposal, then asks "now add a drop set to the last exercise". | The new proposal keeps the trainer's weight change and adds the drop set. | R36 |
 | E15 | Trainer asks for a change while a proposal is already in review. | The new proposal replaces the current one; still only one in review; its markers compare against the last saved workout, not the previous proposal. | R33, R36, R37 |
 | E15a | Two chained proposals with manual edits in between, then "Descartar". | The editor shows the last saved workout; both proposals and the manual edits are dropped. | R39 |
 | E15b | Trainer edits a set inside a proposal in review. | The edit is not saved until "Aplicar". | R34, R43 |
 | E16 | Trainer applies a proposal that removes an exercise a client already recorded data against. | Everything else is saved; that exercise stays and a message names it. | R41 |
+| E16a | A proposal removes two recorded exercises and one recorded set. | All three stay and one message names them; the rest is saved. | R41 |
 | E17 | Trainer presses "Concluir" with a proposal in review. | Warning that the proposal is not applied; leaving anyway discards it. | R42 |
 | E18 | Trainer closes and reopens the chat panel in the same editor visit. | The conversation is still there. | R4 |
 | E19 | Trainer leaves the editor and comes back to the same workout. | Empty chat. | R5 |
@@ -210,6 +230,12 @@ outside review the editor behaves exactly as WE describes.
 | E25 | Trainer then reopens the panel with the AI icon. | The panel shows the current stage and "Parar"; pressing it unlocks the editor unchanged. | R16, R48, R49 |
 | E26 | Trainer presses "Concluir" while an answer or a change is still being processed. | Warning that the assistant's progress will be lost; leaving anyway stops the message and nothing is changed. | R49, R50 |
 | E27 | Trainer closes the tab while a message is still being processed. | The browser's own leave prompt appears; leaving anyway stops the message and nothing is changed. | R50 |
+| E28 | Trainer edits a set and sends a message before the footer says "Salvo". | The editor locks, the save completes, then the message is sent. | R53 |
+| E29 | The last save failed ("Erro ao salvar — Tentar novamente") and the trainer sends a message. | The assistant doesn't start; the chat asks the trainer to save first; the message stays. | R53 |
+| E29a | The trainer sends a message and the pending save then fails. | Nothing is sent; the editor unlocks; the chat asks the trainer to save first; the message stays. | R53 |
+| E31 | The browser window is 1100 pixels wide and the trainer opens the assistant. | The panel opens over the editor on the right. | R55 |
+| E32 | The conversation has 25 turns and the trainer sends another message. | The assistant receives the last 20 turns; all 25 stay on screen. | R56 |
+| E30 | A new workout is in review and the trainer looks for "Usar treino existente como base". | It isn't offered until the proposal is applied or discarded. | R52 |
 
 ## 6. Out of scope
 
@@ -232,7 +258,7 @@ outside review the editor behaves exactly as WE describes.
 | Question | Decision | Why |
 |---|---|---|
 | The editor saves every change automatically; how does a proposal fit? | Review first; nothing is saved until "Aplicar"; "Descartar" restores the previous workout | Keeps the assistant from overwriting a workout a client may be using. (proposed, accepted) |
-| Exercise not in the catalog | Catalog exercises only; otherwise the assistant says so | Every proposed card is a real exercise with its video. (proposed, accepted) |
+| Exercise not in the catalog | Catalog exercises only; otherwise the assistant says so, or proposes what fits per R51 | Every proposed card is a real exercise with its video. (proposed, accepted) |
 | Chat history | Lost on leaving the editor | Simplest; no stored AI history. (proposed, accepted) |
 | What the assistant knows | Workout on screen, its plan's name, description, level and dates, and the plan's other workouts | Owner's choice, so the assistant can balance the week; no client history. |
 | Editing by hand while the assistant works | Editor read-only while it builds a change; usable during plain questions | A proposal built on an outdated workout would silently undo the trainer's edits. (proposed, accepted) |
@@ -246,33 +272,28 @@ outside review the editor behaves exactly as WE describes.
 | Leaving with a proposal in review | Warn, then discard | (proposed, accepted) |
 | Closing the chat panel while a message is processing | Allowed; the work continues; leaving the page warns that the progress will be lost | Owner's choice after PR #83. The AI icon and "Concluir" staying usable (R49) were proposed so a closed panel never leaves a locked editor with no way to stop it, and the owner accepted them when asking to merge this amendment. (proposed, accepted) |
 | Question or change | The assistant decides and asks when unclear | (proposed, accepted) |
-| Message on arrival of a proposal | One line saying it is ready; no explanation of what or why | Owner: save cost; the editor marks the changes. |
+| Message on arrival of a proposal | The fixed line "Proposta pronta para revisão no editor.", shown by the web, plus R51's one line when something was left out; no explanation of what or why | Owner: save cost; the editor marks the changes; a fixed text costs no tokens (2026-11-18). |
+| Narrow screens | Below 1280 pixels the panel opens over the editor | Owner's choice (2026-11-18). (proposed, accepted) |
+| History sent with each message | At most the last 20 turns or 40,000 characters | Owner's choice (2026-11-18); revisit with the usage-limit PRD. (proposed, accepted) |
 | Showing what changed | "Novo" marks, highlighted values, struck-through removals | (proposed, accepted) |
 | Mobile | Web only | (proposed, accepted) |
 | Message length | 2,000 characters | (proposed, accepted) |
 | Mistake disclaimer | Permanent note under the input | (proposed, accepted) |
 | Baseline for change markers and "Descartar" after chained proposals | Always the last saved workout | Owner's choice in PR review. (proposed, accepted) |
 | When a message counts as "too long" | No new stage or text for 60 seconds | Owner's choice in PR review; it also caps how long the editor stays locked. (proposed, accepted) |
+| Partly possible requests | Propose what fits and name what was left out | Owner's choice (2026-11-18). (proposed, accepted) |
+| A message while a save is pending or failed | Every message waits for the save, and nothing is sent after a failed save | Owner's choice (2026-11-18) for change requests: no edit is lost by a later "Descartar". It applies to every message because the web only learns that a message is a change after the assistant starts (R23); questions unlock the editor as soon as the answer starts. (proposed, accepted) |
+| Footer and "Usar treino existente como base" during review | Footer reads "Proposta em revisão — ainda não salva"; the action is hidden | Owner's choice (2026-11-18). (proposed, accepted) |
+| Personal data before launch | Before the feature reaches trainers, vertice-api's data inventory and the privacy policy name Anthropic as a sub-processor Vertice uses on the trainer's behalf. Vertice is the operator and the trainer the controller, as the privacy policy already says. LangSmith receives metadata only (inputs and outputs hidden; `LANGSMITH_ALLOW_CONTENT` stays off in production for this feature), so it receives no workout data. No new client consent, and the assistant isn't blocked by any client's consent version | Owner's choice (2026-11-18): there are no real clients yet, only the owner and test users. The operator framing goes to the existing legal review before real clients arrive; if a lawyer requires consent, re-consent is added then. |
 | Reply language, error handling, new-workout apply, the 20/10 limits, invalid proposals, client never told | As in R9, R21–R22, R40, R31, R32, R6 | (proposed, accepted) |
 
 ## 8. Open questions
 
-- **Personal data.** The prescribed loads and the trainer's notes in the workouts the assistant
-  sees are listed as health-related data in vertice-api's data inventory (D4). Whether the
-  client consent and the data inventory must name the AI provider (and the trace store, if
-  used) before launch is a legal question for the technical assessment, not a product rule.
-  The same goes for the free text the assistant receives (R13): plan names, plan descriptions
-  and notes can name the client or describe their condition. Meanwhile, the spec author should
-  assume the feature does not reach trainers until the assessment settles it.
-- **Footer and "Usar treino existente como base" during review.** What the footer save status
-  shows during review, and whether "Usar treino existente como base" (WE-R24) is hidden then,
-  are settled at the design review. Meanwhile, assume the footer says the proposal is not saved
-  yet and the action is hidden during review.
-- **Partly possible requests.** Not decided whether the assistant proposes what it can (for
-  example, the exercises found in the catalog, or up to the 20/10 limits) and says what it left
-  out, or proposes nothing. The same question applies when applying would remove several
-  recorded exercises or sets (R41). Meanwhile, assume it proposes what it can and names what it
-  left out in one line, and that R41 keeps every protected item.
+None. The personal-data question is a launch condition (§7). The data inventory and the privacy
+policy must name Anthropic before the feature reaches trainers, with LangSmith receiving
+metadata only. That work is tracked outside this PRD, in vertice-api's data inventory and the
+web's privacy text. The legal review of the operator framing happens before real clients
+arrive.
 
 ## 9. Technical constraints (stated by the owner)
 

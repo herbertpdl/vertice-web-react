@@ -194,7 +194,7 @@ trainer whether the latest change is being saved, is saved, or failed.
   saving.** Owner's design review (§10.1 item 4): the editor always saves shortly after each
   change; there is no draft to keep, discard or warn about. Exception: while an AI proposal is
   in review, [ai-workout-assistant](../ai-workout-assistant/prd.md) R43–R46 suspend automatic
-  saving and add "Aplicar"/"Descartar".
+  saving and add "Aplicar"/"Descartar", and R52 hides "Usar treino existente como base" (WE-R24).
 - **Showing up front whether a workout has recorded data.** The platform does not expose "this
   workout has recorded data" yet (see BFF spec §0/§6). Each refused removal is reported when it
   happens (R27); the web does not remember refusals per device.
