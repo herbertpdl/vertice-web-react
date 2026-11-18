@@ -230,7 +230,7 @@ the next dimension and §9.
     (`src/proxy.ts:61-65`), so host rules there never reach `/api/*`. Each handler checks the
     host itself through one shared helper (for example `src/lib/host.ts`), and answers 404 for
     the other host's handlers.
-    - www only: `/api/auth/login`, `register`, `password`, `password/setup`, `logout`.
+    - www only: `/api/auth/login`, `register`, `password/setup`, `logout`.
     - Admin host only: the new admin auth handlers (login, verify, enrol, renew, logout).
     - Both hosts: `/api/bff/[...path]`, with per-host allow-lists (F3).
 
@@ -364,8 +364,8 @@ frames:
   (`src/app/api/auth/login/route.ts:31-37`) never runs for an admin. The admin would then see "E-mail ou
   senha inválidos" instead of today's message, which breaks R3 ("refused as today") and
   web-trainer-only-access R5/E8. Assumed: the BFF answers an ADMIN's correct password there with
-  a distinct code (A3), and the web maps it to `APP_ONLY_MESSAGE` as it does for clients. The
-  alternative is amending R3 to "same message as a wrong password" (Q2).
+  a distinct code (A3, the owner's decision), and the web maps it to `APP_ONLY_MESSAGE` as it does
+  for clients.
 
 **F10 (Low). The trainer roster badge.**
 - **What:** The roster shows a "Suspenso" `Badge` when the BFF's additive `suspended` flag is true.
@@ -465,10 +465,9 @@ frames, which depends on pen.dev being available.
 - A1. Admin pages live under a path prefix that doesn't collide with trainer pages, such as
   `/painel` (F1).
 - A2. The weekly chart is a small hand-made SVG, not a library (F7).
-- A3. On www, the BFF refuses an admin's correct password with a distinct code that the web maps
-  to today's message, which keeps R3 as written (F9).
-- **Q2.** Or should R3 change to "same message as a wrong password" on www? That would retire the
-  admin case of `TRAINERS_ONLY` (F9).
+- A3 (decided by the owner): on www, the BFF refuses an admin's correct password with a
+  distinct code that the web maps to today's message, which keeps R3 as written (F9; BFF
+  assessment F1).
 
 ## 9. Inputs to the spec
 
@@ -480,7 +479,7 @@ frames, which depends on pen.dev being available.
 - [ ] F6: New kit components and their source frames.
 - [ ] F7: How the chart is drawn.
 - [ ] F8: Admin API wrappers, the shared table paging hook, the reason schema.
-- [ ] F9: Suspended-message handling on both logins, and how an admin refused on www keeps today's message (A3/Q2).
+- [ ] F9: Suspended-message handling on both logins, and how an admin refused on www keeps today's message (A3).
 - [ ] F13: Admin query keys and invalidation per write, and a finite `staleTime` for trainer muscle-group queries.
 - [ ] F16: The routing and proxy test matrix.
 - [ ] Design frames: build against these once the owner approves them. All are **drafted, awaiting
