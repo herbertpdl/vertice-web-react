@@ -2,7 +2,7 @@
 
 Status: Draft
 Owner: hebertpdl@gmail.com
-Related: [PRD](../../prds/ai-workout-assistant/prd.md) (source; `R1`–`R50`, `E1`–`E27`; the editor
+Related: [PRD](../../prds/ai-workout-assistant/prd.md) (source; `R1`–`R56`, `E1`–`E32`; the editor
 rules it amends are `WE-R#` in [the editor PRD](../../prds/create-workout-with-exercises/prd.md)),
 [editor spec](../../specs/create-workout-with-exercises/spec.md) (the autosave engine this changes),
 [vertice-bff assessment](https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/ai-workout-assistant/assessment.md)
@@ -13,10 +13,9 @@ Spec: not yet written (will be `docs/specs/ai-workout-assistant/spec.md`)
 
 Overall risk: **High**.
 
-**Design gate:** the PRD's header still says `Design: pending`. The frames for every state the
-PRD introduces are already drafted in pen.dev (section `kswLu`, listed in §9) and are waiting
-for the owner's review. Implementation can't start until the owner sets `design-ok`. No new
-frames were drafted for this assessment, because the existing set covers every state below.
+**Design gate:** cleared. The owner approved the pen.dev frames (section `kswLu`, listed in §9)
+on 2026-11-18, and the PRD header now says `design-ok`. When this assessment was first written,
+the gate was still pending and appeared as Blocker F1.
 
 **What it touches:** everything happens inside the workout editor
 (`src/components/domain/WorkoutEditor/WorkoutEditor.tsx`). The work:
@@ -69,12 +68,17 @@ frames were drafted for this assessment, because the existing set covers every s
 | R38 | autosave engine | "Aplicar" resumes saving and flushes the current draft |
 | R39 | autosave engine | "Descartar" restores the last saved snapshot (F4) |
 | R40 | autosave engine | First save of a new workout, unchanged (`autosave.ts` nested create) |
-| R41 | autosave engine | Existing 409 → per-item path and refusal banner (`SuUX7`); several protected items each stay (PRD §8 default) |
+| R41 | autosave engine | Existing 409 → per-item path and refusal banner (`SuUX7`); one or more protected items each stay and are named together (E16a) |
 | R42, R50 | `WorkoutEditor.tsx` | Extend `warnOnLeave` (`:197`) and the link guard (`:212`); in-app dialogs (`zfzAk`, `Pu46U`) |
 | R44 | new: review banner | "Aplicar" / "Descartar" (`HkumZ`) |
-| R45 | footer status | Review status text (PRD §8 default; `A3UUNe` footer) |
+| R45 | footer status | "Proposta em revisão — ainda não salva" (`A3UUNe` footer) |
 | R46 | `WorkoutEditor.tsx` | Same guards as R42 and R50 |
 | R47–R49 | chat state + `WorkoutEditor.tsx` | Closing the panel doesn't abort; the AI button shows "IA trabalhando…" (`rLKpQ`) |
+| R51 | chat panel | The extra one-line "left out" text arrives as AI text after the fixed ready line; the proposal itself is rendered as usual (E11a, E12) |
+| R52 | `WorkoutEditor.tsx` | Hide "Usar treino existente como base" while held in review (E30) |
+| R53 | chat state + autosave engine | Lock the editor, `await engine.flush()`, then start; on a failed save, unlock and keep the message (F4; E28, E29, E29a) |
+| R55 | `AiChatPanel` | Below 1280 px the panel overlays the editor, full height on the right (E31) |
+| R56 | chat store | History trimmed to 20 turns or 40,000 characters before sending (F9; E32) |
 | E1–E3, E9–E13 | chat panel | Text or error states (`V8b5f`, `mTIH0`, `F3IREj`, `Cz6l0`, `y8qFL`) |
 | E4–E8 | chat state | As R14–R22 |
 | E14–E15b | chat client + F4/F5 | |
@@ -129,9 +133,8 @@ event payloads must be published there (BFF assessment F8).
   `design-ok`.
 - **Recommendation:**
   - The owner reviews the frames listed in §9.
-  - The two PRD §8 items to settle at that review are the footer text during review, and
-    whether "Usar treino existente como base" is hidden during review. The frames show the first
-    and don't draw the second.
+  - Resolved 2026-11-18: the owner approved the frames (`design-ok`). The footer text and hiding
+    "Usar treino existente como base" in review are now PRD rules R45 and R52.
 
 ### 2. Upstream readiness
 
@@ -364,22 +367,19 @@ acceptable.
 - owner approval of the design (F1);
 - the BFF endpoint, its OpenAPI event schemas and the feature flag (F2);
 - the `vertice-ai` feature endpoint and deployment;
-- the PRD §8 legal decision before the flag is turned on.
+- the PRD §7 "Personal data before launch" condition before the flag is turned on.
 
 ## 8. Questions and assumptions
 
-- **Q1.** Does a change request wait for a pending or failed save first (PRD reviewer note on
-  #83)? Assume yes: `await engine.flush()`, and if the save fails, don't send. The chat says the
-  workout must be saved first.
-- **Q2.** Below which width does the panel overlay the editor instead of sitting beside it? Assume
-  below 1280 px it overlays, full height on the right.
+- **Q1.** Resolved: yes, the request waits for the save (PRD R53).
+- **Q2.** Resolved: below 1280 px the panel overlays the editor (PRD R55).
 - **Q3.** How does the web learn the feature flag (BFF Q2)? Assume a field the web already loads
   (`GET /auth/me`), decided in the BFF spec.
 
 ## 9. Inputs to the spec
 
-- F1: wait for `design-ok`, and settle PRD §8's footer and "Usar treino existente como base"
-  questions at that review.
+- F1: resolved; design approved 2026-11-18 (PRD R45 and R52 cover the footer and the hidden
+  action).
 - F2: build against a stub stream; merge order vertice-ai → vertice-bff → web; hide the button
   while the flag is off.
 - F3: a dedicated streaming route with abort forwarding.
