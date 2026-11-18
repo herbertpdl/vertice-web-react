@@ -51,7 +51,7 @@ export function Pagination<Size extends number>({
           Linhas por página
         </span>
         <Dropdown
-          size="compact"
+          size="sm"
           className="w-[84px]"
           labelledBy={labelId}
           options={pageSizes.map((size) => ({ value: String(size), label: String(size) }))}
