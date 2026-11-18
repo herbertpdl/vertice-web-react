@@ -4,7 +4,7 @@ const incoming = new Headers();
 vi.mock("next/headers", () => ({ headers: async () => incoming }));
 
 import { resetServerEnvForTests } from "./env.server";
-import { fetchMeOnServer } from "./serverMe";
+import { fetchMeOnServer, SERVER_ME_TIMEOUT_MS } from "./serverMe";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -46,6 +46,19 @@ describe("fetchMeOnServer (admin-panel spec W4)", () => {
     expect(await fetchMeOnServer("jwt")).toEqual({ kind: "unavailable" });
     fetchMock.mockResolvedValueOnce(new Response("<html>", { status: 200 }));
     expect(await fetchMeOnServer("jwt")).toEqual({ kind: "unavailable" });
+  });
+
+  it("gives up after SERVER_ME_TIMEOUT_MS: a stalled BFF is unavailable, not a blank page", async () => {
+    fetchMock.mockImplementationOnce(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init!.signal!.addEventListener("abort", () => reject(init!.signal!.reason));
+        }),
+    );
+    const started = Date.now();
+    expect(await fetchMeOnServer("jwt")).toEqual({ kind: "unavailable" });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(SERVER_ME_TIMEOUT_MS - 50);
+    expect(fetchMock.mock.calls[0][1]!.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("is unavailable in production without TRUSTED_PROXY_HOPS rather than guessing an address", async () => {
