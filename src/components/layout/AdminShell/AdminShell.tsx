@@ -21,14 +21,20 @@ interface AdminShellProps {
   children: React.ReactNode;
 }
 
-function Brand() {
+/** The logo group: 28 px mark and `text-lg` in the side navigation, 24 px and `text-md` in the phone top bar (`fXng6`). */
+function Brand({ compact = false }: { compact?: boolean }) {
+  const size = compact ? 24 : 28;
   return (
     <>
-      <Image src="/logo-mark.png" alt="" width={28} height={28} />
-      <span className="font-heading text-[length:var(--text-lg)] font-semibold text-[color:var(--color-text-primary)]">
+      <Image src="/logo-mark.png" alt="" width={size} height={size} />
+      <span
+        className={`font-heading font-semibold text-[color:var(--color-text-primary)] ${
+          compact ? "text-[length:var(--text-md)]" : "text-[length:var(--text-lg)]"
+        }`}
+      >
         Vertice
       </span>
-      <AdminChip />
+      <AdminChip compact={compact} />
     </>
   );
 }
@@ -109,7 +115,7 @@ export function AdminShell({ me, times, children }: AdminShellProps) {
                 <Menu aria-hidden="true" className="h-[20px] w-[20px]" />
               </button>
               <div className="flex items-center gap-[8px]">
-                <Brand />
+                <Brand compact />
               </div>
             </div>
             <span

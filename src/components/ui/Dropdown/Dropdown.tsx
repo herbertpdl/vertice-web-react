@@ -9,7 +9,7 @@ export interface DropdownOption {
   label: string;
 }
 
-export type DropdownSize = "md" | "compact";
+export type DropdownSize = "md" | "compact" | "sm";
 
 interface DropdownProps {
   label?: string;
@@ -76,6 +76,22 @@ const sizeStyles: Record<
     },
     menuBg: "bg-[var(--color-bg)]",
     chevronSize: 14,
+  },
+  // The table footer's "Linhas por página" select (`ETgH1`, `TExWT`): the base Dropdown box with
+  // the frame's 6/10 padding and 12 px text, so the md radius and the 16 px chevron stay.
+  sm: {
+    trigger: "px-[10px] py-[6px] text-[12px] bg-[var(--color-bg)]",
+    triggerRadius: "rounded-[var(--radius-md)]",
+    triggerRadiusOpen: {
+      bottom: "rounded-t-[var(--radius-md)]",
+      top: "rounded-b-[var(--radius-md)]",
+    },
+    menuRadius: {
+      bottom: "rounded-b-[var(--radius-md)] border-t-0",
+      top: "rounded-t-[var(--radius-md)] border-b-0",
+    },
+    menuBg: "bg-[var(--color-bg)]",
+    chevronSize: 16,
   },
 };
 

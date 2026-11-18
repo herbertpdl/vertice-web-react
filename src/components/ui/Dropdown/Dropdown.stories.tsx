@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect } from "storybook/test";
 import { Dropdown } from "./Dropdown";
 
 const options = [
@@ -29,4 +30,14 @@ export const Open: Story = {
 
 export const Compact: Story = {
   args: { size: "compact", label: undefined, value: "month" },
+};
+
+/** The table footer's "Linhas por página" select (`ETgH1`): 6/10 padding, 12 px, md radius. */
+export const Small: Story = {
+  args: { size: "sm", label: undefined, value: "month", className: "w-[120px]" },
+  play: async ({ canvas }) => {
+    const trigger = canvas.getByRole("button");
+    await expect(getComputedStyle(trigger).paddingTop).toBe("6px");
+    await expect(getComputedStyle(trigger).borderTopLeftRadius).toBe("10px");
+  },
 };
