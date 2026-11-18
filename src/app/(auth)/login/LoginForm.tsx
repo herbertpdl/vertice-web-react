@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Checkbox, TextField } from "@/components/ui";
 import { login } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { apiErrorMessage } from "@/lib/api/errorMessages";
+import { loginErrorMessage } from "@/lib/auth/loginErrorMessage";
 import { APP_ONLY_MESSAGE, TRAINERS_ONLY_CODE } from "@/lib/auth/trainerOnly";
 import { safeRedirectPath } from "@/lib/safeRedirect";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth";
@@ -134,10 +134,4 @@ export function LoginForm() {
       </div>
     </form>
   );
-}
-
-function loginErrorMessage(error: unknown): string {
-  if (error instanceof ApiError && error.status === 401) return "E-mail ou senha inválidos";
-  if (error instanceof ApiError && error.code === TRAINERS_ONLY_CODE) return APP_ONLY_MESSAGE;
-  return apiErrorMessage(error, "Não foi possível entrar");
 }

@@ -66,6 +66,62 @@ describe("POST /api/auth/login", () => {
     },
   );
 
+  it("maps the BFF's 403 ADMIN_LOGIN_ELSEWHERE to today's 403 TRAINERS_ONLY, the BFF body dropped", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json(
+        { error: { code: "ADMIN_LOGIN_ELSEWHERE", message: "Admins sign in on the admin host" } },
+        { status: 403 },
+      ),
+    );
+    const res = await POST(post({ email: "admin@example.com", password: "x" }));
+    expect(res.status).toBe(403);
+    const body = await res.text();
+    expect(JSON.parse(body)).toEqual({
+      error: {
+        code: "TRAINERS_ONLY",
+        message: "O acesso de alunos é feito somente pelo aplicativo Vertice.",
+      },
+    });
+    expect(body).not.toContain("admin host");
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("relays the BFF's 403 ACCOUNT_SUSPENDED as-is, without a session", async () => {
+    const suspended = { error: { code: "ACCOUNT_SUSPENDED", message: "Account suspended" } };
+    fetchMock.mockResolvedValue(Response.json(suspended, { status: 403 }));
+    const res = await POST(post({ email: "ana@example.com", password: "x" }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual(suspended);
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("relays any other 403 as-is, a non-JSON one included", async () => {
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ error: { code: "FORBIDDEN", message: "Forbidden" } }, { status: 403 }),
+    );
+    const forbidden = await POST(post({ email: "ana@example.com", password: "x" }));
+    expect(forbidden.status).toBe(403);
+    expect((await forbidden.json()).error.code).toBe("FORBIDDEN");
+
+    fetchMock.mockResolvedValueOnce(
+      new Response("<html>Forbidden</html>", { status: 403, headers: { "Content-Type": "text/html" } }),
+    );
+    const html = await POST(post({ email: "ana@example.com", password: "x" }));
+    expect(html.status).toBe(403);
+    expect(await html.text()).toBe("<html>Forbidden</html>");
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("does not map ADMIN_LOGIN_ELSEWHERE on a status other than 403", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({ error: { code: "ADMIN_LOGIN_ELSEWHERE", message: "x" } }, { status: 400 }),
+    );
+    const res = await POST(post({ email: "ana@example.com", password: "x" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe("ADMIN_LOGIN_ELSEWHERE");
+  });
+
   it("rejects a malformed body with 400 before calling the BFF", async () => {
     const res = await POST(post({ email: "not-an-email" }));
     expect(res.status).toBe(400);
