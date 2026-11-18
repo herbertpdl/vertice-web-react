@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@55d04cd82f11a9dc20347d3d33ea5c5d58852809:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@d41f125b54575e9f671ab48e70df86f8fb025e2d:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -40,7 +40,7 @@ export interface paths {
         put?: never;
         /**
          * Log in
-         * @description Public: no token needed. The password is checked by vertice-api. A wrong password, an unknown email and an account with no password yet all get the same 401 `UNAUTHORIZED` “Invalid email or password”. Failed attempts are rate limited. With `X-Vertice-Client: mobile` a TRAINER or CLIENT gets a 90-day mobile session, renewable with `POST /auth/session/renew`; without it (and for ADMIN) the 8h web session.
+         * @description Public: no token needed. The password is checked by vertice-api. A wrong password, an unknown email and an account with no password yet all get the same 401 `UNAUTHORIZED` “Invalid email or password”. Failed attempts are rate limited. With `X-Vertice-Client: mobile` a TRAINER or CLIENT gets a 90-day mobile session, renewable with `POST /auth/session/renew`; without it (and for ADMIN) the 8h web session. An admin signs in at `POST /admin/auth/login` instead: the token this route signs an ADMIN is refused everywhere.
          */
         post: operations["login"];
         delete?: never;
@@ -105,14 +105,14 @@ export interface paths {
         post?: never;
         /**
          * Delete the caller’s own account
-         * @description Any authenticated role. LGPD art. 18 VI. Re-checks `password` first (a wrong one is 400 `INVALID_CURRENT_PASSWORD`, not a 401). A trainer with active clients gets 409 `ACTIVE_CLIENTS`. Every token of the account stops working afterwards.
+         * @description Roles: TRAINER, CLIENT. LGPD art. 18 VI. Re-checks `password` first (a wrong one is 400 `INVALID_CURRENT_PASSWORD`, not a 401). A trainer with active clients gets 409 `ACTIVE_CLIENTS`. Every token of the account stops working afterwards.
          */
         delete: operations["deleteMe"];
         options?: never;
         head?: never;
         /**
          * Correct the caller’s own profile
-         * @description Any authenticated role. LGPD art. 18 III. Every field is optional and an omitted one keeps the stored value. The role cannot change. `cpf`: a string sets it (the mask `GET /auth/me` returns is refused), `null` removes it (a trainer’s CPF is required). `cref` is a trainer’s only. No email verification yet.
+         * @description Roles: TRAINER, CLIENT. LGPD art. 18 III. Every field is optional and an omitted one keeps the stored value. The role cannot change. `cpf`: a string sets it (the mask `GET /auth/me` returns is refused), `null` removes it (a trainer’s CPF is required). `cref` is a trainer’s only. No email verification yet.
          */
         patch: operations["updateMe"];
         trace?: never;
@@ -146,7 +146,7 @@ export interface paths {
         };
         /**
          * Download the caller’s data
-         * @description Any authenticated role. LGPD art. 18 II and V. vertice-api’s export document, passed through as a file download (`Content-Disposition: attachment; filename="vertice-dados-YYYY-MM-DD.json"`). Over the export bounds it is 413 `TOO_LARGE` rather than a truncated file. 3 per hour per user.
+         * @description Roles: TRAINER, CLIENT. LGPD art. 18 II and V. vertice-api’s export document, passed through as a file download (`Content-Disposition: attachment; filename="vertice-dados-YYYY-MM-DD.json"`). Over the export bounds it is 413 `TOO_LARGE` rather than a truncated file. 3 per hour per user.
          */
         get: operations["exportMyData"];
         put?: never;
@@ -905,10 +905,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin sign-in: the password step
+         * @description Public: no token needed. Checks the password of an ADMIN account and answers a short-lived challenge, never a session. A wrong password, an unknown email, an account with no password and a trainer’s or client’s correct password all get the same 401 `UNAUTHORIZED` “Invalid email or password”. `secondFactor` says whether to enroll an authenticator first. Failed attempts are rate limited.
+         */
+        post: operations["adminLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/auth/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin sign-in: start authenticator enrolment
+         * @description Public: no token needed. With the challenge of an admin who has no authenticator yet, answers the `otpauth://` provisioning URI (it contains a new secret; each call replaces it). Enrolment completes at `POST /api/admin/auth/verify` with a code from that secret. An invalid or expired challenge is 401 `CHALLENGE_INVALID` (sign in again); an admin already enrolled is 409 `PRECONDITION_FAILED` (go to the code step). Every call is rate limited.
+         */
+        post: operations["adminEnroll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/auth/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin sign-in: the code step
+         * @description Public: no token needed. Checks the 6-digit authenticator code and answers the admin session: a 30-minute token, renewable up to `sessionEndsAt` (12 hours). A wrong, reused or expired code is 400 `INVALID_SECOND_FACTOR_CODE` (same challenge, try again). An invalid or expired challenge is 401 `CHALLENGE_INVALID` and no authenticator on record is 409 `PRECONDITION_FAILED`: sign in again from the password. After 5 wrong codes the authenticator is locked for 15 minutes: 429 `RATE_LIMITED` with `Retry-After`.
+         */
+        post: operations["adminVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/auth/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew the admin session
+         * @description Roles: ADMIN. Trades a valid admin token for a new one that expires 30 minutes from now, never after `sessionEndsAt` (which does not move). The old token stays valid until its own expiry. vertice-api is asked first, so a suspended, re-roled or reset admin, or one whose password changed, is 401 `UNAUTHENTICATED` and gets no new token. Renew on the admin’s own activity, throttled, never on a timer. No body.
+         */
+        post: operations["adminRenew"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminChallenge: {
+            /** @description Opaque. Send it in the body of `POST /api/admin/auth/enroll` and `/verify` only, never as a bearer (it is a 401 there). Reusable until it expires. */
+            challenge: string;
+            /** @description When `challenge` expires: 5 minutes after the password step. */
+            challengeExpiresAt: string;
+            /**
+             * @description `NOT_ENROLLED`: enroll, then verify. `ENROLLED`: go straight to the code step.
+             * @enum {string}
+             */
+            secondFactor: "ENROLLED" | "NOT_ENROLLED";
+        };
+        AdminEnrollRequest: {
+            challenge: string;
+        };
+        AdminEnrollment: {
+            /** @description The `otpauth://totp/...` URI with the new secret. Render it as a QR code in-process (never through a third-party service), never log or store it. Each enroll call replaces it with a new secret. */
+            provisioningUri: string;
+        };
+        AdminSession: {
+            /** @description The admin bearer token. Send it only from the admin host. */
+            token: string;
+            /** @description When `token` expires: 30 minutes after it was issued, never after `sessionEndsAt`. Renew before this with `POST /api/admin/auth/renew`. */
+            expiresAt: string;
+            /** @description The sign-in’s hard cap, 12 hours after the code step. Renewal never moves it. */
+            sessionEndsAt: string;
+            user: components["schemas"]["SessionUser"];
+        };
+        AdminVerifyRequest: {
+            challenge: string;
+            code: string;
+        };
         AuthSession: {
             token: string;
             /** @description When `token` expires, an ISO-8601 instant: 8 hours out for a web session, 90 days for a mobile one (`X-Vertice-Client: mobile`). A mobile app renews before this with `POST /api/auth/session/renew`. */
@@ -1093,7 +1204,7 @@ export interface components {
             trainingPlanName: string;
         };
         /** @enum {string} */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHORIZED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "PRECONDITION_FAILED" | "TOO_LARGE" | "RATE_LIMITED" | "UPSTREAM_ERROR" | "UPSTREAM_UNAVAILABLE" | "INTERNAL_ERROR" | "INVALID_CURRENT_PASSWORD" | "INVALID_SETUP_TOKEN" | "ACTIVE_CLIENTS" | "SESSION_NOT_RENEWABLE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHORIZED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "PRECONDITION_FAILED" | "TOO_LARGE" | "RATE_LIMITED" | "UPSTREAM_ERROR" | "UPSTREAM_UNAVAILABLE" | "INTERNAL_ERROR" | "INVALID_CURRENT_PASSWORD" | "INVALID_SETUP_TOKEN" | "ACTIVE_CLIENTS" | "SESSION_NOT_RENEWABLE" | "CHALLENGE_INVALID" | "INVALID_SECOND_FACTOR_CODE";
         ErrorResponse: {
             error: {
                 /** @description Machine-readable. Key on this, never on `message`. */
@@ -1526,7 +1637,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1621,7 +1732,7 @@ export interface operations {
                     "application/json": components["schemas"]["AuthSession"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1668,7 +1779,7 @@ export interface operations {
                     "application/json": components["schemas"]["Me"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1708,8 +1819,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1768,8 +1888,17 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1806,7 +1935,7 @@ export interface operations {
                     "application/json": components["schemas"]["ClientTrainer"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1844,8 +1973,17 @@ export interface operations {
                     "application/json": components["schemas"]["DataExport"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1904,7 +2042,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1944,7 +2082,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2024,7 +2162,7 @@ export interface operations {
                     "application/json": components["schemas"]["ClientSummary"][];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2075,7 +2213,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2135,7 +2273,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2191,7 +2329,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2253,7 +2391,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2320,7 +2458,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2378,7 +2516,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2452,7 +2590,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2512,7 +2650,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2562,7 +2700,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2611,7 +2749,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2667,7 +2805,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2738,7 +2876,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2799,7 +2937,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2837,7 +2975,7 @@ export interface operations {
                     "application/json": components["schemas"]["MuscleGroup"][];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2878,7 +3016,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2929,7 +3067,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2987,7 +3125,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3043,7 +3181,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3114,7 +3252,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3172,7 +3310,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3234,7 +3372,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3292,7 +3430,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3341,7 +3479,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3397,7 +3535,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3468,7 +3606,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3526,7 +3664,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3588,7 +3726,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3646,7 +3784,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3708,7 +3846,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3779,7 +3917,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3835,7 +3973,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3906,7 +4044,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3964,7 +4102,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4026,7 +4164,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4082,7 +4220,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4153,7 +4291,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4214,7 +4352,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4284,7 +4422,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4356,7 +4494,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4418,7 +4556,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4489,7 +4627,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4554,7 +4692,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4620,7 +4758,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4687,7 +4825,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4734,7 +4872,7 @@ export interface operations {
                     "application/json": components["schemas"]["EnrichedFeedback"][];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4772,7 +4910,7 @@ export interface operations {
                     "application/json": components["schemas"]["Dashboard"];
                 };
             };
-            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), or the account no longer exists (`UNAUTHENTICATED`). */
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4808,6 +4946,224 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LegalVersions"];
+                };
+            };
+        };
+    };
+    adminLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description The challenge for the code step. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminChallenge"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited (`RATE_LIMITED`); `Retry-After` carries the seconds to wait. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminEnroll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminEnrollRequest"];
+            };
+        };
+        responses: {
+            /** @description The provisioning URI, to show as a QR code. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEnrollment"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, `ACTIVE_CLIENTS`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited (`RATE_LIMITED`); `Retry-After` carries the seconds to wait. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminVerify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description The admin session. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSession"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, `ACTIVE_CLIENTS`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited (`RATE_LIMITED`); `Retry-After` carries the seconds to wait. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminRenew: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new admin session. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSession"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limited (`RATE_LIMITED`); `Retry-After` carries the seconds to wait. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

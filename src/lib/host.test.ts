@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetServerEnvForTests } from "./env.server";
-import { hostGuard, hostnameOf, workspaceOf } from "./host";
+import { adminOrigin, hostGuard, hostnameOf, workspaceOf } from "./host";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -82,5 +82,27 @@ describe("hostGuard", () => {
     expect(hostGuard(request("admin.localhost:5173"), "admin")).toBeUndefined();
     expect(hostGuard(request("admin.localhost:5173"), "any")).toBeUndefined();
     expect(hostGuard(request("localhost:5173"), "any")).toBeUndefined();
+  });
+});
+
+describe("adminOrigin", () => {
+  it("is https://ADMIN_HOST in production, whatever the request", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "2");
+    vi.stubEnv("ADMIN_HOST", "admin.vertice.fit");
+    expect(adminOrigin(headers({ Host: "www.vertice.fit" }))).toBe("https://admin.vertice.fit");
+  });
+
+  it("is undefined in production with ADMIN_HOST unset: no link", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "2");
+    vi.stubEnv("ADMIN_HOST", "");
+    expect(adminOrigin(headers({ Host: "www.vertice.fit" }))).toBeUndefined();
+  });
+
+  it("keeps the request's scheme and port outside production", () => {
+    expect(adminOrigin(headers({ Host: "localhost:5173" }))).toBe("http://admin.localhost:5173");
+    expect(adminOrigin(headers({ Host: "localhost" }))).toBe("http://admin.localhost");
+    expect(adminOrigin(headers({ Host: "[::1]:3000", "X-Forwarded-Proto": "https" }))).toBe("https://admin.localhost:3000");
   });
 });

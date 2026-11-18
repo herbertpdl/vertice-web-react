@@ -133,3 +133,15 @@ export type ApiErrorBody = Schemas["ErrorResponse"];
 
 /** The codes the BFF documents. `ApiError.code` is wider: see `client.ts`. */
 export type ApiErrorCode = Schemas["ErrorCode"];
+
+/** `POST /admin/auth/login`: the challenge (kept server-side in its cookie) and the next step. */
+export type AdminChallenge = Schemas["AdminChallenge"];
+
+/** `ENROLLED`: go to the code step. `NOT_ENROLLED`: enroll an authenticator first. */
+export type SecondFactor = AdminChallenge["secondFactor"];
+
+/** `POST /admin/auth/enroll`: the `otpauth://` URI with a new secret. Never stored or logged. */
+export type AdminEnrollment = Schemas["AdminEnrollment"];
+
+/** `POST /admin/auth/verify` and `/renew`: the admin token and its two times. */
+export type AdminSession = Schemas["AdminSession"];

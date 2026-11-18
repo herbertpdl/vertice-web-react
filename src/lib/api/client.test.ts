@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchMock = vi.fn<typeof fetch>();
-const location = { href: "/perfil" };
+const location = { href: "/perfil", pathname: "/perfil" };
 
 // client.ts keeps a module-level "already logging out" flag: a fresh module per test.
 async function loadClient() {
@@ -11,6 +11,7 @@ async function loadClient() {
 
 beforeEach(() => {
   location.href = "/perfil";
+  location.pathname = "/perfil";
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal("window", { location });
 });
@@ -52,6 +53,42 @@ describe("apiClient errors", () => {
       status: 401,
     });
     expect(logoutCall()?.[1]).toMatchObject({ method: "POST" });
+    await vi.waitFor(() => expect(location.href).toBe("/login"));
+  });
+});
+
+describe("apiClient: the 401 path per workspace (admin-panel spec W9)", () => {
+  function unauthorized(url: RequestInfo | URL) {
+    return String(url).startsWith("/api/bff")
+      ? Response.json({ error: { code: "UNAUTHORIZED", message: "Expired" } }, { status: 401 })
+      : Response.json({ ok: true });
+  }
+
+  it("on /painel/** clears the admin cookies and lands on the admin sign-in with the expiry notice", async () => {
+    location.pathname = "/painel/usuarios/4";
+    const { apiClient } = await loadClient();
+    fetchMock.mockImplementation(async (url) => unauthorized(url));
+    await expect(apiClient.get("/admin/users/4")).rejects.toMatchObject({ status: 401 });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain("/api/admin/auth/logout");
+    expect(logoutCall()).toBeUndefined();
+    await vi.waitFor(() => expect(location.href).toBe("/painel/entrar?motivo=expirou"));
+  });
+
+  it("on /painel itself too", async () => {
+    location.pathname = "/painel";
+    const { apiClient } = await loadClient();
+    fetchMock.mockImplementation(async (url) => unauthorized(url));
+    await apiClient.get("/admin/dashboard").catch(() => undefined);
+    await vi.waitFor(() => expect(location.href).toBe("/painel/entrar?motivo=expirou"));
+  });
+
+  it("elsewhere keeps today's path (a /painelx page is not the admin's)", async () => {
+    location.pathname = "/painelx";
+    const { apiClient } = await loadClient();
+    fetchMock.mockImplementation(async (url) => unauthorized(url));
+    await apiClient.get("/clients").catch(() => undefined);
+    expect(logoutCall()?.[1]).toMatchObject({ method: "POST" });
+    expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain("/api/admin/auth/logout");
     await vi.waitFor(() => expect(location.href).toBe("/login"));
   });
 });
