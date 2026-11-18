@@ -14,6 +14,8 @@ export const NOTES_MAX = 255;
 export const CREF_MAX = 20;
 export const VIDEO_URL_MAX = 500;
 export const FEEDBACK_MAX = 2000;
+/** The admin directory's search (`GET /admin/users?q=`), admin-panel spec W15. */
+export const ADMIN_SEARCH_MAX = 100;
 
 export const ORDER_MAX = 1000;
 export const REPS_MAX = 1000;
