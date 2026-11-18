@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { KeyRound, Menu, X } from "lucide-react";
@@ -42,12 +43,23 @@ export function AdminShell({ me, times, children }: AdminShellProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   useAdminSession(times);
+
+  /**
+   * Closes the phone drawer and gives focus back to "Abrir menu". `flushSync` so the page behind
+   * is no longer `inert` when the focus moves, and so a dialog opened next saves a real control
+   * (not `<body>`) to return focus to.
+   */
+  function closeMenu() {
+    flushSync(() => setMenuOpen(false));
+    menuButton.current?.focus();
+  }
 
   useEffect(() => {
     if (!menuOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") closeMenu();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -64,26 +76,30 @@ export function AdminShell({ me, times, children }: AdminShellProps) {
           label: "Alterar senha",
           icon: KeyRound,
           onClick: () => {
-            setMenuOpen(false);
+            if (menuOpen) closeMenu();
             setChangingPassword(true);
           },
         },
       ]}
-      onSignOut={() => signOutAdmin()}
+      onSignOut={() => void signOutAdmin()}
       variant={variant}
-      onNavigate={() => setMenuOpen(false)}
+      onNavigate={() => {
+        if (menuOpen) closeMenu();
+      }}
     />
   );
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen w-full bg-[var(--color-bg)]">
+      {/* While the phone drawer is open the page behind it is inert: Tab stays in the drawer. */}
+      <div inert={menuOpen} className="flex min-h-screen w-full bg-[var(--color-bg)]">
         <div className="sticky top-0 hidden h-screen shrink-0 md:block">{nav("rail")}</div>
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between border-b border-[var(--color-border)] px-[16px] py-[12px] md:hidden">
             <div className="flex items-center gap-[12px]">
               <button
+                ref={menuButton}
                 type="button"
                 aria-label="Abrir menu"
                 aria-expanded={menuOpen}
@@ -113,7 +129,7 @@ export function AdminShell({ me, times, children }: AdminShellProps) {
             type="button"
             aria-label="Fechar menu"
             tabIndex={-1}
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
             className="absolute inset-0 bg-[#000000A6]"
           />
           <div className="relative h-full w-[290px]">{nav("drawer")}</div>
@@ -121,7 +137,7 @@ export function AdminShell({ me, times, children }: AdminShellProps) {
             type="button"
             aria-label="Fechar menu"
             autoFocus
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
             className="absolute top-[16px] left-[302px] flex h-[40px] w-[40px] items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-surface)] text-[color:var(--color-text-primary)]"
           >
             <X aria-hidden="true" className="h-[20px] w-[20px]" />
@@ -133,7 +149,7 @@ export function AdminShell({ me, times, children }: AdminShellProps) {
         <ChangePasswordDialog
           onClose={() => setChangingPassword(false)}
           // E42: every session of the account ended, this one too. Sign in again.
-          onChanged={() => signOutAdmin("senha-alterada")}
+          onChanged={() => void signOutAdmin("senha-alterada")}
         />
       )}
     </ToastProvider>

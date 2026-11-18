@@ -74,8 +74,13 @@ export const PhoneMenu: Story = {
     const menu = await body.findByRole("dialog", { name: "Menu do painel" });
     await expect(within(menu).getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
     await expect(within(menu).getByText("carla@vertice.fit")).toBeVisible();
+    // The page behind is inert while the drawer is open (Tab stays in the drawer).
+    await expect(canvas.getByRole("heading", { name: "Dashboard" }).closest("[inert]")).not.toBeNull();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(body.queryByRole("dialog", { name: "Menu do painel" })).toBeNull());
+    // Focus goes back to the control that opened it.
+    await expect(open).toHaveFocus();
+    await expect(canvas.getByRole("heading", { name: "Dashboard" }).closest("[inert]")).toBeNull();
   },
 };
 
@@ -88,6 +93,9 @@ export const ChangePassword: Story = {
     await userEvent.click(await body.findByRole("button", { name: "Alterar senha" }));
     await expect(await body.findByLabelText("Senha atual")).toBeVisible();
     await expect(body.queryByRole("dialog", { name: "Menu do painel" })).toBeNull();
+    // Closing the dialog returns focus to a real control, not <body>.
+    await userEvent.click(body.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(canvas.getByRole("button", { name: "Abrir menu" })).toHaveFocus());
   },
 };
 
