@@ -145,3 +145,44 @@ export type AdminEnrollment = Schemas["AdminEnrollment"];
 
 /** `POST /admin/auth/verify` and `/renew`: the admin token and its two times. */
 export type AdminSession = Schemas["AdminSession"];
+
+// --- Admin panel reads (`/admin`, ADMIN only; admin-panel spec W15) -----------------------------
+
+/** `GET /admin/dashboard`: totals, active users, completed workouts and 12 weeks of sign-ups. */
+export type AdminDashboard = Schemas["AdminDashboard"];
+
+/** One week of `AdminDashboard.weeklySignups`; `weekStart` is a Monday (business date). */
+export type AdminWeeklySignups = AdminDashboard["weeklySignups"][number];
+
+/** `GET /admin/users`: one page of the directory (admins never appear). */
+export type AdminDirectoryPage = Schemas["AdminDirectoryPage"];
+
+/** One directory row. `currentTrainer` is for clients, `currentClientCount` for trainers. */
+export type AdminDirectoryUser = Schemas["AdminDirectoryUser"];
+
+/** The roles the directory lists and filters by: an admin is never one of them. */
+export type AdminDirectoryRole = AdminDirectoryUser["role"];
+
+/** `GET /admin/users/:id`: a union on `role`. Every call writes a history entry (W16). */
+export type AdminUserProfile = Schemas["AdminUserProfile"];
+export type AdminTrainerProfile = Schemas["AdminTrainerProfile"];
+export type AdminClientProfile = Schemas["AdminClientProfile"];
+
+/** A trainer–client relationship as a profile shows it: the other party and its dates. */
+export type AdminRelationship = Schemas["AdminRelationship"];
+
+/** `{id, name, role}`; a deleted user's name is "Usuário removido". */
+export type AdminUserRef = Schemas["AdminUserRef"];
+
+/** Every action the history records. The label map is keyed by it (`src/lib/admin/actions.ts`). */
+export type AdminAction = Schemas["AdminAction"];
+
+/** `GET /admin/actions`: one page of the history, newest first. */
+export type AdminActionPage = Schemas["AdminActionPage"];
+export type AdminActionEntry = Schemas["AdminActionEntry"];
+
+/** `GET /admin/actions/admins`: the history's admin filter. */
+export type AdminActionAdmins = Schemas["AdminActionAdmins"];
+
+/** The page sizes every admin list accepts (`limit`); 25 when absent. */
+export type AdminPageSize = 10 | 25 | 50;

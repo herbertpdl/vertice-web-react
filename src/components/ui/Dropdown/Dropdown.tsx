@@ -19,6 +19,11 @@ interface DropdownProps {
   onChange?: (value: string) => void;
   disabled?: boolean;
   size?: DropdownSize;
+  /**
+   * The id of an element outside the dropdown that names it (e.g. "Linhas por página" next to it),
+   * for a dropdown with no `label`. The trigger reads as that text plus the selected option.
+   */
+  labelledBy?: string;
   className?: string;
 }
 
@@ -88,6 +93,7 @@ export function Dropdown({
   onChange,
   disabled,
   size = "md",
+  labelledBy,
   className = "",
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
@@ -247,6 +253,7 @@ export function Dropdown({
         id={id}
         type="button"
         disabled={disabled}
+        aria-labelledby={labelledBy ? `${labelledBy} ${id}` : undefined}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? `${id}-listbox` : undefined}
@@ -281,7 +288,7 @@ export function Dropdown({
             ref={menuRef}
             id={`${id}-listbox`}
             role="listbox"
-            aria-labelledby={id}
+            aria-labelledby={labelledBy ?? id}
             style={{
               top: menuPosition?.top,
               left: menuPosition?.left,

@@ -1,12 +1,18 @@
-import { TrendingDown, TrendingUp } from "lucide-react";
+import type { ReactNode } from "react";
+import { TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
 import { SkeletonCircle, SkeletonLine } from "../Skeleton";
 
 interface MetricCardProps {
   label: string;
-  value: string;
+  /** Ignored when `children` is given. */
+  value?: string;
   delta?: string;
   trend?: "up" | "down" | "neutral";
   loading?: boolean;
+  /** A fixed icon in the primary color, in place of the trend arrow (the admin dashboard's cards). */
+  icon?: LucideIcon;
+  /** A custom body in place of `value` and `delta` (e.g. the admin dashboard's 7/30-day split). */
+  children?: ReactNode;
   className?: string;
 }
 
@@ -22,6 +28,8 @@ export function MetricCard({
   delta,
   trend = "up",
   loading = false,
+  icon: Icon,
+  children,
   className = "",
 }: MetricCardProps) {
   const TrendIcon = trend === "down" ? TrendingDown : TrendingUp;
@@ -45,15 +53,28 @@ export function MetricCard({
             <span className="text-[length:var(--text-sm)] text-[color:var(--color-text-secondary)]">
               {label}
             </span>
-            {trend !== "neutral" && (
-              <TrendIcon width={16} height={16} className={trendColor[trend]} />
+            {Icon ? (
+              <Icon
+                aria-hidden="true"
+                width={16}
+                height={16}
+                className="text-[color:var(--color-primary)]"
+              />
+            ) : (
+              trend !== "neutral" && (
+                <TrendIcon width={16} height={16} className={trendColor[trend]} />
+              )
             )}
           </div>
-          <span className="font-heading text-[length:var(--text-2xl)] font-bold text-[color:var(--color-text-primary)]">
-            {value}
-          </span>
-          {delta && (
-            <span className={`text-[12px] ${trendColor[trend]}`}>{delta}</span>
+          {children ?? (
+            <>
+              <span className="font-heading text-[length:var(--text-2xl)] font-bold text-[color:var(--color-text-primary)]">
+                {value}
+              </span>
+              {delta && (
+                <span className={`text-[12px] ${trendColor[trend]}`}>{delta}</span>
+              )}
+            </>
           )}
         </>
       )}

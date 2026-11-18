@@ -8,7 +8,9 @@ import {
   formatMonthYear,
   formatDateRange,
   formatDateShort,
+  formatCount,
   formatDateTime,
+  formatDayMonth,
   formatRelativeTime,
   formatTimeOfDay,
   initials,
@@ -107,6 +109,22 @@ describe("formatting a business date", () => {
     // date is a civil date, so it is unaffected — which is why it is not resolved in a zone.
     expect(formatDateNumeric("2018-11-04")).toBe("04/11/2018");
     expect(formatDateNumeric("2019-02-17")).toBe("17/02/2019");
+  });
+});
+
+describe("formatCount", () => {
+  it("groups thousands with a dot", () => {
+    expect(formatCount(0)).toBe("0");
+    expect(formatCount(1942)).toBe("1.942");
+    expect(formatCount(14106)).toBe("14.106");
+  });
+});
+
+describe("formatDayMonth", () => {
+  it("shows a business date's day and month as written, in any host zone", () => {
+    expect(formatDayMonth("2026-08-25")).toBe("25/08");
+    expect(formatDayMonth("2026-01-01")).toBe("01/01");
+    expect(formatDayMonth("2026-12-31")).toBe("31/12");
   });
 });
 

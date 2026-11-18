@@ -64,6 +64,12 @@ const numericDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   year: "numeric",
 });
 
+const dayMonthFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "UTC",
+  day: "2-digit",
+  month: "2-digit",
+});
+
 const monthYearFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "UTC",
   month: "long",
@@ -145,6 +151,11 @@ export function formatDateNumeric(isoDate: string): string {
   return numericDateFormatter.format(civilDay(isoDate));
 }
 
+/** A business date as day and month in digits, e.g. "25/08" (the dashboard chart's weeks). */
+export function formatDayMonth(isoDate: string): string {
+  return dayMonthFormatter.format(civilDay(isoDate));
+}
+
 /** The month a business date falls in, as a calendar's header shows it, e.g. "outubro de 2026". */
 export function formatMonthYear(isoDate: string): string {
   return monthYearFormatter.format(civilDay(isoDate));
@@ -164,6 +175,13 @@ export function formatRelativeTime(isoTimestamp: string): string {
   if (diffHours < 24) return `há ${diffHours}h`;
   const diffDays = Math.round(diffHours / 24);
   return `há ${diffDays}d`;
+}
+
+const integerFormatter = new Intl.NumberFormat("pt-BR");
+
+/** A count with pt-BR thousands separators, e.g. "1.942". */
+export function formatCount(value: number): string {
+  return integerFormatter.format(value);
 }
 
 export function initials(name: string): string {

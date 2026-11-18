@@ -317,6 +317,7 @@ export const roster: (ClientSummary & { email: string })[] = [
     currentPlan: { id: 7, name: "Hipertrofia A", endDate: "2026-12-20" },
     lastWorkoutAt: null,
     weekActivity: [],
+    suspended: false,
   },
   {
     id: 43,
@@ -326,5 +327,6 @@ export const roster: (ClientSummary & { email: string })[] = [
     currentPlan: null,
     lastWorkoutAt: null,
     weekActivity: [],
+    suspended: false,
   },
 ];
