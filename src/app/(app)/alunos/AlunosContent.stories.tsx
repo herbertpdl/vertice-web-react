@@ -46,3 +46,12 @@ export const SearchByNameOnly: Story = {
     await expect(canvas.queryByText("Rafael Souza")).toBeNull();
   },
 };
+
+/** R46, E22: a client an admin suspended stays on the roster with a "Suspenso" badge. */
+export const SuspendedClient: Story = {
+  play: async ({ canvas }) => {
+    const suspended = canvas.getByRole("link", { name: /Rafael Souza/ });
+    await expect(suspended).toHaveTextContent("Suspenso");
+    await expect(canvas.getByRole("link", { name: /Marina Costa/ })).not.toHaveTextContent("Suspenso");
+  },
+};

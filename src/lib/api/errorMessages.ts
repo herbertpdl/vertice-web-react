@@ -31,6 +31,8 @@ export const errorMessages: Readonly<Partial<Record<ApiErrorCode, string>>> = {
   UPSTREAM_UNAVAILABLE: "O serviço está indisponível no momento. Tente novamente em instantes.",
   // The BFF's own unhandled-error body (`src/plugins/error-handler.ts`), a 500.
   INTERNAL_ERROR: "Ocorreu um erro inesperado. Tente novamente.",
+  // A suspended account's correct password, on either login (PRD admin-panel R41, E18).
+  ACCOUNT_SUSPENDED: "Sua conta está suspensa. Entre em contato com o suporte.",
 };
 
 /**

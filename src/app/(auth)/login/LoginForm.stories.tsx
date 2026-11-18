@@ -52,3 +52,26 @@ export const SentToTheApp: Story = {
     );
   },
 };
+
+/** R41, E18: a suspended account's correct password reads the suspended copy, never the BFF's text. */
+export const Suspended: Story = {
+  beforeEach: () => {
+    const original = window.fetch;
+    window.fetch = (async () =>
+      Response.json(
+        { error: { code: "ACCOUNT_SUSPENDED", message: "Account suspended" } },
+        { status: 403 },
+      )) as typeof fetch;
+    return () => {
+      window.fetch = original;
+    };
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.type(canvas.getByLabelText("Email"), "ana@email.com");
+    await userEvent.type(canvas.getByLabelText("Senha"), "senha-segura-1");
+    await userEvent.click(canvas.getByRole("button", { name: "Entrar" }));
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Sua conta está suspensa. Entre em contato com o suporte.",
+    );
+  },
+};
