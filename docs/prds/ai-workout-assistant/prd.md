@@ -110,6 +110,15 @@ cannot send another message until the current one is finished.
   seconds, the chat shows an error with "Tentar novamente",
   the trainer's message stays in the chat, and the editor is unchanged and unlocked.
 - R22: "Tentar novamente" sends the same message again.
+- R47: The trainer can close the chat panel while a message is being processed; the processing
+  continues.
+- R48: Reopening the chat panel while a message is being processed shows its current progress
+  and "Parar".
+- R49: The AI icon stays usable while the editor is read-only (R19), so the trainer can always
+  reopen the panel and stop a change being built.
+- R50: Leaving the editor while a message is being processed ("Concluir", navigating away,
+  reloading or closing the tab) warns that the assistant's progress will be lost; leaving
+  anyway stops the message.
 
 **Changes proposed by the assistant**
 
@@ -164,7 +173,7 @@ outside review the editor behaves exactly as WE describes.
   not apply to review.
 - R45: While a proposal is in review, the editor may say that the proposal is not saved yet
   (WE-R13 does not apply to review).
-- R46: The leave warning of R42 is an extra case of WE-R12, on top of a save in progress or a
+- R46: The leave warnings of R42 and R50 are extra cases of WE-R12, on top of a save in progress or a
   failed save.
 
 ## 5. Edge cases
@@ -196,6 +205,9 @@ outside review the editor behaves exactly as WE describes.
 | E21 | On a new workout, the trainer discards the proposal without other changes. | No workout is created (WE-R5). | R39 |
 | E22 | Another tab saves changes to the same workout while a proposal is in review here. | Applying saves this screen's version; last write wins, as in the editor today (WE-E19). | R38 |
 | E23 | A client opens the workout after the trainer applied a proposal. | The client sees a normal workout, with no mention of the assistant. | R6 |
+| E24 | Trainer closes the chat panel while a change is being built. | The work continues; the editor stays read-only under the overlay. | R19, R47 |
+| E25 | Trainer then reopens the panel with the AI icon. | The panel shows the current stage and "Parar"; pressing it unlocks the editor unchanged. | R16, R48, R49 |
+| E26 | Trainer presses "Concluir" or closes the tab while an answer or a change is still being processed. | Warning that the assistant's progress will be lost; leaving anyway stops the message and nothing is changed. | R50 |
 
 ## 6. Out of scope
 
@@ -230,6 +242,7 @@ outside review the editor behaves exactly as WE describes.
 | Usage limit | None in this version; token/cost-based limit in a later PRD | Owner: a message count is not enough to control cost. |
 | Off-topic questions | Politely declined | (proposed, accepted) |
 | Leaving with a proposal in review | Warn, then discard | (proposed, accepted) |
+| Closing the chat panel while a message is processing | Allowed; the work continues; leaving the page warns that the progress will be lost | Owner's choice after PR #83. The AI icon staying usable (R49) is (proposed) so a closed panel never leaves a locked editor with no way to stop it. |
 | Question or change | The assistant decides and asks when unclear | (proposed, accepted) |
 | Message on arrival of a proposal | One line saying it is ready; no explanation of what or why | Owner: save cost; the editor marks the changes. |
 | Showing what changed | "Novo" marks, highlighted values, struck-through removals | (proposed, accepted) |
@@ -253,9 +266,6 @@ outside review the editor behaves exactly as WE describes.
   shows during review, and whether "Usar treino existente como base" (WE-R24) is hidden then,
   are settled at the design review. Meanwhile, assume the footer says the proposal is not saved
   yet and the action is hidden during review.
-- **Closing the chat panel while a message is processing.** Not decided: either the panel cannot
-  be closed while busy, or "Parar" also appears on the editor overlay, so the trainer can always
-  stop a locked editor. Meanwhile, assume the panel cannot be closed while busy.
 - **Partly possible requests.** Not decided whether the assistant proposes what it can (for
   example, the exercises found in the catalog, or up to the 20/10 limits) and says what it left
   out, or proposes nothing. The same question applies when applying would remove several
