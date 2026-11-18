@@ -7,7 +7,7 @@ Related: none in `docs/requirements.md` (new requirement from the owner: an AI a
 workout editor that answers training questions and builds workout changes for the trainer to
 review), [docs/prds/create-workout-with-exercises/prd.md](../create-workout-with-exercises/prd.md)
 (the workout editor this adds to; its rules are referred to below as `WE-R#`/`WE-E#` and not
-restated),
+restated, except where §4 "Effect on the workout editor" says otherwise),
 [vertice-api/docs/prds/create-workout-with-exercises/prd.md](https://github.com/herbertpdl/vertice-api/blob/main/docs/prds/create-workout-with-exercises/prd.md)
 (the 20-exercise and 10-set limits and the recorded-data protection, `API-R8`/`R9`/`R12`),
 [vertice-ai/docs/assessments/vertice-ai-foundation/assessment.md](https://github.com/herbertpdl/vertice-ai/blob/main/docs/assessments/vertice-ai-foundation/assessment.md)
@@ -90,8 +90,9 @@ cannot send another message until the current one is finished.
   aplicar."
 - R12: The assistant knows the workout on screen, its training plan's name, description, level
   and dates, and the plan's other workouts.
-- R13: The assistant never receives the client's name, recorded weights, workout logs or
-  feedback.
+- R13: The assistant never receives the client's profile (name, email), recorded weights,
+  workout logs or feedback; free text the trainer wrote (plan name and description, notes) is
+  sent as written.
 
 **While a message is being processed**
 
@@ -105,7 +106,8 @@ cannot send another message until the current one is finished.
   treino…" overlay.
 - R20: While the assistant answers a question, only the chat input is locked; the editor stays
   usable.
-- R21: When a message fails or takes too long, the chat shows an error with "Tentar novamente",
+- R21: When a message fails, or shows no progress (no new stage and no new text) for 60
+  seconds, the chat shows an error with "Tentar novamente",
   the trainer's message stays in the chat, and the editor is unchanged and unlocked.
 - R22: "Tentar novamente" sends the same message again.
 
@@ -132,14 +134,16 @@ cannot send another message until the current one is finished.
 **Reviewing a proposal**
 
 - R33: In review, added exercises and sets are marked "Novo", changed values are highlighted,
-  and removed exercises are shown struck through.
+  and removed exercises are shown struck through; the markers always compare against the last
+  saved workout, also after several chained proposals.
 - R34: In review, nothing is saved until the trainer presses "Aplicar".
 - R35: In review, the trainer can edit the proposal by hand like any workout in the editor.
 - R36: In review, the trainer can keep chatting; a new change builds on the proposal as it
   stands on screen, including the trainer's own edits to it.
 - R37: There is at most one proposal in review at a time.
 - R38: "Aplicar" saves the workout as it stands on screen, and automatic saving resumes (WE-R7).
-- R39: "Descartar" puts the editor back to the workout exactly as it was before the proposal.
+- R39: "Descartar" puts the editor back to the last saved workout, dropping every proposal and
+  every manual edit made during review.
 - R40: Applying a proposal on a workout that does not exist yet creates it, named "Novo
   treino" (WE-R3/R4).
 - R41: When applying would remove an exercise or set a client has already recorded data against,
@@ -147,6 +151,21 @@ cannot send another message until the current one is finished.
   (WE-R27).
 - R42: Leaving the editor with a proposal in review ("Concluir", navigating away, reloading or
   closing the tab) warns that the proposal has not been applied; leaving anyway discards it.
+
+**Effect on the workout editor (WE)**
+
+These rules follow from R34–R42 and override the editor PRD only while a proposal is in review;
+outside review the editor behaves exactly as WE describes.
+
+- R43: While a proposal is in review, automatic saving (WE-R7/R8) is suspended; it resumes after
+  "Aplicar" or "Descartar".
+- R44: While a proposal is in review, "Aplicar" and "Descartar" are offered in addition to
+  "Concluir" (WE-R11), and WE-§6's exclusion of a discard action and of other editing modes does
+  not apply to review.
+- R45: While a proposal is in review, the editor may say that the proposal is not saved yet
+  (WE-R13 does not apply to review).
+- R46: The leave warning of R42 is an extra case of WE-R12, on top of a save in progress or a
+  failed save.
 
 ## 5. Edge cases
 
@@ -159,14 +178,16 @@ cannot send another message until the current one is finished.
 | E5 | Trainer presses "Parar" while a change is being built. | The message ends, the chat says it was stopped, the editor unlocks unchanged. | R16, R19 |
 | E6 | Trainer edits a set while the assistant is answering a question. | Allowed and saved automatically as usual. | R20 |
 | E7 | Trainer tries to edit a set while the assistant is building a change. | Not possible; the editor is read-only under the overlay. | R19 |
-| E8 | The assistant fails or takes too long. | Error with "Tentar novamente" in the chat; message kept; editor unchanged and unlocked. | R21, R22 |
+| E8 | The assistant fails, or shows no new stage or text for 60 seconds. | Error with "Tentar novamente" in the chat; message kept; editor unchanged and unlocked. | R21, R22 |
 | E9 | Trainer writes "my client hates squats", which may or may not be a change. | The assistant asks whether to change the workout before proposing. | R24 |
 | E10 | Trainer asks to rename the workout or move it to Friday. | No proposal changes the name or weekday; the assistant says it can only change exercises and sets. | R28 |
 | E11 | Trainer asks for an exercise that is not in their catalog. | The assistant says no catalog exercise fits; no proposal. | R29, R30 |
 | E12 | Trainer asks for 25 exercises. | The assistant explains the 20-exercise limit in the chat. | R31 |
 | E13 | The assistant produces something that is not a valid workout. | Nothing appears in the editor; the chat offers "Tentar novamente". | R32 |
 | E14 | Trainer changes a weight inside the proposal, then asks "now add a drop set to the last exercise". | The new proposal keeps the trainer's weight change and adds the drop set. | R36 |
-| E15 | Trainer asks for a change while a proposal is already in review. | The new proposal replaces the current one; still only one in review. | R36, R37 |
+| E15 | Trainer asks for a change while a proposal is already in review. | The new proposal replaces the current one; still only one in review; its markers compare against the last saved workout, not the previous proposal. | R33, R36, R37 |
+| E15a | Two chained proposals with manual edits in between, then "Descartar". | The editor shows the last saved workout; both proposals and the manual edits are dropped. | R39 |
+| E15b | Trainer edits a set inside a proposal in review. | The edit is not saved until "Aplicar". | R34, R43 |
 | E16 | Trainer applies a proposal that removes an exercise a client already recorded data against. | Everything else is saved; that exercise stays and a message names it. | R41 |
 | E17 | Trainer presses "Concluir" with a proposal in review. | Warning that the proposal is not applied; leaving anyway discards it. | R42 |
 | E18 | Trainer closes and reopens the chat panel in the same editor visit. | The conversation is still there. | R4 |
@@ -215,6 +236,8 @@ cannot send another message until the current one is finished.
 | Mobile | Web only | (proposed, accepted) |
 | Message length | 2,000 characters | (proposed, accepted) |
 | Mistake disclaimer | Permanent note under the input | (proposed, accepted) |
+| Baseline for change markers and "Descartar" after chained proposals | Always the last saved workout | Owner's choice in PR review. (proposed, accepted) |
+| When a message counts as "too long" | No new stage or text for 60 seconds | Owner's choice in PR review; it also caps how long the editor stays locked. (proposed, accepted) |
 | Reply language, error handling, new-workout apply, the 20/10 limits, invalid proposals, client never told | As in R9, R21–R22, R40, R31, R32, R6 | (proposed, accepted) |
 
 ## 8. Open questions
@@ -223,8 +246,21 @@ cannot send another message until the current one is finished.
   sees are listed as health-related data in vertice-api's data inventory (D4). Whether the
   client consent and the data inventory must name the AI provider (and the trace store, if
   used) before launch is a legal question for the technical assessment, not a product rule.
-  Meanwhile, the spec author should assume the feature does not reach trainers until the
-  assessment settles it.
+  The same goes for the free text the assistant receives (R13): plan names, plan descriptions
+  and notes can name the client or describe their condition. Meanwhile, the spec author should
+  assume the feature does not reach trainers until the assessment settles it.
+- **Footer and "Usar treino existente como base" during review.** What the footer save status
+  shows during review, and whether "Usar treino existente como base" (WE-R24) is hidden then,
+  are settled at the design review. Meanwhile, assume the footer says the proposal is not saved
+  yet and the action is hidden during review.
+- **Closing the chat panel while a message is processing.** Not decided: either the panel cannot
+  be closed while busy, or "Parar" also appears on the editor overlay, so the trainer can always
+  stop a locked editor. Meanwhile, assume the panel cannot be closed while busy.
+- **Partly possible requests.** Not decided whether the assistant proposes what it can (for
+  example, the exercises found in the catalog, or up to the 20/10 limits) and says what it left
+  out, or proposes nothing. The same question applies when applying would remove several
+  recorded exercises or sets (R41). Meanwhile, assume it proposes what it can and names what it
+  left out in one line, and that R41 keeps every protected item.
 
 ## 9. Technical constraints (stated by the owner)
 
