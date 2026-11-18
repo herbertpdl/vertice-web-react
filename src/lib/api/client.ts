@@ -1,3 +1,4 @@
+import { ADMIN_LOGOUT_ENDPOINT, adminSignInPath, isAdminPath } from "@/lib/adminAuth/paths";
 import type { ApiErrorBody } from "./types";
 import { parseRetryAfter } from "./rateLimit";
 
@@ -62,19 +63,24 @@ function bffFetch(
   });
 }
 
-/** The ApiError for a failed response; a 401 also logs out and goes to /login. */
+/**
+ * The ApiError for a failed response; a 401 also logs out and goes to the sign-in of the
+ * workspace the page belongs to (admin-panel spec W9): on `/painel/**`, which only the admin host
+ * serves, the admin cookies are cleared and the admin lands on `/painel/entrar?motivo=expirou`;
+ * anywhere else, today's `/api/auth/logout` → `/login`.
+ */
 function failure(res: Response, data: unknown): ApiError {
   const error = apiErrorFrom(res, data);
   if (res.status === 401 && typeof window !== "undefined" && !loggingOut) {
     loggingOut = true;
+    const admin = isAdminPath(window.location.pathname);
     // Plain module-level function, not a component - no router available.
     // A hard navigation also guarantees the query cache is dropped.
     // The session cookie is httpOnly, so it must be cleared server-side before navigating -
     // otherwise proxy.ts still sees it as present and immediately bounces /login back here,
     // causing an infinite redirect loop.
-    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = "/login";
+    fetch(admin ? ADMIN_LOGOUT_ENDPOINT : "/api/auth/logout", { method: "POST" }).finally(() => {
+      window.location.href = admin ? adminSignInPath("expirou") : "/login";
     });
   }
   return error;

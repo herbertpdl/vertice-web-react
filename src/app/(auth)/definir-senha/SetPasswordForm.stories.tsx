@@ -89,6 +89,42 @@ export const Trainer: Story = {
   },
 };
 
+/** An admin's first access: the admin panel's sign-in on its own host, never the app (admin-panel spec §2). */
+export const Admin: Story = {
+  args: {
+    adminLoginUrl: "https://admin.vertice.fit/painel/entrar",
+    submit: fn(async (): Promise<PasswordSetupResult> => ({ role: "ADMIN", email: "carla@vertice.fit" })),
+  },
+  play: async (context) => {
+    const { canvas } = context;
+    await fillAndSubmit(context);
+    await expect(
+      await canvas.findByText("Pronto! Agora entre no painel administrativo com seu e-mail e a nova senha."),
+    ).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Ir para o painel" })).toHaveAttribute(
+      "href",
+      "https://admin.vertice.fit/painel/entrar",
+    );
+    await expect(canvas.queryByRole("link", { name: "Abrir o app" })).toBeNull();
+    await expect(canvas.queryByRole("link", { name: "Ir para o login" })).toBeNull();
+  },
+};
+
+/** An admin's first access while there is no admin host (ADMIN_HOST unset): the message, no broken link. */
+export const AdminWithoutAdminHost: Story = {
+  args: {
+    submit: fn(async (): Promise<PasswordSetupResult> => ({ role: "ADMIN", email: "carla@vertice.fit" })),
+  },
+  play: async (context) => {
+    const { canvas } = context;
+    await fillAndSubmit(context);
+    await expect(
+      await canvas.findByText("Pronto! Agora entre no painel administrativo com seu e-mail e a nova senha."),
+    ).toBeVisible();
+    await expect(canvas.queryByRole("link")).toBeNull();
+  },
+};
+
 /** A reload after the URL was stripped: the token comes back from sessionStorage. */
 export const ReloadAfterStrip: Story = {
   args: { token: "" },

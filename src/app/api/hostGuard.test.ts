@@ -11,6 +11,12 @@ const EXPECTED: Record<string, "trainer" | "admin" | "any"> = {
   "auth/password/setup": "trainer",
   "auth/logout": "trainer",
   "bff/[...path]": "any",
+  "admin/auth/login": "admin",
+  "admin/auth/enroll": "admin",
+  "admin/auth/verify": "admin",
+  "admin/auth/renew": "admin",
+  "admin/auth/session": "admin",
+  "admin/auth/logout": "admin",
 };
 
 const API_DIR = path.join(import.meta.dirname);
@@ -33,9 +39,15 @@ describe("every /api handler checks the host", () => {
     expect(routes.map((r) => r.route).sort()).toEqual(Object.keys(EXPECTED).sort());
   });
 
-  it.each(routes.map((r) => [r.route, r.source]))("%s calls hostGuard with its workspace", (route, source) => {
+  it.each(routes.map((r) => [r.route, r.source]))("%s guards every handler with its workspace", (route, source) => {
     const calls = [...source.matchAll(/hostGuard\(request, "(trainer|admin|any)"\)/g)].map((m) => m[1]);
-    expect(calls).toEqual([EXPECTED[route]]);
+    // One guard per handler function (a file may export several methods), and every one of them
+    // names this route's workspace: a guard in only one of two handlers, or the wrong host, fails.
+    const handlers = [...source.matchAll(/(?:async\s+)?function\s+\w+\(\s*request\b/g)].length;
+    expect(handlers).toBeGreaterThan(0);
+    expect(calls).toEqual(Array(handlers).fill(EXPECTED[route]));
+    // No other spelling of the call (another argument name, a variable workspace) slips past.
+    expect(source.match(/hostGuard\(/g)?.length).toBe(calls.length);
     // First, before any other guard reads the request.
     expect(source.indexOf("hostGuard(request")).toBeLessThan(source.indexOf("guardApiRequest(request"));
   });

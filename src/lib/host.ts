@@ -45,3 +45,19 @@ export function hostGuard(request: Request, expected: Workspace | "any"): NextRe
   if (expected === "any") return undefined;
   return workspaceOf(request.headers) === expected ? undefined : wrongHost();
 }
+
+/**
+ * The admin workspace's origin, for links from www to it (admin-panel spec §2): `https://<ADMIN_HOST>`
+ * in production; outside production, the request's own scheme and port with `ADMIN_HOST` as the
+ * hostname (`http://admin.localhost:5173`). `undefined` when there is no admin host (production with
+ * ADMIN_HOST unset), so a caller shows no link rather than a broken one.
+ */
+export function adminOrigin(headers: Headers): string | undefined {
+  const { adminHost, isProduction } = serverEnv();
+  if (!adminHost) return undefined;
+  if (isProduction) return `https://${adminHost}`;
+  const host = headers.get("host")?.trim() ?? "";
+  const port = /:(\d+)$/.exec(host)?.[1];
+  const scheme = headers.get("x-forwarded-proto") === "https" ? "https" : "http";
+  return `${scheme}://${adminHost}${port ? `:${port}` : ""}`;
+}

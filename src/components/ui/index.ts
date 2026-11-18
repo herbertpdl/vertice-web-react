@@ -1,6 +1,7 @@
 export * from "./Badge";
 export * from "./Button";
 export * from "./Checkbox";
+export * from "./CodeInput";
 export * from "./DateField";
 export * from "./Dialog";
 export * from "./Dropdown";

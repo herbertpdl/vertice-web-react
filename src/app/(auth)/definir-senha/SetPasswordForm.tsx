@@ -53,8 +53,11 @@ export function SetPasswordForm({
   token: tokenFromUrl,
   submit = setupPassword,
   device = detectDevice,
+  adminLoginUrl,
 }: {
   token: string;
+  /** The admin host's sign-in; `undefined` when there is no admin host (no button then). */
+  adminLoginUrl?: string;
   /** Injectable for stories (no BFF in Storybook); defaults to the real API call. */
   submit?: typeof setupPassword;
   /** Injectable for stories; defaults to the pointer media query. */
@@ -121,6 +124,31 @@ export function SetPasswordForm({
         );
       }
     }
+  }
+
+  // An admin's first access (the BFF ops scripts send admins this www link): the admin panel, on
+  // its own host (admin-panel spec §2), never the app.
+  if (done?.account?.role === "ADMIN") {
+    return (
+      <div className="flex w-full max-w-[380px] flex-col gap-[var(--space-6)]">
+        <div className="flex flex-col gap-[6px]">
+          <h1 className="font-heading text-[length:var(--text-2xl)] font-bold text-[color:var(--color-text-primary)]">
+            Senha definida
+          </h1>
+          <p className="text-[13px] leading-[1.5] text-[color:var(--color-text-secondary)]">
+            Pronto! Agora entre no painel administrativo com seu e-mail e a nova senha.
+          </p>
+        </div>
+        {adminLoginUrl && (
+          <a
+            href={adminLoginUrl}
+            className="font-base inline-flex w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-primary)] px-[20px] py-[10px] text-[length:var(--text-base)] font-semibold text-[color:var(--color-primary-text)] transition-colors hover:bg-[var(--color-primary-hover)]"
+          >
+            Ir para o painel
+          </a>
+        )}
+      </div>
+    );
   }
 
   // The web is the trainer's (web-trainer-only-access R10, R11): a client is sent to the app.
