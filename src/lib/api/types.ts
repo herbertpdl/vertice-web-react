@@ -184,5 +184,8 @@ export type AdminActionEntry = Schemas["AdminActionEntry"];
 /** `GET /admin/actions/admins`: the history's admin filter. */
 export type AdminActionAdmins = Schemas["AdminActionAdmins"];
 
+/** `POST /admin/users/:id/suspend` and `/reactivate`: the directory row after the change. */
+export type AdminUserResult = Schemas["AdminUserResult"];
+
 /** The page sizes every admin list accepts (`limit`); 25 when absent. */
 export type AdminPageSize = 10 | 25 | 50;

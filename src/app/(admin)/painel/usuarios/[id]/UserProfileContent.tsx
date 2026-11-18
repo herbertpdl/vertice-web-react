@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Ban, ChevronRight, CircleAlert, Lock } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Button, DataTableMessage, SkeletonCircle, SkeletonLine } from "@/components/ui";
+import { ArrowUpRight, Ban, ChevronRight, CircleAlert, KeyRound, Lock, MailPlus, RotateCcw, Unlink, type LucideIcon } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button, DataTableMessage, SkeletonCircle, SkeletonLine, Spinner, useToast } from "@/components/ui";
+import { AccountStatusDialog } from "@/components/domain/AccountStatusDialog";
+import { AdminEndRelationshipDialog } from "@/components/domain/AdminEndRelationshipDialog";
 import { RoleAvatar } from "@/components/domain/RoleAvatar";
 import { RoleBadge, StatusBadge } from "@/components/domain/UserBadges";
+import { emailErrorMessage, emailSentMessage, type AccountEmail } from "@/lib/admin/account";
 import { historyPathFor } from "@/lib/admin/history";
 import { lastActiveLabel, statusLabel, suspensionNotice } from "@/lib/admin/users";
 import { adminKeys, adminProfileQuery, fetchAdminActions } from "@/lib/api/admin";
+import { sendAdminFirstAccessEmail, sendAdminPasswordResetEmail } from "@/lib/api/adminAccount";
 import type { AdminClientProfile, AdminRelationship, AdminTrainerProfile, AdminUserProfile } from "@/lib/api/types";
 import { formatCount, formatInstantDate } from "@/lib/format";
 import { useRedirectOnError } from "@/lib/hooks/useRedirectOnError";
@@ -112,14 +116,108 @@ function ActivityCard({ counts, lastActiveOn }: { counts: { value: number; label
   );
 }
 
+const SEND_EMAIL: Record<AccountEmail, (id: number) => Promise<void>> = {
+  "first-access": sendAdminFirstAccessEmail,
+  "password-reset": sendAdminPasswordResetEmail,
+};
+
+/** One of the `Ações` card's full-width actions (frames `fp164`, `d4tAve`). */
+function ActionButton({
+  icon: Icon,
+  label,
+  danger = false,
+  busy = false,
+  disabled = false,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  danger?: boolean;
+  busy?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      className={`flex w-full items-center gap-[10px] rounded-[var(--radius-md)] border px-[14px] py-[10px] text-left text-[13px] font-semibold transition-colors hover:bg-[var(--color-surface-hover)] disabled:pointer-events-none disabled:opacity-60 ${
+        danger
+          ? "border-[#FF5C5C66] text-[color:var(--color-danger)]"
+          : "border-[var(--color-border-strong)] text-[color:var(--color-text-primary)]"
+      }`}
+    >
+      {busy ? (
+        <Spinner size="sm" className="!h-[16px] !w-[16px] shrink-0" />
+      ) : (
+        <Icon
+          aria-hidden="true"
+          width={16}
+          height={16}
+          className={`shrink-0 ${danger ? "text-[color:var(--color-danger)]" : "text-[color:var(--color-text-secondary)]"}`}
+        />
+      )}
+      {label}
+    </button>
+  );
+}
+
 /**
- * The `Ações` card (frames `M3SiW`, `eUOyS`). VRT-26 ships only its footnote, whose "Histórico"
- * opens the history filtered to this user; VRT-29 adds the suspend / reactivate and e-mail
- * buttons above it.
+ * The `Ações` card (frames `fp164`, `d4tAve`): "Suspender" or "Reativar" (a dialog with a required
+ * reason), "Enviar e-mail de primeiro acesso" (clients only) and "Enviar e-mail de redefinição de
+ * senha". An e-mail goes out on the click, with no confirm: one request at a time, then a toast
+ * naming the address (R49) or saying why it didn't go (switched off, unavailable, rate limited).
+ * The footnote's "Histórico" opens the history filtered to this user.
  */
-function ActionsCard({ profile }: { profile: AdminUserProfile }) {
+function ActionsCard({ profile, onChanged }: { profile: AdminUserProfile; onChanged: () => void }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [statusDialog, setStatusDialog] = useState(false);
+  const [sending, setSending] = useState<AccountEmail | null>(null);
+  // `sending` is state: a second click in the same tick would still see it null.
+  const sendingRef = useRef(false);
+
+  async function send(kind: AccountEmail) {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(kind);
+    try {
+      await SEND_EMAIL[kind](profile.id);
+      void queryClient.invalidateQueries({ queryKey: adminKeys.actions() });
+      toast({ tone: "success", message: emailSentMessage(kind, profile.email) });
+    } catch (error) {
+      toast({ tone: "error", message: emailErrorMessage(error) });
+    } finally {
+      sendingRef.current = false;
+      setSending(null);
+    }
+  }
+
   return (
     <Card title="Ações">
+      {profile.suspended ? (
+        <ActionButton icon={RotateCcw} label="Reativar" onClick={() => setStatusDialog(true)} />
+      ) : (
+        <ActionButton icon={Ban} label="Suspender" danger onClick={() => setStatusDialog(true)} />
+      )}
+      {profile.role === "CLIENT" && (
+        <ActionButton
+          icon={MailPlus}
+          label="Enviar e-mail de primeiro acesso"
+          busy={sending === "first-access"}
+          disabled={sending !== null}
+          onClick={() => void send("first-access")}
+        />
+      )}
+      <ActionButton
+        icon={KeyRound}
+        label="Enviar e-mail de redefinição de senha"
+        busy={sending === "password-reset"}
+        disabled={sending !== null}
+        onClick={() => void send("password-reset")}
+      />
       <p className="text-[11px] text-[color:var(--color-text-tertiary)]">
         Toda ação fica registrada no{" "}
         <Link href={historyPathFor(profile.id)} className="font-semibold text-[color:var(--color-primary)] hover:underline">
@@ -127,6 +225,14 @@ function ActionsCard({ profile }: { profile: AdminUserProfile }) {
         </Link>
         .
       </p>
+      {statusDialog && (
+        <AccountStatusDialog
+          action={profile.suspended ? "reactivate" : "suspend"}
+          user={profile}
+          onClose={() => setStatusDialog(false)}
+          onChanged={onChanged}
+        />
+      )}
     </Card>
   );
 }
@@ -166,12 +272,63 @@ function ProfileDataCard({ profile }: { profile: AdminUserProfile }) {
   );
 }
 
-function clientColumns(profile: AdminClientProfile) {
+/**
+ * The client's current trainer (`fp164`): the link and "Desde …", and "Encerrar vínculo com
+ * treinador", which asks first (`x81nY`) and ends the relationship with both ids from the profile.
+ */
+function CurrentTrainer({
+  client,
+  relationship,
+  onChanged,
+}: {
+  client: AdminClientProfile;
+  relationship: AdminRelationship;
+  onChanged: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div className="flex w-full flex-wrap items-center justify-between gap-[12px] pb-[6px]">
+      <div className="flex min-w-0 flex-col gap-[3px]">
+        <Link
+          href={profilePath(relationship.user.id)}
+          className="flex min-w-0 items-center gap-[4px] text-[13px] font-semibold text-[color:var(--color-primary)] hover:underline"
+        >
+          <span className="truncate">{relationship.user.name}</span>
+          <ArrowUpRight aria-hidden="true" width={13} height={13} className="shrink-0" />
+          {relationship.suspended && <span className="sr-only"> (suspenso)</span>}
+        </Link>
+        <span className="text-[12px] text-[color:var(--color-text-tertiary)]">{period(relationship)}</span>
+      </div>
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="flex shrink-0 items-center gap-[8px] rounded-[var(--radius-md)] border border-[#FF5C5C66] px-[12px] py-[8px] text-[12px] font-semibold text-[color:var(--color-danger)] transition-colors hover:bg-[var(--color-surface-hover)]"
+      >
+        <Unlink aria-hidden="true" width={14} height={14} />
+        Encerrar vínculo com treinador
+      </button>
+      {confirming && (
+        <AdminEndRelationshipDialog
+          client={client}
+          trainer={relationship.user}
+          onClose={() => setConfirming(false)}
+          onChanged={onChanged}
+        />
+      )}
+    </div>
+  );
+}
+
+function clientColumns(profile: AdminClientProfile, onChanged: () => void) {
   return {
     left: (
       <Card title="Treinadores">
         <SubHead>Treinador atual</SubHead>
-        <PeopleList people={profile.currentTrainer ? [profile.currentTrainer] : []} empty="Sem treinador" />
+        {profile.currentTrainer ? (
+          <CurrentTrainer client={profile} relationship={profile.currentTrainer} onChanged={onChanged} />
+        ) : (
+          <PeopleList people={[]} empty="Sem treinador" />
+        )}
         <SubHead>Treinadores anteriores</SubHead>
         <PeopleList people={profile.pastTrainers} empty="Nenhum treinador anterior." />
       </Card>
@@ -202,7 +359,15 @@ function ProfileLoading() {
 }
 
 /** The trainer profile (a component of its own: it keeps the "Ver todos" state). */
-function TrainerProfileBody({ profile, header }: { profile: AdminTrainerProfile; header: ReactNode }) {
+function TrainerProfileBody({
+  profile,
+  header,
+  onChanged,
+}: {
+  profile: AdminTrainerProfile;
+  header: ReactNode;
+  onChanged: () => void;
+}) {
   const [showAll, setShowAll] = useState(false);
   const current = profile.currentClients;
   const visible = showAll ? current : current.slice(0, CLIENTS_PREVIEW);
@@ -215,6 +380,7 @@ function TrainerProfileBody({ profile, header }: { profile: AdminTrainerProfile;
     <ProfileLayout
       header={header}
       profile={profile}
+      onChanged={onChanged}
       right={<ActivityCard counts={counts} lastActiveOn={profile.lastActiveOn} />}
       left={
         <>
@@ -245,11 +411,13 @@ function ProfileLayout({
   left,
   right,
   profile,
+  onChanged,
 }: {
   header: ReactNode;
   left: ReactNode;
   right: ReactNode;
   profile: AdminUserProfile;
+  onChanged: () => void;
 }) {
   return (
     <>
@@ -262,7 +430,7 @@ function ProfileLayout({
         </div>
         <div className="flex w-full flex-col gap-[var(--space-6)] lg:w-[340px] lg:shrink-0">
           {right}
-          <ActionsCard profile={profile} />
+          <ActionsCard profile={profile} onChanged={onChanged} />
         </div>
       </div>
     </>
@@ -295,7 +463,8 @@ function SuspendedBanner({ profile }: { profile: AdminUserProfile }) {
 /**
  * A trainer's or client's profile, read only (admin-panel spec §7, W16, R33–R38; pen.dev `M3SiW`,
  * `eUOyS`): the account's data with the CPF masked as the BFF sends it, who trains whom (each
- * person links to their own profile, R37) and the counts. No edit controls, and no logs, weights,
+ * person links to their own profile, R37) and the counts, plus the account actions (VRT-29). No edit
+ * controls on the data, and no logs, weights,
  * feedback or plan contents, which the contract doesn't carry. The frame's "Telefone" and the time
  * in "Hoje, 07:40" are left out (§7.1).
  *
@@ -306,6 +475,9 @@ function SuspendedBanner({ profile }: { profile: AdminUserProfile }) {
 export function UserProfileContent({ userId }: { userId: number }) {
   const { data: profile, error, isError, refetch, isFetching } = useQuery(adminProfileQuery(userId));
   useRedirectOnError(error, "/painel/usuarios");
+  // After suspend, reactivate or end-relationship: the one explicit refetch of the profile (W16,
+  // §9). It writes one more history entry, truthfully: the admin is looking at it.
+  const profileChanged = () => void refetch();
 
   const breadcrumb = (
     <nav aria-label="Trilha" className="flex items-center gap-[6px] text-[12px]">
@@ -337,15 +509,16 @@ export function UserProfileContent({ userId }: { userId: number }) {
       </div>
     );
     if (profile.role === "TRAINER") {
-      body = <TrainerProfileBody profile={profile} header={header} />;
+      body = <TrainerProfileBody profile={profile} header={header} onChanged={profileChanged} />;
     } else {
-      const { left, counts } = clientColumns(profile);
+      const { left, counts } = clientColumns(profile, profileChanged);
       body = (
         <ProfileLayout
           header={header}
           left={left}
           right={<ActivityCard counts={counts} lastActiveOn={profile.lastActiveOn} />}
           profile={profile}
+          onChanged={profileChanged}
         />
       );
     }

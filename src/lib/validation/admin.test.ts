@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminLoginSchema, adminVerifyRequestSchema, secondFactorCodeSchema } from "./admin";
+import { adminLoginSchema, adminReasonSchema, adminVerifyRequestSchema, secondFactorCodeSchema } from "./admin";
 
 describe("secondFactorCodeSchema", () => {
   it("accepts six digits", () => {
@@ -23,5 +23,21 @@ describe("adminLoginSchema", () => {
 describe("adminVerifyRequestSchema", () => {
   it("takes only the code: a challenge in the body is dropped", () => {
     expect(adminVerifyRequestSchema.parse({ code: "123456", challenge: "c" })).toEqual({ code: "123456" });
+  });
+});
+
+describe("adminReasonSchema", () => {
+  it("trims, and refuses a blank reason", () => {
+    expect(adminReasonSchema.parse("  denúncia  ")).toBe("denúncia");
+    for (const blank of ["", "   ", "\n\t"]) expect(adminReasonSchema.safeParse(blank).success).toBe(false);
+  });
+
+  it("takes 500 UTF-16 units and refuses 501, counted after the trim", () => {
+    expect(adminReasonSchema.safeParse("a".repeat(500)).success).toBe(true);
+    expect(adminReasonSchema.safeParse(`  ${"a".repeat(500)}  `).success).toBe(true);
+    expect(adminReasonSchema.safeParse("a".repeat(501)).success).toBe(false);
+    // An emoji is two UTF-16 units, as vertice-api counts it.
+    expect(adminReasonSchema.safeParse("😀".repeat(250)).success).toBe(true);
+    expect(adminReasonSchema.safeParse(`${"😀".repeat(250)}a`).success).toBe(false);
   });
 });
