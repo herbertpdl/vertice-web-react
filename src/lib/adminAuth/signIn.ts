@@ -15,6 +15,9 @@ import type { SecondFactor } from "@/lib/api/types";
 /** Shown on the password step after a restart, and on `?motivo=expirou` (frame `cb0r1`). */
 export const SESSION_EXPIRED_MESSAGE = "Sua sessão expirou. Entre novamente.";
 
+/** Shown on the password step after the admin's own password change (E42; the mobile app's copy). */
+export const PASSWORD_CHANGED_MESSAGE = "Senha alterada. Entre com a nova senha.";
+
 /** The footnote under the expiry notice. */
 export const SESSION_LIMITS_HELP =
   "Por segurança, a sessão termina após 30 minutos sem uso ou 12 horas depois do login.";

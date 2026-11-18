@@ -99,3 +99,16 @@ export async function deleteAccount(password: string): Promise<void> {
   const body: components["schemas"]["DeleteAccountRequest"] = { password };
   await apiClient.delete<void>("/auth/me", body);
 }
+
+/**
+ * `POST /auth/password`: the caller's own password. 204 on success, after which every session of
+ * the account ends (this one too): sign out next. 400 INVALID_CURRENT_PASSWORD is a wrong current
+ * password (the session is still valid, not a sign-out); 429 RATE_LIMITED with `retryAfter`.
+ */
+export async function changePassword(input: components["schemas"]["ChangePasswordRequest"]): Promise<void> {
+  const body: components["schemas"]["ChangePasswordRequest"] = {
+    currentPassword: input.currentPassword,
+    newPassword: input.newPassword,
+  };
+  await apiClient.post<void>("/auth/password", body);
+}

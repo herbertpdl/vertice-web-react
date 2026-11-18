@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  changePasswordSchema,
   newPasswordSchema,
   registerRequestSchema,
   registerSchema,
@@ -100,5 +101,23 @@ describe("registerRequestSchema", () => {
       acceptedTermsVersion,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("changePasswordSchema", () => {
+  const valid = { currentPassword: "atual", newPassword: "nova-senha-1", confirmPassword: "nova-senha-1" };
+
+  it("accepts the current password and a matching new one", () => {
+    expect(changePasswordSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it.each([
+    [{ ...valid, currentPassword: "" }, "currentPassword"],
+    [{ ...valid, newPassword: "curta", confirmPassword: "curta" }, "newPassword"],
+    [{ ...valid, confirmPassword: "outra-senha" }, "confirmPassword"],
+  ])("refuses %j at %s", (input, path) => {
+    const result = changePasswordSchema.safeParse(input);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path).toEqual([path]);
   });
 });

@@ -50,7 +50,7 @@ Lows F10 and F15 too).
 | W17 | **Trainer muscle-group queries get a finite `staleTime`.** Once admins add and rename groups (R61, R62), the `staleTime: Infinity` in `ExerciciosContent.tsx`, `AddExerciseDialog.tsx` and `ExerciseDialog.tsx` becomes `MUSCLE_GROUPS_STALE_TIME` = 5 minutes, exported from `src/lib/api/muscleGroups.ts`, whose "changes rarely" comment is rewritten. It ships in VRT-32, when renames go live. | F13, R62, E35 |
 | W18 | **The roster's "Suspenso" badge and the history labels.** `AlunosContent.tsx` shows `Badge variant="danger"` "Suspenso" when `ClientSummary.suspended` is true (VRT-29, after BFF VRT-28's types). History action labels are one map keyed by the contract's `AdminAction` union (§6), so a new action fails typecheck instead of rendering a raw code. | F10, F15, R46, R71, E22 |
 | W19 | **Frame elements the contract doesn't carry are left out, not invented.** The approved frames show a few numbers and fields that no BFF route returns. The screens leave them out rather than compute them on the client or make extra calls. The list is in §7.1. Each is a display detail, with no rule behind it, and none needs a new route. | F5 |
-| W20 | **Deferred, with reason:** the admin's own password change (R16a, E42). The BFF admits `POST /auth/password` for ADMIN, and it stays on the allow-list, but `rDhgL` has no frame for it and the web has no change-password form to reuse. It needs a frame and design-ok first (follow-up, §13). Also deferred: an admin terms-consent gate (`POST /auth/me/consent` is allow-listed for parity with BFF B7, but the panel has no consent screen), and the CloudWatch alarm and DNS (VRT-19). | Design gate (CLAUDE.md) |
+| W20 | **The admin's own password change (R16a, E42) ships in VRT-25** (owner's decision, 2026-11-18, on the ticket): no new frame; it reuses the trainer's change-password pattern (vertice-mobile's screen: current, new, confirm; a wrong current password is a field error) as `ChangePasswordDialog`, reached from "Alterar senha" in `SideNav`'s account block, and calls `POST /auth/password` (allow-listed, W5). Afterwards every session has ended, so the shell signs out to `/painel/entrar?motivo=senha-alterada`, which reads "Senha alterada. Entre com a nova senha.", and the admin signs in again with the new password and the code. **Deferred, with reason:** an admin terms-consent gate (`POST /auth/me/consent` is allow-listed for parity with BFF B7, but the panel has no consent screen), and the CloudWatch alarm and DNS (VRT-19). | Design gate (CLAUDE.md) |
 
 ## 1. Hosts and the page routing table
 
@@ -408,9 +408,6 @@ deployed and `.bff-ref` points at that BFF merge. One deviation: W11.
 
 ## 13. Out of scope / follow-ups
 
-- **R16a / E42 on the web: the admin's own password change.** It needs a frame (an entry in
-  `SideNav`'s account block and a change-password dialog) and design-ok, then a small ticket. The
-  BFF route is already allow-listed (W5, W20).
 - An admin terms-consent gate, if the owner wants one (W20).
 - Recovery codes (PRD §6), admin features in the mobile app (PRD §6).
 - The frame elements of §7.1, if the contract later grows them.

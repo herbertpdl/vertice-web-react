@@ -257,7 +257,9 @@ One image serves both workspaces, picked per request from the `Host` header alon
 `localhost:3000` included, is the trainer workspace. **Unset in production, no host is the admin
 one**: every `/painel/**` page and `/api/admin/**` handler is a 404, so the admin code is inert
 until the task definition sets it. Outside production it defaults to `admin.localhost`
-(`http://admin.localhost:5173` with `npm run dev`).
+(`http://admin.localhost:5173` with `npm run dev`). The deployed task definition sets
+`ADMIN_HOST=admin.vertice.fit`; the ALB's priority-6 rule is what finally routes that hostname here
+(above).
 
 - `src/proxy.ts` applies each host's own page table: the admin host serves only `/painel/**`,
   the trainer host 404s `/painel/**`, and both pass `/healthz`, `/icon.png` and Next's own paths.

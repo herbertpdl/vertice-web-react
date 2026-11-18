@@ -84,6 +84,14 @@ export const SessionExpired: Story = {
   },
 };
 
+/** After the admin's own password change (E42): every session ended; sign in again. */
+export const PasswordChanged: Story = {
+  args: { passwordChanged: true },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("status")).toHaveTextContent("Senha alterada. Entre com a nova senha.");
+  },
+};
+
 /** `KV3fb`: a wrong password, and a trainer's or client's correct one, read the same (R4). */
 export const InvalidCredentials: Story = {
   beforeEach: answer({ "/api/admin/auth/login": error(401, "UNAUTHORIZED") }),
