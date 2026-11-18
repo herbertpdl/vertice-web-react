@@ -71,3 +71,17 @@ export const Phone: Story = {
     await expect(canvas.getByText("Últimas 12 semanas")).not.toBeVisible();
   },
 };
+
+const tablet = { viewport: { value: "tablet", isRotated: false } };
+
+/**
+ * A tablet (below `lg`): with the shell's rail beside it the plot is too narrow for 12 weeks of
+ * 32 px bar pairs, so the compact chart shows and no two weeks' bars run together.
+ */
+export const Tablet: Story = {
+  globals: tablet,
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByText("Últimas 12 semanas")).not.toBeVisible();
+    await expect(canvasElement.querySelectorAll("svg path")[0]).not.toBeVisible();
+  },
+};

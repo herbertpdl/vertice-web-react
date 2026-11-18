@@ -74,35 +74,35 @@ export function WeeklySignupsChart({ weeks, loading = false }: WeeklySignupsChar
   return (
     <section
       aria-labelledby={titleId}
-      className="font-base flex w-full flex-col gap-[12px] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-[14px] md:gap-0 md:p-0"
+      className="font-base flex w-full flex-col gap-[12px] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-[14px] lg:gap-0 lg:p-0"
     >
-      <div className="flex w-full items-center justify-between md:px-[20px] md:py-[16px]">
+      <div className="flex w-full items-center justify-between lg:px-[20px] lg:py-[16px]">
         <div className="flex flex-col gap-[2px]">
           <h2
             id={titleId}
-            className="font-heading text-[length:var(--text-base)] font-semibold text-[color:var(--color-text-primary)] md:text-[length:var(--text-md)]"
+            className="font-heading text-[length:var(--text-base)] font-semibold text-[color:var(--color-text-primary)] lg:text-[length:var(--text-md)]"
           >
             Novos treinadores e alunos por semana
           </h2>
-          <p className="hidden text-[12px] text-[color:var(--color-text-tertiary)] md:block">
+          <p className="hidden text-[12px] text-[color:var(--color-text-tertiary)] lg:block">
             Últimas 12 semanas
           </p>
         </div>
-        <div className="hidden md:block">
+        <div className="hidden lg:block">
           <Legend />
         </div>
       </div>
 
       {!ready ? (
-        <div className="w-full md:px-[20px] md:pt-[4px] md:pb-[16px]">
-          <SkeletonBlock width="100%" height={220} className="hidden md:block" />
-          <SkeletonBlock width="100%" height={COMPACT_HEIGHT} className="md:hidden" />
+        <div className="w-full lg:px-[20px] lg:pt-[4px] lg:pb-[16px]">
+          <SkeletonBlock width="100%" height={220} className="hidden lg:block" />
+          <SkeletonBlock width="100%" height={COMPACT_HEIGHT} className="lg:hidden" />
         </div>
       ) : (
         <>
           <div role="img" aria-label={summary(weeks)} className="w-full">
-            {/* Computer: y axis, bars and a dd/MM label under each week. */}
-            <div className="hidden w-full gap-[12px] px-[20px] pt-[4px] pb-[16px] md:flex">
+            {/* From `lg` (a computer; below it the rail leaves too little room for 12 × 32 px weeks): y axis, bars and a dd/MM label under each week. */}
+            <div className="hidden w-full gap-[12px] px-[20px] pt-[4px] pb-[16px] lg:flex">
               <div
                 style={{ height: PLOT_HEIGHT }}
                 className="flex flex-col items-end justify-between text-[10px] text-[color:var(--color-text-tertiary)]"
@@ -139,8 +139,8 @@ export function WeeklySignupsChart({ weeks, loading = false }: WeeklySignupsChar
               </div>
             </div>
 
-            {/* Phone: the bars only, with the first and last week under them. */}
-            <div className="flex flex-col gap-[12px] md:hidden">
+            {/* Phone and tablet: the bars only, with the first and last week under them. */}
+            <div className="flex flex-col gap-[12px] lg:hidden">
               <div
                 style={{ height: COMPACT_HEIGHT }}
                 className="flex w-full items-end gap-[4px] border-b border-[var(--color-border)]"
