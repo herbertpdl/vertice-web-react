@@ -6,7 +6,7 @@ Related: [vertice-api PRD](https://github.com/herbertpdl/vertice-api/blob/main/d
 for this slug), [vertice-api assessment](https://github.com/herbertpdl/vertice-api/blob/main/docs/assessments/admin-panel/assessment.md),
 [vertice-bff assessment](https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/admin-panel/assessment.md),
 [`docs/specs/web-trainer-only-access/spec.md`](../../specs/web-trainer-only-access/spec.md) (touched)
-Spec: not yet written (will be `docs/specs/admin-panel/spec.md`)
+Spec: [`docs/specs/admin-panel/spec.md`](../../specs/admin-panel/spec.md)
 
 ## 1. Summary
 
