@@ -11,6 +11,13 @@ import { z } from "zod";
 
 export const DEFAULT_BFF_URL = "http://localhost:3000";
 
+/** The admin host outside production (`http://admin.localhost:5173`, which browsers resolve to loopback). */
+export const DEV_ADMIN_HOST = "admin.localhost";
+
+// A bare DNS hostname: labels of letters, digits and inner hyphens, no scheme, port, path or dot at
+// either end.
+const HOSTNAME = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
+
 export class ServerEnvError extends Error {
   constructor(message: string) {
     super(message);
@@ -58,6 +65,21 @@ const serverEnvSchema = z
         }
         return Number(hops);
       }),
+    /**
+     * The hostname that serves the admin workspace (admin-panel spec W1), compared with the
+     * request's `Host`. Unset in production means no host is the admin one: every admin page and
+     * handler is a 404 (fails closed). Outside production it defaults to `admin.localhost`.
+     */
+    ADMIN_HOST: z.preprocess(
+      (value) => {
+        const blank = blankToUndefined(value);
+        return typeof blank === "string" ? blank.trim().toLowerCase() : blank;
+      },
+      z
+        .string()
+        .regex(HOSTNAME, { error: (issue) => `ADMIN_HOST must be a bare hostname, got "${String(issue.input)}"` })
+        .optional(),
+    ),
   })
   .transform((env, ctx) => {
     const isProduction = env.NODE_ENV === "production";
@@ -77,6 +99,8 @@ const serverEnvSchema = z
       isProduction,
       bffUrl: env.BFF_URL.replace(/\/$/, ""),
       trustedProxyHops: env.TRUSTED_PROXY_HOPS ?? 0,
+      /** `undefined` only in production with ADMIN_HOST unset: then no request is the admin's. */
+      adminHost: env.ADMIN_HOST ?? (isProduction ? undefined : DEV_ADMIN_HOST),
     };
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_REDIRECT, safeRedirectPath } from "./safeRedirect";
+import { DEFAULT_REDIRECT, safeAdminRedirectPath, safeRedirectPath } from "./safeRedirect";
 
 const ORIGIN = "https://app.vertice.test";
 
@@ -65,5 +65,26 @@ describe("safeRedirectPath", () => {
       expect(/^\/[\/\\]/.test(out), `${JSON.stringify(value)} -> ${out}`).toBe(false);
       expect(new URL(out, ORIGIN).origin).toBe(ORIGIN);
     }
+  });
+});
+
+describe("safeAdminRedirectPath", () => {
+  const ADMIN_ORIGIN = "https://admin.vertice.fit";
+
+  it.each(["/painel", "/painel/usuarios/4?aba=x", "/painel/entrar"])("keeps %s", (path) => {
+    expect(safeAdminRedirectPath(path, ADMIN_ORIGIN)).toBe(path);
+  });
+
+  it.each([
+    null,
+    "",
+    "/dashboard",
+    "/alunos/4",
+    "/painelx",
+    "//evil.example/painel",
+    "https://evil.example/painel",
+    "/painel/..//evil.example",
+  ])("sends %s to /painel", (value) => {
+    expect(safeAdminRedirectPath(value, ADMIN_ORIGIN)).toBe("/painel");
   });
 });

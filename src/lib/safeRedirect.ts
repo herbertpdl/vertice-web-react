@@ -49,3 +49,17 @@ export function safeRedirectPath(value: string | null | undefined, origin: strin
   }
   return result;
 }
+
+/** Where an admin goes after the sign-in when there is no usable `redirect`. */
+export const ADMIN_HOME = "/painel";
+
+/**
+ * `safeRedirectPath` further limited to the admin workspace's own pages (`/painel`, `/painel/**`),
+ * or `/painel` for anything else: the admin host 404s every other path, so a redirect there would
+ * only land on a 404.
+ */
+export function safeAdminRedirectPath(value: string | null | undefined, origin: string): string {
+  const path = safeRedirectPath(value, origin);
+  const pathname = new URL(path, origin).pathname;
+  return pathname === ADMIN_HOME || pathname.startsWith(`${ADMIN_HOME}/`) ? path : ADMIN_HOME;
+}

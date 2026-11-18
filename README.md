@@ -248,3 +248,23 @@ check it whenever a CloudFront behaviour or an ALB rule changes:
   listener's default 403 and never serves the trainer workspace. To roll it back, delete the
   priority-6 rule, and do that before rolling back the admin code.
 - The chain is still CloudFront → ALB → Next, so `TRUSTED_PROXY_HOPS=2` holds on this host too.
+
+### Deployment: `ADMIN_HOST` and the two workspaces
+
+One image serves both workspaces, picked per request from the `Host` header alone
+(`src/lib/host.ts`; `X-Forwarded-Host` is never read). `ADMIN_HOST` (a bare hostname, e.g.
+`admin.vertice.fit`) is the admin one; every other host, unknown ones and the health check's
+`localhost:3000` included, is the trainer workspace. **Unset in production, no host is the admin
+one**: every `/painel/**` page and `/api/admin/**` handler is a 404, so the admin code is inert
+until the task definition sets it. Outside production it defaults to `admin.localhost`
+(`http://admin.localhost:5173` with `npm run dev`).
+
+- `src/proxy.ts` applies each host's own page table: the admin host serves only `/painel/**`,
+  the trainer host 404s `/painel/**`, and both pass `/healthz`, `/icon.png` and Next's own paths.
+  A path of the other workspace is a plain 404, never a redirect.
+- The proxy's matcher excludes `/api`, so every `src/app/api/**/route.ts` starts with
+  `hostGuard(request, "trainer" | "admin" | "any")` (a source-scan test enforces it).
+- `/api/bff/[...path]` serves both hosts, each with its own allow-list (`src/lib/bffAllowList.ts`)
+  and its own cookie: www forwards only `vertice_session`'s token and never `/admin/**`; the admin
+  host forwards only the admin cookie's token (`__Host-vertice_admin`, `vertice_admin` outside
+  production), to `/admin/**` and the BFF's short ADMIN list.
