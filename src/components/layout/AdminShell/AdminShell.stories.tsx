@@ -64,6 +64,17 @@ export const Desktop: Story = {
   },
 };
 
+/** A profile page belongs to Usuários (prefix match); Dashboard matches only `/painel` itself. */
+export const UsersSectionActive: Story = {
+  beforeEach: () => {
+    usePathname.mockReturnValue("/painel/usuarios/2");
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("link", { name: "Usuários" })).toHaveAttribute("aria-current", "page");
+    await expect(canvas.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
+  },
+};
+
 /** `jJXT5`: the phone menu opens over a backdrop and closes on Escape. */
 export const PhoneMenu: Story = {
   globals: phone,

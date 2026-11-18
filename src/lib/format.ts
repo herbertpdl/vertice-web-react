@@ -89,6 +89,13 @@ const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
+const instantDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: BUSINESS_TIME_ZONE,
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
 /** `hour12: false` so midnight reads `00:xx`, not some locale's `24:xx`. */
 const timeOfDayFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: BUSINESS_TIME_ZONE,
@@ -129,6 +136,11 @@ function civilDay(isoDate: string): Date {
 /** A full timestamp in the business zone, e.g. "16 de out. de 2026, 22:00". */
 export function formatDateTime(isoTimestamp: string): string {
   return dateTimeFormatter.format(new Date(isoTimestamp));
+}
+
+/** The calendar day an instant fell on in the business zone, all in digits, e.g. "31/10/2026". */
+export function formatInstantDate(isoTimestamp: string): string {
+  return instantDateFormatter.format(new Date(isoTimestamp));
 }
 
 /** The `HH:MM` clock an instant showed in the business zone, e.g. "22:00". */

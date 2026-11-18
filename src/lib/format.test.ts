@@ -11,6 +11,7 @@ import {
   formatCount,
   formatDateTime,
   formatDayMonth,
+  formatInstantDate,
   formatRelativeTime,
   formatTimeOfDay,
   initials,
@@ -125,6 +126,16 @@ describe("formatDayMonth", () => {
     expect(formatDayMonth("2026-08-25")).toBe("25/08");
     expect(formatDayMonth("2026-01-01")).toBe("01/01");
     expect(formatDayMonth("2026-12-31")).toBe("31/12");
+  });
+});
+
+describe("formatInstantDate", () => {
+  it("is the São Paulo calendar day of an instant, not the UTC one", () => {
+    // 01:30 UTC on 1 Nov is still 31 Oct in São Paulo.
+    expect(formatInstantDate("2026-11-01T01:30:00Z")).toBe("31/10/2026");
+    expect(formatInstantDate("2026-11-01T03:00:00Z")).toBe("01/11/2026");
+    // Before 2019 Brazil had DST: -02:00 in the summer.
+    expect(formatInstantDate("2018-12-01T01:30:00Z")).toBe("30/11/2018");
   });
 });
 
