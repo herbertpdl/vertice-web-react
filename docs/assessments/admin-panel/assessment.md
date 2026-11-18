@@ -14,9 +14,8 @@ Overall risk: **High.**
 
 **Design gate.** There is no web PRD, so there is no `Design:` line. Every admin screen is new,
 so screens change. Step 4 drafted 38 frames and 4 reusable components in pen.dev (section
-`rDhgL` "Web — Admin Panel", listed in §9). They are **drafted, awaiting owner approval**, which
-is open question Q1 and a dependency in §7. Implementation must not start before that approval
-(CLAUDE.md design gate).
+`rDhgL` "Web — Admin Panel", listed in §9). The owner **approved them on 2026-11-18
+(design-ok)**, which answers Q1 and clears the design gate (CLAUDE.md).
 
 **What it touches.** A second workspace inside the same Next.js app, served only on
 admin.vertice.fit:
@@ -197,8 +196,8 @@ retry: 1`, `src/app/providers.tsx:17-18`).
 ### PRD fit and the design gate
 
 **F12 (Info).** Screens change: a whole new workspace plus two small trainer-web changes (R41,
-R46). There is no web PRD, so design approval is Q1. The frames drafted in step 4 are listed in
-the next dimension and §9.
+R46). There is no web PRD, so design approval was Q1. The owner approved the frames on 2026-11-18
+(design-ok). They are listed in the next dimension and §9.
 
 ### Upstream readiness (BFF/API dependency)
 
@@ -273,9 +272,9 @@ Admin Panel" in `Vertice Web.pen` now covers every screen state the PRD introduc
 - They add four reusable pieces that map onto F6's new kit components: Admin Sidebar `izLYp`,
   Admin Badge `vzj0m`, Admin Toast `jjLsR`, Admin Pagination `a8AGY`.
 
-All frames are **drafted, awaiting owner approval**, and do not satisfy the design gate. The
-drafting agent made three choices the PRD didn't specify, which the owner should confirm with the
-frames:
+All frames are **approved by the owner (design-ok, 2026-11-18)**, which satisfies the design
+gate. The drafting agent made three choices the PRD didn't specify, confirmed with that
+approval:
 - the admin login has no "Esqueceu a senha?" link, which fits R10 and the platform-team reset;
 - ending a relationship asks no reason, which the PRD doesn't require;
 - the 2FA QR code is an icon placeholder.
@@ -452,7 +451,7 @@ deploy.
 - infra: a new host on the same service (vertice-devops).
 
 Dependencies:
-- **Design approval** of the drafted frames (Q1). Implementation can't start before it.
+- **Design approval** of the frames (Q1): done, design-ok on 2026-11-18.
 - Each **BFF slice** merged and `schema.ts` regenerated (F5).
 - The **admin.vertice.fit DNS, certificate and routing**.
 
@@ -461,7 +460,8 @@ frames, which depends on pen.dev being available.
 
 ## 8. Questions and assumptions
 
-- **Q1.** Do you approve the drafted admin frames (§9)? Until then the design gate is not met.
+- **Q1 (answered).** Do you approve the drafted admin frames (§9)? Yes: the owner approved them
+  on 2026-11-18 (design-ok).
 - A1. Admin pages live under a path prefix that doesn't collide with trainer pages, such as
   `/painel` (F1).
 - A2. The weekly chart is a small hand-made SVG, not a library (F7).
@@ -482,8 +482,8 @@ frames, which depends on pen.dev being available.
 - [ ] F9: Suspended-message handling on both logins, and how an admin refused on www keeps today's message (A3).
 - [ ] F13: Admin query keys and invalidation per write, and a finite `staleTime` for trainer muscle-group queries.
 - [ ] F16: The routing and proxy test matrix.
-- [ ] Design frames: build against these once the owner approves them. All are **drafted, awaiting
-  owner approval**, in section `rDhgL` "Web — Admin Panel" of `Vertice Web.pen`.
+- [ ] Design frames: build against these. All are **approved by the owner (design-ok,
+  2026-11-18)**, in section `rDhgL` "Web — Admin Panel" of `Vertice Web.pen`.
   - Components (`av00E`): Admin Sidebar `izLYp`, Admin Badge `vzj0m`, Admin Toast `jjLsR`, Admin
     Pagination `a8AGY`.
   - Acesso (`FnC0Y`): Login `xtHYu`, Login — erro `KV3fb`, Sessão expirada `cb0r1`, 2FA cadastro
