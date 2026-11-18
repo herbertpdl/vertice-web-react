@@ -207,7 +207,7 @@ R46). There is no web PRD, so design approval was Q1. The owner approved the fra
 - **Why it matters:** Nothing past the login shell can be built against a real contract. The
   types come from the BFF's `docs/openapi.json`.
 - **Recommendation:** Build each slice after its BFF slice merges and `schema.ts` is
-  regenerated. Storybook stories with fixtures can start once frames are approved.
+  regenerated. Storybook stories with fixtures can start now; the frames are approved (design-ok, 2026-11-18).
 
 ### Screens and routing
 
