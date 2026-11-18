@@ -32,13 +32,13 @@ Lows F10 and F15 too).
 | # | Decision | Resolves |
 |---|---|---|
 | W1 | **Two workspaces, chosen by the `Host` header only.** `src/lib/host.ts` exports `workspaceOf(headers): "admin" \| "trainer"`: `admin` when the hostname part of `Host` (lower-cased, port dropped) equals `serverEnv().adminHost`, `trainer` for everything else, unknown hosts and the container health check's `localhost:3000` included (today's behaviour). `X-Forwarded-Host` is never read: CloudFront sets `Host` from the viewer's alias (§12), and a client can't pick another one. New env `ADMIN_HOST` (a bare hostname, parsed in `env.server.ts`): defaults to `admin.localhost` outside production and to **unset in production**, where unset means no host is the admin one, so every admin page and handler is a 404 until the task definition sets `ADMIN_HOST=admin.vertice.fit`. That fails closed and lets admin code merge before the infra exists. | F1 |
-| W2 | **Admin pages live under `/painel`, and each host 404s the other's paths.** Admin routes: `/painel/entrar` (sign-in), `/painel` (dashboard), `/painel/usuarios`, `/painel/usuarios/[id]`, `/painel/exercicios`, `/painel/historico`. No trainer path starts with `/painel`, so a routing mistake fails visibly. `src/proxy.ts` reads the workspace first and applies that workspace's own table (§1). A path outside it answers a plain `404` from the proxy (`new NextResponse("Not Found", { status: 404 })`, which Next 16's proxy may return directly), never a redirect, so neither host reveals the other's URLs. The legal pages, `/definir-senha`, `/baixar-app` and `/suporte` stay on www only. `/healthz` answers on both hosts. | F1, R5, R6, E5, E6 |
-| W3 | **Every `/api/*` handler checks the host itself.** The proxy's matcher excludes `/api`, so host rules there never reach the handlers. Each handler starts with `hostGuard(request, "trainer" \| "admin" \| "any")` from `src/lib/host.ts`, which answers `404 NOT_FOUND` for the wrong host, before `guardApiRequest`. www only: `/api/auth/login`, `/api/auth/register`, `/api/auth/password/setup`, `/api/auth/logout`. Admin only: the new `/api/admin/auth/{login,enroll,verify,renew,logout}`. Both: `/api/bff/[...path]` (W5). A source-scan unit test fails on any `src/app/api/**/route.ts` that doesn't call `hostGuard` (§10). Without this, a trainer could post to `/api/auth/login` on the admin host and get a `vertice_session` cookie there. | F1, F3 |
-| W4 | **A server-side role check before any markup.** `src/app/(admin)/layout.tsx` is an async server component. It reads the admin cookie, calls the BFF's `GET /auth/me` server-side with it, and decides before rendering: no cookie → `redirect("/painel/entrar")`; a 401 → `redirect("/painel/entrar?motivo=expirou")`; a role other than `ADMIN` → `notFound()`; the BFF unreachable → the group's `error.tsx` (a retry state with no admin data, fail closed). Only then does it render `AdminShell` with `me` and the token's times (§5) as props. The edge proxy only checks that the admin cookie exists, since it can't verify the JWT. The trainer layout `src/app/(app)/layout.tsx` gets the same server check as defence in depth: a non-`TRAINER` `me` → `notFound()`. A 401 or an unreachable BFF there falls through to today's client handling (`TermsConsentGate` and the `apiClient` 401 path), because a layout can't clear a cookie and the trainer proxy would bounce `/login` back while the stale cookie is present. `TermsConsentGate` stays as it is. | F2, R5, R6 |
+| W2 | **Admin pages live under `/painel`, and each host 404s the other's paths.** Admin routes: `/painel/entrar` (sign-in), `/painel` (dashboard), `/painel/usuarios`, `/painel/usuarios/[id]`, `/painel/exercicios`, `/painel/historico`. No trainer path starts with `/painel`, so a routing mistake fails visibly. `src/proxy.ts` reads the workspace first and applies that workspace's own table (§1). A path outside it answers a plain `404` from the proxy (`new NextResponse("Not Found", { status: 404 })`, which Next 16's proxy may return directly), never a redirect, so neither host reveals the other's URLs. The legal pages, `/definir-senha`, `/baixar-app` and `/suporte` stay on www only. `/healthz`, the `/icon.png` metadata route and Next's own paths (`/_next/**`, `/__nextjs*`, such as the dev server's `/_next/webpack-hmr`) pass on both hosts. | F1, R5, R6, E5, E6 |
+| W3 | **Every `/api/*` handler checks the host itself.** The proxy's matcher excludes `/api`, so host rules there never reach the handlers. Each handler starts with `hostGuard(request, "trainer" \| "admin" \| "any")` from `src/lib/host.ts`, which answers `404 NOT_FOUND` for the wrong host, before `guardApiRequest`. www only: `/api/auth/login`, `/api/auth/register`, `/api/auth/password/setup`, `/api/auth/logout`. Admin only: the new `/api/admin/auth/{login,enroll,verify,renew,session,logout}`. Both: `/api/bff/[...path]` (W5). A source-scan unit test fails on any `src/app/api/**/route.ts` that doesn't call `hostGuard` (§10). Without this, a trainer could post to `/api/auth/login` on the admin host and get a `vertice_session` cookie there. | F1, F3 |
+| W4 | **A server-side role check before any markup.** `src/app/(admin)/layout.tsx` is an async server component. It reads the admin cookie, calls the BFF's `GET /auth/me` server-side with it, and decides before rendering: no cookie → `redirect("/painel/entrar")`; a 401 → `redirect("/painel/entrar?motivo=expirou")`; a role other than `ADMIN` → `notFound()`. Only the `GET /auth/me` fetch is wrapped in try/catch, with `redirect()` and `notFound()` called outside it, since they work by throwing. A network error or a 5xx renders `AdminUnavailable` (a retry view with no admin data and no `AdminShell`) in place of the children. A segment's own `error.tsx` can't catch its layout's errors, so this is the fail-closed state. Only then does it render `AdminShell` with `me` and the token's times (§5) as props. The edge proxy only checks that the admin cookie exists, since it can't verify the JWT. The trainer layout `src/app/(app)/layout.tsx` gets the same server check as defence in depth: a non-`TRAINER` `me` → `notFound()`. A 401 or an unreachable BFF there falls through to today's client handling (`TermsConsentGate` and the `apiClient` 401 path), because a layout can't clear a cookie and the trainer proxy would bounce `/login` back while the stale cookie is present. `TermsConsentGate` stays as it is. | F2, R5, R6 |
 | W5 | **The BFF proxy has a per-host allow-list and reads only that host's cookie.** `src/lib/bffAllowList.ts` holds a pure `bffPathAllowed(workspace, method, upstreamPath)`. Admin host: any method on `/admin/**` except `/admin/auth/**`, plus `GET /auth/me`, `POST /auth/password`, `POST /auth/me/consent` and `GET /muscle-groups` (the BFF's B7 list). www: anything except `/admin` and `/admin/**`. `/admin/auth/**` is refused on both hosts, because the challenge and the admin token only move through the dedicated handlers of W7. A refused path answers `404 NOT_FOUND` before any cookie is read. The admin host reads only the admin cookie and www only `vertice_session`, so an admin token never leaves www and a trainer token never leaves the admin host. | F3, R5–R7 |
 | W6 | **Separate cookies: an admin session and a short-lived challenge, both host-only.** In production the session is `__Host-vertice_admin` and the challenge `__Host-vertice_admin_challenge`. Both are `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, with no `Domain` (the `__Host-` prefix makes the browser enforce the last three). Outside production, where the dev server is plain http and `Secure` can't hold, they are `vertice_admin` and `vertice_admin_challenge`, the same way `vertice_session` drops `Secure` there. The session's `maxAge` is the seconds left until the token's `expiresAt`: there is no "remember me", and the cookie never outlives the token. The challenge's `maxAge` is the seconds left until `challengeExpiresAt`, at most 300. `src/lib/adminSession.ts` (server-only) is the one module that reads and writes them, as `src/lib/session.ts` is for `vertice_session`. | F3, F4, R11, R12 |
 | W7 | **The admin sign-in is three route handlers and one screen.** The password step calls `/api/admin/auth/login`, which stores the challenge in its cookie and answers the browser only `{secondFactor, challengeExpiresAt}`, never the challenge itself. The enrolment step calls `/api/admin/auth/enroll`, which reads the challenge cookie and answers `{provisioningUri}`. The code step calls `/api/admin/auth/verify`, which reads the challenge cookie, sets the session cookie on success, clears the challenge and answers `{user, expiresAt, sessionEndsAt}`. The token is never in a body the browser sees. The steps are client state on the one `/painel/entrar` page (a pure reducer, §4), so a reload starts again at the password. | F4, R1, R2, R8, R9, E1, E8, E9 |
-| W8 | **Renewal comes from the admin's real interactions, throttled, never from a timer.** `AdminShell` counts a `pointerdown` or `keydown` on the document, a route change and the start of a mutation, all only while the page is visible. Focus alone, scrolling, pointer moves, query refetches and timers never count. On one of these it posts `/api/admin/auth/renew`, at most once per 60 s per tab. That handler calls the BFF only when the token is at least 2 minutes old: it reads `iat` from the cookie's payload, which it doesn't verify, since the BFF verifies. So the BFF sees at most one renewal per 2 minutes per admin across tabs, and an idle admin is signed out between 28 and 30 minutes after the last interaction (R11). `sessionEndsAt` (12 h after the sign-in) never moves (R12). The one timer in the shell is a **sign-out** timer at `expiresAt` (re-armed after each renewal, and checked again on `visibilitychange`, since background tabs throttle timers). It never renews. | F4, R11, R12, E11, E12 |
+| W8 | **Renewal comes from the admin's real interactions, throttled, never from a timer.** `AdminShell` counts a `pointerdown` or `keydown` on the document, a route change and the start of a mutation, all only while the page is visible. Focus alone, scrolling, pointer moves, query refetches and timers never count. On one of these it posts `/api/admin/auth/renew`, at most once per 60 s per tab. That handler calls the BFF only when the token is at least 2 minutes old: it reads `iat` from the cookie's payload, which it doesn't verify, since the BFF verifies. So the BFF sees at most one renewal per 2 minutes per admin across tabs, and an idle admin is signed out between 28 and 30 minutes after the last interaction (R11). `sessionEndsAt` (12 h after the sign-in) never moves (R12). The one timer in the shell is a **sign-out** timer at `expiresAt`. It is re-armed after each renewal and checked again on `visibilitychange`, since background tabs throttle timers. It never renews. All tabs share one cookie, so another tab may have renewed it. Before signing out, the timer and the visibility check read `GET /api/admin/auth/session`, which reports the current cookie's times with no BFF call and is **not** a renewal. They re-arm when that answer's `expiresAt` is still ahead, and sign out only on a 401. An idle tab therefore never signs out the tab that is in use. | F4, R11, R12, E11, E12 |
 | W9 | **The 401 path is host-aware.** `failure()` in `src/lib/api/client.ts` tells the workspace by the page's path, since only the admin host serves `/painel` (W2): on `/painel/**` it posts `/api/admin/auth/logout` (clears both admin cookies) and hard-navigates to `/painel/entrar?motivo=expirou`, which shows "Sua sessão expirou. Entre novamente." (frame `cb0r1`). Elsewhere it does today's `/api/auth/logout` → `/login`. The sign-out timer, a 401 from renew and "Sair" go through the same `signOutAdmin(reason)` helper. The admin proxy never redirects `/painel/entrar` away while a cookie is present, so a stale cookie can't loop (§1). | F4, R40, E11, E12, E17 |
 | W10 | **Every BFF sign-in code has one screen state.** `CHALLENGE_INVALID`, a 409 `PRECONDITION_FAILED` at verify and a challenge past `challengeExpiresAt` at submit all go back to the password step with the expiry notice (one "start again" state). `INVALID_SECOND_FACTOR_CODE` shows "Código inválido" and keeps the challenge (frames `p5TLVn`, `q9XrXD`). A 409 at enroll (already enrolled) moves to the code step. A 429 shows `rateLimitedMessage` and keeps the submit disabled until `Retry-After` has passed. `ACCOUNT_SUSPENDED` shows the R41 text. A 401 at the password step shows "E-mail ou senha inválidos" (frame `KV3fb`), the same for a wrong password and for a trainer's or client's correct one (R4). | F4, F9, R4, R8, R41, E3, E4, E8, E18, E19 |
 | W11 | **R3 on www: the login route maps `ADMIN_LOGIN_ELSEWHERE` to today's answer, and it ships in VRT-25, deployed before BFF VRT-28.** From VRT-28 on, the BFF answers an admin's correct password at `POST /auth/login` with 403 `ADMIN_LOGIN_ELSEWHERE` (BFF B9). `/api/auth/login` turns that into its own 403 `TRAINERS_ONLY` with `APP_ONLY_MESSAGE`, so `LoginForm` needs no change and R3/E2 read as today. 403 `ACCOUNT_SUSPENDED` is relayed, and `LoginForm` and the admin login show "Sua conta está suspensa. Entre em contato com o suporte." Both codes are route-local constants (`ADMIN_LOGIN_ELSEWHERE_CODE` in `src/lib/auth/trainerOnly.ts`, `ACCOUNT_SUSPENDED_CODE` and `ACCOUNT_SUSPENDED_MESSAGE` in a new `src/lib/auth/suspended.ts`) until VRT-29 takes the BFF types that name them and moves the suspended copy into `errorMessages`. This mapping is VRT-25's **first PR**: it needs neither VRT-19 nor any admin route, so it can merge alone and early. | F9, R3, R41, E2, E18; BFF §6 step 4 |
@@ -67,7 +67,7 @@ table. The CSP rendering (`renderWithCsp`) is unchanged and applies to every pag
 | `/` | redirect `/painel/entrar` | redirect `/painel` |
 | `/painel/entrar` | render | render (never redirected away, so a stale cookie can't loop; a fresh sign-in overwrites it) |
 | `/painel`, `/painel/**` | redirect `/painel/entrar?redirect=<path>` (`safeRedirectPath`, further limited to `/painel` paths) | render; the layout decides the role (W4) |
-| `/healthz` | pass | pass |
+| `/healthz`, `/icon.png` (and any later metadata route), `/_next/**`, `/__nextjs*` | pass | pass |
 | anything else (`/login`, `/dashboard`, `/alunos`, `/termos`, `/definir-senha`, `/baixar-app`, …) | 404 | 404 |
 
 The proxy checks only that the cookie exists. The `(admin)` layout's server-side `GET /auth/me`
@@ -75,7 +75,7 @@ is the authority (W4).
 
 **Route groups**
 - `src/app/(admin-auth)/layout.tsx` and `painel/entrar/page.tsx` (+ `AdminLoginContent.tsx`).
-- `src/app/(admin)/layout.tsx` (W4), `error.tsx`, `painel/page.tsx` (dashboard),
+- `src/app/(admin)/layout.tsx` (W4, with its `AdminUnavailable` state), `painel/page.tsx` (dashboard),
   `painel/usuarios/page.tsx`, `painel/usuarios/[id]/page.tsx`, `painel/exercicios/page.tsx`,
   `painel/historico/page.tsx`. Each page follows the house pattern: a server page that reads
   `params`/`searchParams` and hands off to a `"use client"` `*Content.tsx`.
@@ -91,7 +91,8 @@ token.
 | `POST /api/admin/auth/login` | `{email, password}` (`loginRequestSchema` without `remember`) | `POST /admin/auth/login` | set the challenge cookie; `200 {secondFactor, challengeExpiresAt}` | relay (401, 403 `ACCOUNT_SUSPENDED`, 429 + `Retry-After`) |
 | `POST /api/admin/auth/enroll` | none | `POST /admin/auth/enroll` `{challenge}` from the cookie | `200 {provisioningUri}` (`no-store`) | no cookie → local 401 `CHALLENGE_INVALID`, no BFF call; 401 → clear the challenge, relay; 409/429 relay |
 | `POST /api/admin/auth/verify` | `{code}` (`secondFactorCodeSchema`; anything else 400, no BFF call) | `POST /admin/auth/verify` `{challenge, code}` | set the session cookie, clear the challenge; `200 {user, expiresAt, sessionEndsAt}` | no cookie → local 401 `CHALLENGE_INVALID`; 400 `INVALID_SECOND_FACTOR_CODE` relay (challenge kept); 401 / 409 → clear the challenge, relay; 429 relay |
-| `POST /api/admin/auth/renew` | none | `POST /admin/auth/renew` with the session as bearer, only when `iat` is at least 120 s old | `200 {expiresAt, sessionEndsAt}` and a new cookie; or `200 {renewed: false}` with no BFF call when too recent | no cookie, or `now ≥ exp` → clear, 401 with no BFF call; BFF 401 → clear, relay; 429 relay |
+| `POST /api/admin/auth/renew` | none | `POST /admin/auth/renew` with the session as bearer, only when `iat` is at least 120 s old | `200 {expiresAt, sessionEndsAt}` and a new cookie; or `200 {renewed: false, expiresAt, sessionEndsAt}` (the current cookie's times) with no BFF call when too recent | no cookie, or `now ≥ exp` → clear, 401 with no BFF call; BFF 401 → clear, relay; 429 relay |
+| `GET /api/admin/auth/session` | none | none | `200 {expiresAt, sessionEndsAt}` from `adminTokenTimes()` of the current cookie (a status read, not a renewal: it never extends anything) | no cookie, or `now ≥ exp` → 401 |
 | `POST /api/admin/auth/logout` | none | none (tokens are stateless) | clear the session and challenge cookies; `200 {ok: true}` | none |
 
 **`/api/bff/[...path]`** (both hosts): after `bffProxyPath`, `bffPathAllowed(workspace,
@@ -105,9 +106,12 @@ dropped; everything else is relayed as today, `ACCOUNT_SUSPENDED` included. The 
 
 **www `/api/auth/password/setup`** is unchanged. `SetPasswordForm`'s success screen gets an
 `ADMIN` branch, built in VRT-25 because the BFF ops scripts send admins this www link (BFF §2.1):
-"Pronto! Agora entre no painel administrativo com seu e-mail e a nova senha." with a button to
-`https://<ADMIN_HOST>/painel/entrar`. The server page passes that URL in, since the browser never
-reads env. The screen keeps the layout of the trainer's success state, with no new frame. Without
+"Pronto! Agora entre no painel administrativo com seu e-mail e a nova senha." with a button to the admin
+login. `env.server.ts` derives `adminOrigin`: `https://<ADMIN_HOST>` in production; outside
+production, the request's own scheme and port with `ADMIN_HOST` as the hostname
+(`http://admin.localhost:5173`). The server page passes it in, since the browser never reads env.
+With `ADMIN_HOST` unset in production there is no admin origin, so the screen shows the message
+without a button rather than a broken link. The screen keeps the layout of the trainer's success state, with no new frame. Without
 this branch an admin would be told to use the mobile app.
 
 ## 3. Cookies and token times
@@ -136,7 +140,7 @@ password ──login 200, ENROLLED──────────────▶ 
 | State | Frame | What it shows |
 |---|---|---|
 | password | `xtHYu`, error `KV3fb` | e-mail, password, "Entrar". The 401 text is "E-mail ou senha inválidos", the 403 text R41's, the 429 text `rateLimitedMessage`. With `?motivo=expirou` or after a restart: the `cb0r1` notice "Sua sessão expirou. Entre novamente." and its footnote. |
-| enroll | `Cv0BV`, error `p5TLVn` | The QR drawn **in-process** from `provisioningUri` with the existing `qrcode` dependency (as `AppDownload` does, a `data:` image the CSP's `img-src` already admits). Below it, the `secret` parameter of the URI in groups of 4 ("Não consegue escanear? Digite a chave:"), then `CodeInput` and "Ativar e entrar". The URI is kept only in component state: never in storage, a URL, a log or a third-party service (BFF B14). A remount calls enroll again (a new secret, as B14 allows). |
+| enroll | `Cv0BV`, error `p5TLVn` | The QR drawn **in-process** from `provisioningUri` with the existing `qrcode` dependency (as `AppDownload` does, a `data:` image the CSP's `img-src` already admits). Below it, the `secret` parameter of the URI in groups of 4 ("Não consegue escanear? Digite a chave:"), then `CodeInput` and "Ativar e entrar". The URI is kept only in component state: never in storage, a URL, a log or a third-party service (BFF B14). Enroll is called only from an event, never from an effect: once from the login-200 handler when `NOT_ENROLLED`, or from a "Gerar novo QR" link. Each call carries a request id, and only the latest response is rendered. A StrictMode double effect or an out-of-order answer would otherwise show a secret that has already been replaced (each call mints a new one, B14) and spend the `admin-enroll` bucket. |
 | code | `duiOr`, error `q9XrXD` | `CodeInput` (one `<input inputMode="numeric" autoComplete="one-time-code" maxLength={6}>` drawn as six cells, so paste and OTP autofill work), "Verificar", "Voltar para o login" (posts `/api/admin/auth/logout`, then restarts). No auto-submit, so a sixth digit can't double-post. |
 
 One request per submit (a submitting ref, as `ConfirmDialog` does). On 429 the submit stays
@@ -150,10 +154,13 @@ The layout passes `me` and `adminTokenTimes()` to `AdminShell` as props. `useAdm
   `document`), a `usePathname()` change, and `queryClient.getMutationCache()` "added" events. Each
   counts only when `document.visibilityState === "visible"` and at least 60 s have passed since the
   last attempt from this tab. It posts `/api/admin/auth/renew` with a plain `fetch` (not
-  `apiClient`). A 200 with times re-arms the sign-out timer; `{renewed: false}` does nothing; a 401
-  calls `signOutAdmin("expirou")`.
+  `apiClient`). Every 200 (renewed or not) re-arms the sign-out timer from the times it carries; a 401 calls
+  `signOutAdmin("expirou")`. After a renewal the tab posts the new times on a
+  `BroadcastChannel("vertice-admin-session")`, and the other tabs re-arm from them.
 - **Sign-out timer.** A single timeout at `min(expiresAt, sessionEndsAt) + 1 s`, and a check on
-  `visibilitychange` → `signOutAdmin("expirou")`. It never posts renew.
+  `visibilitychange`. Either one first reads `GET /api/admin/auth/session`. A later `expiresAt`
+  re-arms the timer (another tab renewed); a 401 or a past `expiresAt` calls
+  `signOutAdmin("expirou")`. It never posts renew.
 - **`signOutAdmin(reason?)`** posts `/api/admin/auth/logout`, then
   `window.location.href = "/painel/entrar" + (reason ? "?motivo=expirou" : "")`. The hard
   navigation also drops the query cache. "Sair" in `SideNav` calls it with no reason.
@@ -289,8 +296,8 @@ interaction for renewal (W8).
 - `src/proxy.test.ts` becomes a host × path × cookie matrix. Hosts: `www.vertice.fit`,
   `admin.vertice.fit`, `ADMIN.vertice.fit:443`, `localhost:3000`, an unknown host; and
   `ADMIN_HOST` unset in production. Paths: `/`, `/login`, `/dashboard`, `/alunos/1`, `/termos`,
-  `/definir-senha`, `/baixar-app`, `/healthz`, `/painel`, `/painel/entrar`,
-  `/painel/usuarios/1`. Cookies: none, `vertice_session`, the admin cookie. Expected: §1's tables
+  `/definir-senha`, `/baixar-app`, `/healthz`, `/icon.png`, `/_next/webpack-hmr`, `/painel`,
+  `/painel/entrar`, `/painel/usuarios/1`. Cookies: none, `vertice_session`, the admin cookie. Expected: §1's tables
   (each 404 checked as a 404, not a redirect), and a trainer cookie on the admin host counted as
   no cookie.
 - `src/lib/host.test.ts`: hostname parsing (case, port, IPv6 literal, missing `Host`),
@@ -306,15 +313,17 @@ interaction for renewal (W8).
   - the challenge never appears in a response body;
   - the cookie attributes and `maxAge` are the W6 ones;
   - every row of §2;
-  - renew makes no BFF call under 120 s or past `exp`;
+  - renew makes no BFF call under 120 s or past `exp`, and its `{renewed: false}` carries the current times;
+  - session answers the cookie's times, never calls the BFF and never sets a cookie;
   - logout clears both cookies;
   - each handler answers 404 on www.
 - `/api/auth/login/route.test.ts`: 403 `ADMIN_LOGIN_ELSEWHERE` → 403 `TRAINERS_ONLY`; 403
   `ACCOUNT_SUSPENDED` relayed; a wrong password still 401; 404 on the admin host.
 - `src/lib/api/client.test.ts`: a 401 on `/painel/x` posts the admin logout and lands on
   `/painel/entrar?motivo=expirou`; a 401 elsewhere keeps today's path.
-- `signIn.test.ts` (each transition of §4), `renewal.test.ts` (no renewal without an interaction,
-  60 s per tab, never past `sessionEndsAt`, the sign-out time), `cursorPages.test.ts`, the
+- `signIn.test.ts` (each transition of §4, and an out-of-order enroll response ignored), `renewal.test.ts` (no renewal without an interaction,
+  60 s per tab, never past `sessionEndsAt`, the sign-out time, and a tab with a stale timer whose
+  session read shows a cookie renewed by another tab re-arms instead of signing out), `cursorPages.test.ts`, the
   `admin.ts` validation schemas (reason blank, 500 and 501 UTF-16 units; codes `12345`,
   `1234567`, `12a456`), `actions.ts` exhaustiveness (`contract.test.ts` gains `AdminAction`), and
   `format.test.ts` for `formatDayMonth` under `test:hostile-tz`.
@@ -334,7 +343,7 @@ with the suspended message.
 
 | Ticket | Needs (deployed) | Scope |
 |---|---|---|
-| **VRT-25** Admin host, routing and sign-in | BFF VRT-23 (`.bff-ref` at its merge commit); its **first PR** needs nothing (W11) | PR 1: W11 (www login maps `ADMIN_LOGIN_ELSEWHERE`, both logins show `ACCOUNT_SUSPENDED`, local constants, tests). Then: `ADMIN_HOST` env + `.aws/task-definition.json` (`ADMIN_HOST=admin.vertice.fit`); `host.ts`, `hostGuard` on every handler, the proxy tables (W1–W3); the BFF allow-list and per-host cookie (W5); `adminSession.ts` (W6); the five `/api/admin/auth/*` handlers; `/painel/entrar` with `CodeInput` and the in-process QR (W7, W10); the `(admin)` layout check, `error.tsx`, the trainer layout check (W4); `AdminShell` with `SideNav`, `Toast`, renewal and the sign-out timer (W8); host-aware `failure()` (W9); the setup success screen's ADMIN branch (§2); README "Deployment" (the admin host, `ADMIN_HOST`) and CLAUDE.md (two workspaces, the cookies, the guard rule). The dashboard route renders an empty shell until VRT-26. |
+| **VRT-25** Admin host, routing and sign-in | BFF VRT-23 (`.bff-ref` at its merge commit); its **first PR** needs nothing (W11) | PR 1: W11 (www login maps `ADMIN_LOGIN_ELSEWHERE`, both logins show `ACCOUNT_SUSPENDED`, local constants, tests). Then: `ADMIN_HOST` env + `.aws/task-definition.json` (`ADMIN_HOST=admin.vertice.fit`); `host.ts`, `hostGuard` on every handler, the proxy tables (W1–W3); the BFF allow-list and per-host cookie (W5); `adminSession.ts` (W6); the six `/api/admin/auth/*` handlers; `/painel/entrar` with `CodeInput` and the in-process QR (W7, W10); the `(admin)` layout check with `AdminUnavailable`, the trainer layout check (W4); `AdminShell` with `SideNav`, `Toast`, renewal and the sign-out timer (W8); host-aware `failure()` (W9); the setup success screen's ADMIN branch (§2); README "Deployment" (the admin host, `ADMIN_HOST`) and CLAUDE.md (two workspaces, the cookies, the guard rule). The dashboard route renders an empty shell until VRT-26. |
 | **VRT-26** Dashboard, users, profiles, history | BFF VRT-24; VRT-25 | `admin.ts` wrappers and type aliases; `useCursorPages`, `Pagination`, `DataTable`; `/painel` (without most-used), `WeeklySignupsChart`; `/painel/usuarios`; `/painel/usuarios/[id]` read-only, with W16's query options and the suspended banner; `/painel/historico` with the label map (W18). |
 | **VRT-29** Suspension, e-mail actions, login messages | BFF VRT-28 (and the VRT-25 build already live, see Merge and deploy order) | `.bff-ref` at VRT-28; `adminAccount.ts`; `TextArea`; the suspend, reactivate and end-relationship dialogs; the e-mail actions with toasts; §9 invalidation; the roster badge (W18); move `ACCOUNT_SUSPENDED` into `errorMessages` and key `LoginForm` and the admin login on the generated code, dropping the local constants where the type now exists (keep `ADMIN_LOGIN_ELSEWHERE_CODE`'s mapping in the route). |
 | **VRT-32** Exercise curation screens | BFF VRT-31 | `.bff-ref` at VRT-31; `adminCatalog.ts`; `/painel/exercicios` (both tabs, form, promote, muscle-groups dialog); the dashboard's most-used table with group filter and promote; `NAME_TAKEN` / `EXERCISE_IN_USE` copy; "Exercícios" in `SideNav`; trainer `MUSCLE_GROUPS_STALE_TIME` (W17). |
@@ -345,9 +354,10 @@ Every merge to `main` deploys (CD). The default holds: vertice-api → vertice-b
 vertice-web-react within each slice, and a web ticket merges only after its BFF ticket is
 deployed and `.bff-ref` points at that BFF merge. One deviation: W11.
 
-1. **Infra VRT-19** can land any time before the admin host is used (§12). Admin code is inert
-   until both VRT-19 is live and the task definition carries `ADMIN_HOST` (W1), so the web can
-   merge VRT-25 before VRT-19 finishes. The trainer host is unaffected either way.
+1. **Infra VRT-19** (§12): the CNAME and the CloudFront alias can land any time. The ALB host rule
+   lands **last, after VRT-25 (with `ADMIN_HOST`) is deployed**, so the admin hostname answers 403
+   until then and never serves the trainer workspace. Admin code is inert until `ADMIN_HOST` is set
+   (W1), so VRT-25 can merge before VRT-19 starts. The trainer host is unaffected either way.
 2. **VRT-25 PR 1 (W11), before BFF VRT-28 deploys.** The web's login route relays any non-OK BFF
    answer, so if the BFF answered `ADMIN_LOGIN_ELSEWHERE` first, www would show a generic error to
    an admin and break R3/E2. PR 1 has no dependency (route-local constants, no new route), so it
@@ -361,30 +371,33 @@ deployed and `.bff-ref` points at that BFF merge. One deviation: W11.
 5. **Slice 3:** API VRT-30 → BFF VRT-31 → **web VRT-32**.
 
 **Rollback** goes in reverse order, web first: the previous task definition.
-- Rolling back VRT-25 (the rest) turns the admin host into the trainer workspace on an unused
-  hostname, so unset `ADMIN_HOST` or take the alias down with it.
+- Before rolling back VRT-25 (the rest), remove `admin.vertice.fit` from ALB rule 5 first;
+  otherwise the old build serves the trainer workspace on the admin hostname.
 - **Never roll the web back past VRT-25 PR 1 while BFF VRT-28 is live.** Roll BFF VRT-28 back
   first: it restores the 200 that the web's role check refuses (R3 holds).
 - VRT-26, VRT-29 and VRT-32 roll back alone. The BFF routes they use stay, unused.
 
 ## 12. What infra VRT-19 needs from the web
 
-- **DNS and certificates:** a Route 53 alias `admin.vertice.fit` → the same CloudFront
-  distribution as www (an added alternate domain name) or a twin distribution with the same
-  origin and behaviours. The ACM certificate in **us-east-1** for CloudFront must cover
-  `admin.vertice.fit`. Since CloudFront forwards the viewer's `Host`, it also uses that name for
-  the origin TLS handshake, so the **ALB's listener certificate (us-east-2)** must cover
-  `admin.vertice.fit` too.
+- **DNS and certificate:** a Hostinger CNAME `admin` → the web distribution
+  `d3h3s9dovm7j87.cloudfront.net`, and `admin.vertice.fit` as an alternate domain name on the web
+  distribution `EP28H1IFFHEP9`. The existing us-east-1 ACM certificate already covers
+  `*.vertice.fit`. CloudFront reaches the shared ALB over HTTP :80, so no ALB certificate is
+  involved.
 - **Forward the viewer `Host` unchanged** to the origin on every behaviour that reaches the web:
-  an origin request policy with `Host` (or `AllViewer`). W1 decides the workspace from `Host`
+  the distribution's `AllViewer` origin request policy already does this, on `/_next/static/*` too. W1 decides the workspace from `Host`
   alone, and `requestGuard` already compares `Origin` with `Host`. A rewritten `Host` sends the
   admin to the trainer workspace and refuses POSTs from browsers without `Sec-Fetch-Site`.
-- **No caching of pages or `/api/*` on the admin host** (`CachingDisabled`; `_next/static/*` may
-  stay cached). Cookies and query strings are forwarded on those behaviours. `Set-Cookie` is passed
+- **No caching of pages or `/api/*`.** `CachingDisabled` is set per behaviour, not per host, so
+  on the shared distribution it applies to www as well, as the default behaviour already does.
+  `_next/static/*` may stay cached. Cookies and query strings are forwarded on those behaviours. `Set-Cookie` is passed
   through untouched: never add a `Domain`, never rewrite cookie names (the `__Host-` prefix needs
   `Secure`, `Path=/` and no `Domain`).
-- **ALB:** `admin.vertice.fit` reaches the **web** target group, the same ECS service, not the
-  BFF's. The existing secret-origin-header check applies to it as well. The chain must stay
+- **ALB (the required change):** add `admin.vertice.fit` to listener rule 5's host-header
+  condition (the web hosts, next to the origin-header check), which forwards to the **web** target
+  group. Without it the listener's default action answers every admin request with 403. Add it
+  **last**, after VRT-25 with `ADMIN_HOST` is deployed: until then the hostname answers 403
+  instead of serving the trainer workspace. The chain must stay
   CloudFront → ALB → Next, appending to `X-Forwarded-For`, so `TRUSTED_PROXY_HOPS=2` still holds
   for the BFF's per-IP limits on the admin sign-in buckets.
 - **Task definition:** `ADMIN_HOST=admin.vertice.fit` (added by VRT-25 in
