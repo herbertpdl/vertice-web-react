@@ -294,12 +294,10 @@ owner's decision (Q1).
 - "Não consegui montar o treino";
 - "Interrompido. O treino não foi alterado."
 
-A 409 `CONFLICT` for a message already running (BFF F10) can also happen in a single tab:
-- right after "Parar", because the abort takes time to reach the BFF;
-- after the web's own 60-second fallback timer, followed by "Tentar novamente".
-
-The chat client retries a `CONFLICT` that arrives before streaming starts, up to twice, with a
-short backoff (about 500 ms). Only then does it show a normal error with "Tentar novamente".
+A new message from the same trainer supersedes a running one on the BFF (BFF F10), so "Parar"
+followed by a new message, or "Tentar novamente", never gets refused. The superseded stream
+ends with `AI_SUPERSEDED`. That only reaches a screen when another tab took over, where it
+shows as "Interrompido. O treino não foi alterado."
 
 ### 8. Copy and localization
 
@@ -336,7 +334,7 @@ preserves `Content-Disposition` and `Retry-After` handling and other behavior un
 **`unit` project:**
 - the SSE parser: split chunks, several events in one chunk, heartbeats ignored, an error
   event, a truncated stream;
-- the chat state machine: history trimming to the caps, retrying a `CONFLICT` before streaming,
+- the chat state machine: history trimming to the caps, an `AI_SUPERSEDED` ending shown as stopped,
   and unmount mid-stream aborting; plus every transition in §4.6, including closing the panel mid-build and
   "Parar" in each state;
 - `proposalDiff`: added, removed and changed cards; duplicate exercises; reordering; matching by
