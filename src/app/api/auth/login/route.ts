@@ -4,14 +4,13 @@ import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from 
 import { hostGuard } from "@/lib/host";
 import { guardApiRequest } from "@/lib/requestGuard";
 import { setSession } from "@/lib/session";
-import {
-  ADMIN_LOGIN_ELSEWHERE_CODE,
-  APP_ONLY_MESSAGE,
-  isTrainer,
-  TRAINERS_ONLY_CODE,
-} from "@/lib/auth/trainerOnly";
+import type { ApiErrorCode } from "@/lib/api/types";
+import { APP_ONLY_MESSAGE, isTrainer, TRAINERS_ONLY_CODE } from "@/lib/auth/trainerOnly";
 import { loginRequestSchema } from "@/lib/validation/auth";
 import { withNoStore } from "@/lib/noStore";
+
+/** The BFF's 403 for an admin's correct password (BFF B9): admins sign in on the admin host. */
+const ADMIN_LOGIN_ELSEWHERE: ApiErrorCode = "ADMIN_LOGIN_ELSEWHERE";
 
 async function post(request: NextRequest) {
   // www only (admin-panel spec W3): on the admin host this is a 404.
@@ -35,7 +34,7 @@ async function post(request: NextRequest) {
     // An admin's correct password (BFF B9): the same answer as a client's below, so www reads as
     // today (R3, E2) and the BFF body is dropped. Every other refusal, `ACCOUNT_SUSPENDED`
     // included, is relayed as-is.
-    if (res.status === 403 && (await errorCode(res.clone())) === ADMIN_LOGIN_ELSEWHERE_CODE) {
+    if (res.status === 403 && (await errorCode(res.clone())) === ADMIN_LOGIN_ELSEWHERE) {
       return trainersOnly();
     }
     return relayBffResponse(res);

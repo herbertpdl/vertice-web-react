@@ -17,6 +17,7 @@ export * from "./Skeleton";
 export * from "./Spinner";
 export * from "./Switch";
 export * from "./TableRowSkeleton";
+export * from "./TextArea";
 export * from "./TextField";
 export * from "./Toast";
 export * from "./Tooltip";

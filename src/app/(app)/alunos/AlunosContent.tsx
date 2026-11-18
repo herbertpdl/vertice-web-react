@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChevronRight, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Button, TableRowSkeleton, TextField } from "@/components/ui";
+import { Badge, Button, TableRowSkeleton, TextField } from "@/components/ui";
 import { Avatar } from "@/components/domain/Avatar";
 import { WeeklyActivityDots } from "@/components/domain/WeeklyActivityDots";
 import { NewStudentDialog } from "@/components/domain/NewStudentDialog";
@@ -154,9 +154,15 @@ export function AlunosContent() {
             >
               <div style={{ width: COLUMN_WIDTHS.student }} className="flex items-center gap-[10px]">
                 <Avatar name={student.name} />
-                <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
+                <span className="min-w-0 truncate text-[13px] font-semibold text-[color:var(--color-text-primary)]">
                   {student.name}
                 </span>
+                {/* An admin suspended the client: still on the roster, but they can't sign in (R46, E22). */}
+                {student.suspended && (
+                  <Badge variant="danger" className="shrink-0">
+                    Suspenso
+                  </Badge>
+                )}
               </div>
               <div style={{ width: COLUMN_WIDTHS.plan }} className="flex flex-col gap-[1px]">
                 {student.currentPlan ? (

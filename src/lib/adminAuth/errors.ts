@@ -1,7 +1,6 @@
 import { ApiError } from "@/lib/api/client";
-import { apiErrorMessage } from "@/lib/api/errorMessages";
+import { apiErrorMessage, errorMessages } from "@/lib/api/errorMessages";
 import { rateLimitedMessage } from "@/lib/api/rateLimit";
-import { ACCOUNT_SUSPENDED_CODE, ACCOUNT_SUSPENDED_MESSAGE } from "@/lib/auth/suspended";
 
 /** What each sign-in failure does to the screen (admin-panel spec W10, §6). */
 export type SignInFailure =
@@ -24,7 +23,7 @@ export function signInFailure(error: unknown, step: "login" | "enroll" | "verify
   if (error.status === 429) {
     return { kind: "message", message: rateLimitedMessage(error)!, retryAfter: error.retryAfter };
   }
-  if (error.code === ACCOUNT_SUSPENDED_CODE) return { kind: "message", message: ACCOUNT_SUSPENDED_MESSAGE };
+  if (error.code === "ACCOUNT_SUSPENDED") return { kind: "message", message: errorMessages.ACCOUNT_SUSPENDED! };
   if (step === "login" && error.status === 401) return { kind: "message", message: INVALID_CREDENTIALS_MESSAGE };
   if (error.code === "CHALLENGE_INVALID") return { kind: "challengeEnded" };
   if (step === "verify" && error.code === "INVALID_SECOND_FACTOR_CODE") return { kind: "codeRejected" };

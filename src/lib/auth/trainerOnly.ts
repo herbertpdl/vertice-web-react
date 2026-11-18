@@ -16,10 +16,3 @@ export const APP_ONLY_MESSAGE = "O acesso de alunos é feito somente pelo aplica
 
 /** Where a non-trainer session is sent after it is signed out (R7): the login, with `APP_ONLY_MESSAGE`. */
 export const APP_ONLY_LOGIN_PATH = "/login?motivo=app";
-
-/**
- * The BFF's 403 code (from BFF VRT-28, B9) for an admin's correct password at `POST /auth/login`:
- * admins sign in on the admin host. `/api/auth/login` turns it into `TRAINERS_ONLY`, so www reads
- * as it does today (PRD admin-panel R3, E2). A local constant until the generated BFF types name it.
- */
-export const ADMIN_LOGIN_ELSEWHERE_CODE = "ADMIN_LOGIN_ELSEWHERE";

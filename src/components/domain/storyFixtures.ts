@@ -327,6 +327,6 @@ export const roster: (ClientSummary & { email: string })[] = [
     currentPlan: null,
     lastWorkoutAt: null,
     weekActivity: [],
-    suspended: false,
+    suspended: true,
   },
 ];
