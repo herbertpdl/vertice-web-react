@@ -7,7 +7,7 @@ const meta = {
   argTypes: {
     variant: {
       control: "select",
-      options: ["primary", "success", "danger", "neutral"] satisfies BadgeVariant[],
+      options: ["primary", "success", "danger", "neutral", "info"] satisfies BadgeVariant[],
     },
   },
 } satisfies Meta<typeof Badge>;
@@ -19,11 +19,12 @@ export const Primary: Story = { args: { variant: "primary" } };
 export const Success: Story = { args: { variant: "success" } };
 export const Danger: Story = { args: { variant: "danger" } };
 export const Neutral: Story = { args: { variant: "neutral" } };
+export const Info: Story = { args: { variant: "info", children: "Treinador" } };
 
 export const AllVariants: Story = {
   render: (args) => (
     <div style={{ display: "flex", gap: 8 }}>
-      {(["primary", "success", "danger", "neutral"] satisfies BadgeVariant[]).map((variant) => (
+      {(["primary", "success", "danger", "neutral", "info"] satisfies BadgeVariant[]).map((variant) => (
         <Badge key={variant} {...args} variant={variant}>
           {variant}
         </Badge>
