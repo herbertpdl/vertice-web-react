@@ -10,10 +10,15 @@ import {
   type SessionReadResult,
   type SessionTimes,
 } from "@/lib/adminAuth/renewal";
-import { signOutAdmin } from "@/lib/adminAuth/signOut";
+import { signOutAdmin, startRenew } from "@/lib/adminAuth/signOut";
 
 /** The channel the tabs of one browser share renewed times on (admin-panel spec §5). */
 export const ADMIN_SESSION_CHANNEL = "vertice-admin-session";
+
+/** No renewal once a sign-out has begun, and every one is tracked so a sign-out waits for it. */
+function renew(): Promise<RenewResult> {
+  return startRenew(postRenew, { kind: "failed" });
+}
 
 async function postRenew(): Promise<RenewResult> {
   try {
@@ -67,9 +72,9 @@ export function useAdminSession(initialTimes: SessionTimes | undefined) {
       setTimer: (callback, ms) => window.setTimeout(callback, ms),
       clearTimer: (handle) => window.clearTimeout(handle as number),
       isVisible: () => document.visibilityState === "visible",
-      renew: postRenew,
+      renew,
       readSession,
-      signOut: () => signOutAdmin("expirou"),
+      signOut: () => void signOutAdmin("expirou"),
       broadcast: (times) => channel?.postMessage(times),
     });
     controllerRef.current = controller;
