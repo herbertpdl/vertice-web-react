@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button, DataTableMessage, SkeletonCircle, SkeletonLine } from "@/components/ui";
 import { RoleAvatar } from "@/components/domain/RoleAvatar";
 import { RoleBadge, StatusBadge } from "@/components/domain/UserBadges";
+import { historyPathFor } from "@/lib/admin/history";
 import { lastActiveLabel, statusLabel, suspensionNotice } from "@/lib/admin/users";
 import { adminKeys, adminProfileQuery, fetchAdminActions } from "@/lib/api/admin";
 import type { AdminClientProfile, AdminRelationship, AdminTrainerProfile, AdminUserProfile } from "@/lib/api/types";
@@ -107,6 +108,25 @@ function ActivityCard({ counts, lastActiveOn }: { counts: { value: number; label
       <dl>
         <Field label="Última atividade" value={lastActiveLabel(lastActiveOn)} />
       </dl>
+    </Card>
+  );
+}
+
+/**
+ * The `Ações` card (frames `M3SiW`, `eUOyS`). VRT-26 ships only its footnote, whose "Histórico"
+ * opens the history filtered to this user; VRT-29 adds the suspend / reactivate and e-mail
+ * buttons above it.
+ */
+function ActionsCard({ profile }: { profile: AdminUserProfile }) {
+  return (
+    <Card title="Ações">
+      <p className="text-[11px] text-[color:var(--color-text-tertiary)]">
+        Toda ação fica registrada no{" "}
+        <Link href={historyPathFor(profile.id)} className="font-semibold text-[color:var(--color-primary)] hover:underline">
+          Histórico
+        </Link>
+        .
+      </p>
     </Card>
   );
 }
@@ -240,7 +260,10 @@ function ProfileLayout({
           <ProfileDataCard profile={profile} />
           {left}
         </div>
-        <div className="flex w-full flex-col gap-[var(--space-6)] lg:w-[340px] lg:shrink-0">{right}</div>
+        <div className="flex w-full flex-col gap-[var(--space-6)] lg:w-[340px] lg:shrink-0">
+          {right}
+          <ActionsCard profile={profile} />
+        </div>
       </div>
     </>
   );
