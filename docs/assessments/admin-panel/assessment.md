@@ -55,7 +55,7 @@ admin.vertice.fit.
 |---|---|---|
 | R1 | new: `src/app/(admin-auth)/login` | F1 |
 | R2 | new: admin dashboard route | Post-verify redirect |
-| R3 | `src/app/api/auth/login/route.ts:31-37` | Existing refusal stays; BFF will also refuse (BFF F1) |
+| R3 | `src/app/api/auth/login/route.ts:31-37` | F9: once the BFF refuses ADMIN at `/auth/login`, the web must map the BFF's code to `APP_ONLY_MESSAGE` |
 | R4 | new admin login | Same message as wrong password |
 | R5 | `src/proxy.ts` host routing | F1, F2 |
 | R6 | `src/proxy.ts` host routing | F1, F2 |
@@ -114,7 +114,7 @@ admin.vertice.fit.
 | R59 | not applicable to the web | |
 | R60 | promote dialog error | `NAME_TAKEN` |
 | R61 | new: muscle groups panel | |
-| R62 | not applicable to the web | |
+| R62 | `ExerciciosContent.tsx:36`, `AddExerciseDialog.tsx:52`, `ExerciseDialog.tsx:64` (`staleTime: Infinity`) | F13: trainer tabs must pick up renames |
 | R63 | same panel | No remove control |
 | R64 | exercise form error | |
 | R65 | muscle-group form error | |
@@ -126,7 +126,7 @@ admin.vertice.fit.
 | R71 | new: history screen | Filters, paged |
 | R72 | not applicable to the web | Shows "Usuário removido" as sent |
 | E1 | admin login → code → dashboard | |
-| E2 | existing www login refusal | |
+| E2 | existing www login refusal | F9 |
 | E3 | admin login | |
 | E4 | admin login | |
 | E5 | host routing | F1 |
@@ -178,7 +178,7 @@ retry: 1`, `src/app/providers.tsx:17-18`).
 - **Session cookie.** It is httpOnly, `SameSite=strict` and host-only, kept 30 days with "remember
   me" (`src/lib/session.ts:6-20`).
 - **Role enforcement.** It runs in the browser: `TermsConsentGate` reads `/auth/me` and signs a
-  non-trainer out (`src/components/layout/TermsConsentGate/TermsConsentGate.tsx:33-40`). The
+  non-trainer out (`src/components/layout/TermsConsentGate/TermsConsentGate.tsx:38-50`). The
   login route refuses non-trainers before setting the cookie
   (`src/app/api/auth/login/route.ts:31-37`).
 - **CSRF guard.** `src/lib/requestGuard.ts` admits only `Sec-Fetch-Site: same-origin`, or a
@@ -226,10 +226,20 @@ the next dimension and §9.
     trainer paths, such as admin pages under `/painel/...`, so a mistake fails visibly.
   - Configure the two hosts via env, like `BFF_URL`, never hard-coded.
   - Legal pages stay on www only; the admin panel links out to them.
+  - **Route handlers are outside `proxy.ts`.** Its matcher excludes `/api`
+    (`src/proxy.ts:61-65`), so host rules there never reach `/api/*`. Each handler checks the
+    host itself through one shared helper (for example `src/lib/host.ts`), and answers 404 for
+    the other host's handlers.
+    - www only: `/api/auth/login`, `register`, `password`, `password/setup`, `logout`.
+    - Admin host only: the new admin auth handlers (login, verify, enrol, renew, logout).
+    - Both hosts: `/api/bff/[...path]`, with per-host allow-lists (F3).
+
+    Without this, a trainer could post to `/api/auth/login` on admin.vertice.fit and get a
+    `vertice_session` cookie on the admin host.
 
 **F2 (High). A server-side role check before render.**
 - **What:** Today a wrong-role session sees the shell until `/auth/me` returns, then gets signed
-  out (`TermsConsentGate.tsx:33-40`). That was acceptable because the trainer login already
+  out (`TermsConsentGate.tsx:38-50`). That was acceptable because the trainer login already
   refuses other roles.
 - **Where:** `src/components/layout/TermsConsentGate/TermsConsentGate.tsx`; R5, R6.
 - **Why it matters:** The PRD says "never sees any admin page". A client-side gate renders the
@@ -282,6 +292,12 @@ frames:
 - **Why it matters:** Stale "Ativo" badges after a suspension confuse the operator.
 - **Recommendation:** Give admin query keys their own `["admin", ...]` prefix and invalidate by
   prefix per resource. Don't reuse trainer query keys: different shapes, different session.
+- **Trainer tabs and renamed muscle groups (R62).** Trainer screens query `muscleGroupsQueryKey`
+  with `staleTime: Infinity` (`ExerciciosContent.tsx:36`, `AddExerciseDialog.tsx:52`,
+  `ExerciseDialog.tsx:64`). `src/lib/api/muscleGroups.ts:4` assumes "the platform team changes
+  rarely". Once admins add and rename groups, an open trainer tab keeps the old names until a
+  reload. Give those queries a finite `staleTime`, such as the 30 s default or a few minutes, and
+  update the comment.
 
 ### API client and validation
 
@@ -314,6 +330,12 @@ frames:
     handler and cleared after verify.
   - Store the admin token in a separate `__Host-` cookie without `maxAge` (no "remember me").
   - Handle expiry and an invalid challenge with a single "start again" state.
+  - **Make the 401 path host-aware.** Today `failure()` in `src/lib/api/client.ts:66-80`
+    always posts `/api/auth/logout`, which clears only `vertice_session`, then goes to `/login`.
+    On the admin host that leaves the admin cookie in place, and `/login` is a 404 there (F1).
+    The "Sua sessão expirou" notice doesn't exist yet either. The handler and the logout route
+    have to clear the current host's own cookie and send the admin to the admin login with the
+    expiry notice. The R40/E17 "existing behaviour" holds for the trainer host only.
 
 **F3 (High). The generic BFF proxy.**
 - **What:** `/api/bff/[...path]` relays any path with the current cookie
@@ -323,7 +345,10 @@ frames:
   by role, but the web shouldn't offer it. On the admin host, the proxy would also relay trainer
   paths with the admin token.
 - **Recommendation:** Give each host its proxy prefix allow-list (admin host: `/admin/*`,
-  `/auth/me`; www: everything but `/admin/*`). Each reads only its own cookie, so an admin token
+  `/auth/me` and `GET /muscle-groups`; www: everything but `/admin/*`). The admin screens need
+  the muscle-group list for the R24 filter, the exercise form (R52, R53) and the groups panel
+  (R61). Today it comes only from `GET /muscle-groups` (any role), and the BFF assessment adds no
+  admin GET. Each reads only its own cookie, so an admin token
   is never sent from www and a trainer token never from admin.
 
 **F9 (Medium). The suspended message on both logins.**
@@ -334,6 +359,13 @@ frames:
 - **Why it matters:** Without its own mapping, the suspended code falls through to a generic error
   message.
 - **Recommendation:** Add the code to `errorMessages.ts` and relay it through the login route.
+- **The admin message on www (R3, E2).** BFF F1 has `/auth/login` refuse ADMIN outright. If it
+  answers with the generic 401, the web's 403 `TRAINERS_ONLY` branch
+  (`src/app/api/auth/login/route.ts:31-37`) never runs for an admin. The admin would then see "E-mail ou
+  senha inválidos" instead of today's message, which breaks R3 ("refused as today") and
+  web-trainer-only-access R5/E8. Assumed: the BFF answers an ADMIN's correct password there with
+  a distinct code (A3), and the web maps it to `APP_ONLY_MESSAGE` as it does for clients. The
+  alternative is amending R3 to "same message as a wrong password" (Q2).
 
 **F10 (Low). The trainer roster badge.**
 - **What:** The roster shows a "Suspenso" `Badge` when the BFF's additive `suspended` flag is true.
@@ -352,7 +384,7 @@ query mutations is enough.
 **F15 (Low).**
 - **What:** The PRD fixes some copy: "E-mail ou senha inválidos", the suspended message,
   "Suspenso". The rest (action names in history, empty states) needs labels.
-- **Where:** `src/lib/validation` label maps (`muscleGroupLabels`, `setStrategyLabels` pattern); R41, R46, R71.
+- **Where:** `src/lib/validation/exerciseSets.ts:30` (`setStrategyLabels`, the label-map pattern); R41, R46, R71.
 - **Why it matters:** Hard-coded strings make history rows inconsistent with the actions.
 - **Recommendation:** Map each history action code to one Portuguese label, exhaustive over the
   contract's enum (as `ROLE_LABELS` in `AppHeader.tsx:12` is over `Role`).
@@ -396,7 +428,8 @@ deploy.
 
 - **Unit:**
   - the host × path routing matrix;
-  - per-host proxy allow-lists;
+  - per-host proxy allow-lists, and the host check on every `/api/*` handler;
+  - the 401 path clearing the right host's cookie and landing on that host's login;
   - each host reads only its own cookie;
   - the renewal throttle (no renew from idle, refuse past expiry);
   - the error-code to message mapping, including `ACCOUNT_SUSPENDED`, `NAME_TAKEN` and
@@ -432,19 +465,23 @@ frames, which depends on pen.dev being available.
 - A1. Admin pages live under a path prefix that doesn't collide with trainer pages, such as
   `/painel` (F1).
 - A2. The weekly chart is a small hand-made SVG, not a library (F7).
+- A3. On www, the BFF refuses an admin's correct password with a distinct code that the web maps
+  to today's message, which keeps R3 as written (F9).
+- **Q2.** Or should R3 change to "same message as a wrong password" on www? That would retire the
+  admin case of `TRAINERS_ONLY` (F9).
 
 ## 9. Inputs to the spec
 
 - [ ] F5: Slice order and the BFF routes each slice consumes.
-- [ ] F1: Host detection, the per-host route tables, the admin path prefix, 404 for the other host's paths.
+- [ ] F1: Host detection, the per-host route tables (pages in `proxy.ts`, `/api/*` handlers via a shared host check), the admin path prefix, 404 for the other host's paths.
 - [ ] F2: The server-side role check in the admin (and trainer) layout before render.
-- [ ] F3: Per-host BFF proxy allow-lists and per-host cookies.
-- [ ] F4: The sign-in state flow, challenge storage, admin cookie, the renewal trigger and throttle, and expiry handling.
+- [ ] F3: Per-host BFF proxy allow-lists (admin host includes `GET /muscle-groups`) and per-host cookies.
+- [ ] F4: The sign-in state flow, challenge storage, admin cookie, the renewal trigger and throttle, expiry handling, and a host-aware 401/logout path.
 - [ ] F6: New kit components and their source frames.
 - [ ] F7: How the chart is drawn.
 - [ ] F8: Admin API wrappers, the shared table paging hook, the reason schema.
-- [ ] F9: Suspended-message handling on both logins.
-- [ ] F13: Admin query keys and invalidation per write.
+- [ ] F9: Suspended-message handling on both logins, and how an admin refused on www keeps today's message (A3/Q2).
+- [ ] F13: Admin query keys and invalidation per write, and a finite `staleTime` for trainer muscle-group queries.
 - [ ] F16: The routing and proxy test matrix.
 - [ ] Design frames: build against these once the owner approves them. All are **drafted, awaiting
   owner approval**, in section `rDhgL` "Web — Admin Panel" of `Vertice Web.pen`.
