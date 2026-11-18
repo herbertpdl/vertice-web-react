@@ -1,4 +1,5 @@
-import { ADMIN_LOGOUT_ENDPOINT, adminSignInPath, isAdminPath } from "@/lib/adminAuth/paths";
+import { isAdminPath } from "@/lib/adminAuth/paths";
+import { signOutAdmin } from "@/lib/adminAuth/signOut";
 import type { ApiErrorBody } from "./types";
 import { parseRetryAfter } from "./rateLimit";
 
@@ -73,14 +74,19 @@ function failure(res: Response, data: unknown): ApiError {
   const error = apiErrorFrom(res, data);
   if (res.status === 401 && typeof window !== "undefined" && !loggingOut) {
     loggingOut = true;
-    const admin = isAdminPath(window.location.pathname);
+    // The admin workspace's own sign-out: it also waits for a renewal in flight (signOut.ts).
+    if (isAdminPath(window.location.pathname)) {
+      void signOutAdmin("expirou");
+      return error;
+    }
     // Plain module-level function, not a component - no router available.
     // A hard navigation also guarantees the query cache is dropped.
     // The session cookie is httpOnly, so it must be cleared server-side before navigating -
     // otherwise proxy.ts still sees it as present and immediately bounces /login back here,
     // causing an infinite redirect loop.
-    fetch(admin ? ADMIN_LOGOUT_ENDPOINT : "/api/auth/logout", { method: "POST" }).finally(() => {
-      window.location.href = admin ? adminSignInPath("expirou") : "/login";
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = "/login";
     });
   }
   return error;

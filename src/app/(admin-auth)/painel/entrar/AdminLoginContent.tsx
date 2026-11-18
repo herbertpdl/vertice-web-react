@@ -4,7 +4,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import QRCode from "qrcode";
-import { ArrowLeft, CircleAlert, Copy, Timer } from "lucide-react";
+import { ArrowLeft, CircleAlert, CircleCheck, Copy, Timer } from "lucide-react";
 import { Button, CodeInput, TextField } from "@/components/ui";
 import { adminEnroll, adminLogin, adminLogout, adminVerify } from "@/lib/api/adminAuth";
 import { signInFailure, type SignInFailure } from "@/lib/adminAuth/errors";
@@ -12,6 +12,7 @@ import {
   challengeExpired,
   initialSignInState,
   manualEntryKey,
+  PASSWORD_CHANGED_MESSAGE,
   SESSION_EXPIRED_MESSAGE,
   SESSION_LIMITS_HELP,
   signInReducer,
@@ -22,6 +23,8 @@ import { adminLoginSchema, secondFactorCodeSchema, type AdminLoginInput } from "
 interface AdminLoginContentProps {
   /** `?motivo=expirou`: the session ended (frame `cb0r1`). */
   expired: boolean;
+  /** `?motivo=senha-alterada`: the admin changed their own password, and every session ended (E42). */
+  passwordChanged?: boolean;
   /** `?redirect=`: where to land after the code (only `/painel` paths are honoured). */
   redirect: string | null;
 }
@@ -32,7 +35,7 @@ interface AdminLoginContentProps {
  * component state, so a reload starts at the password. One request per submit (a ref, as
  * `ConfirmDialog` does); a 429 keeps the submit disabled until `Retry-After` has passed.
  */
-export function AdminLoginContent({ expired, redirect }: AdminLoginContentProps) {
+export function AdminLoginContent({ expired, passwordChanged = false, redirect }: AdminLoginContentProps) {
   const [state, dispatch] = useReducer(signInReducer, expired, initialSignInState);
   const [formError, setFormError] = useState<string | null>(null);
   // A 429's wait, as its own object so the same number of seconds twice still re-arms the timer.
@@ -165,8 +168,10 @@ export function AdminLoginContent({ expired, redirect }: AdminLoginContentProps)
           <Heading title="Entrar no painel" subtitle="Use o e-mail e a senha da sua conta de administrador." />
           {formError ? (
             <ErrorBanner message={formError} />
+          ) : state.expired ? (
+            <ExpiredNotice />
           ) : (
-            state.expired && <ExpiredNotice />
+            passwordChanged && <PasswordChangedNotice />
           )}
           <div className="flex flex-col gap-[var(--space-4)]">
             <TextField
@@ -286,6 +291,18 @@ function ExpiredNotice() {
     >
       <Timer aria-hidden="true" className="h-[16px] w-[16px] shrink-0" />
       {SESSION_EXPIRED_MESSAGE}
+    </div>
+  );
+}
+
+function PasswordChangedNotice() {
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-[10px] rounded-[var(--radius-md)] border border-[var(--color-success)] bg-[var(--color-success)]/10 px-[14px] py-[10px] text-[13px] leading-[1.5] text-[color:var(--color-success)]"
+    >
+      <CircleCheck aria-hidden="true" className="h-[16px] w-[16px] shrink-0" />
+      {PASSWORD_CHANGED_MESSAGE}
     </div>
   );
 }

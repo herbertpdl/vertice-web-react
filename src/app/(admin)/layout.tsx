@@ -1,8 +1,9 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { AdminShell } from "@/components/layout/AdminShell";
 import { AdminUnavailable } from "@/components/layout/AdminUnavailable";
 import { adminSignInPath } from "@/lib/adminAuth/paths";
-import { getAdminSessionToken } from "@/lib/adminSession";
+import { adminTokenTimes, getAdminSessionToken } from "@/lib/adminSession";
 import { workspaceOf } from "@/lib/host";
 import { fetchMeOnServer } from "@/lib/serverMe";
 
@@ -24,5 +25,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (result.kind === "unavailable") return <AdminUnavailable />;
   if (result.kind === "forbidden" || result.me.role !== "ADMIN") notFound();
 
-  return <div className="flex min-h-screen w-full flex-col bg-[var(--color-bg)]">{children}</div>;
+  const times = adminTokenTimes(token);
+  return (
+    <AdminShell
+      me={{ name: result.me.name, email: result.me.email }}
+      times={times && { expiresAt: times.expiresAt, sessionEndsAt: times.sessionEndsAt }}
+    >
+      {children}
+    </AdminShell>
+  );
 }

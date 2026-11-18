@@ -15,7 +15,11 @@ export default async function AdminSignInPage({ searchParams }: PageProps<"/pain
   const redirect = typeof params.redirect === "string" ? params.redirect : null;
   return (
     <AdminAuthShell host={serverEnv().adminHost}>
-      <AdminLoginContent expired={motivo === "expirou"} redirect={redirect} />
+      <AdminLoginContent
+        expired={motivo === "expirou"}
+        passwordChanged={motivo === "senha-alterada"}
+        redirect={redirect}
+      />
     </AdminAuthShell>
   );
 }

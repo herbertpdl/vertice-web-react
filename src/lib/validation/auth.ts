@@ -80,3 +80,21 @@ export const passwordSetupRequestSchema = z.object({
   token: z.string().min(1).max(512),
   newPassword: newPasswordSchema,
 });
+
+/**
+ * Changing one's own password (`POST /auth/password`): the current one, then the new one twice,
+ * under the platform's password policy. The same fields and copy as the trainer's change-password
+ * screen in vertice-mobile.
+ */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Informe a senha atual"),
+    newPassword: newPasswordSchema,
+    confirmPassword: z.string().min(1, "Confirme a nova senha"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

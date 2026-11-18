@@ -4,8 +4,11 @@
 export const ADMIN_PREFIX = "/painel";
 export const ADMIN_SIGN_IN_PATH = "/painel/entrar";
 
-/** Why the admin is back at the sign-in: `expirou` shows "Sua sessão expirou. Entre novamente.". */
-export type AdminSignOutReason = "expirou";
+/**
+ * Why the admin is back at the sign-in: `expirou` shows "Sua sessão expirou. Entre novamente.";
+ * `senha-alterada` (after their own password change, E42) "Senha alterada. Entre com a nova senha.".
+ */
+export type AdminSignOutReason = "expirou" | "senha-alterada";
 
 export function adminSignInPath(reason?: AdminSignOutReason): string {
   return reason ? `${ADMIN_SIGN_IN_PATH}?motivo=${reason}` : ADMIN_SIGN_IN_PATH;
