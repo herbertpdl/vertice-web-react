@@ -33,7 +33,7 @@ the gate was still pending and appeared as Blocker F1.
 
 | Id | Severity | One line |
 |---|---|---|
-| F1 | Blocker | `Design: pending`: the frames in `kswLu` await the owner's approval |
+| F1 | Resolved | Resolved 2026-11-18 (`design-ok`): the owner approved the frames in `kswLu` |
 | F2 | Blocker | The BFF endpoint and `vertice-ai` don't exist yet |
 | F3 | High | `/api/bff/[...path]` buffers the response (`relayBffResponse` uses `await res.text()`) and never forwards an abort, so nothing streams and "Parar" can't stop the upstream |
 | F4 | High | The autosave engine has no pause or snapshot; review mode (R34, R39, R43) needs both |
@@ -76,7 +76,7 @@ the gate was still pending and appeared as Blocker F1.
 | R47–R49 | chat state + `WorkoutEditor.tsx` | Closing the panel doesn't abort; the AI button shows "IA trabalhando…" (`rLKpQ`) |
 | R51 | chat panel | The extra one-line "left out" text arrives as AI text after the fixed ready line; the proposal itself is rendered as usual (E11a, E12) |
 | R52 | `WorkoutEditor.tsx` | Hide "Usar treino existente como base" while held in review (E30) |
-| R53 | chat state + autosave engine | Lock the editor, `await engine.flush()`, then start; on a failed save, unlock and keep the message (F4; E28, E29, E29a) |
+| R53 | chat state + autosave engine | On every send: lock the editor and `await engine.flush()`, then send; on a failed save, unlock and keep the message. Unlock on the first `text` event; keep the lock on the first `stage` event (F4; E28, E29, E29a) |
 | R55 | `AiChatPanel` | Below 1280 px the panel overlays the editor, full height on the right (E31) |
 | R56 | chat store | History trimmed to 20 turns or 40,000 characters before sending (F9; E32) |
 | E1–E3, E9–E13 | chat panel | Text or error states (`V8b5f`, `mTIH0`, `F3IREj`, `Cz6l0`, `y8qFL`) |
@@ -364,7 +364,6 @@ acceptable.
 - about six new domain components.
 
 **Dependencies:**
-- owner approval of the design (F1);
 - the BFF endpoint, its OpenAPI event schemas and the feature flag (F2);
 - the `vertice-ai` feature endpoint and deployment;
 - the PRD §7 "Personal data before launch" condition before the flag is turned on.

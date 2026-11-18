@@ -108,8 +108,8 @@ cannot send another message until the current one is finished.
 - R18: While the assistant builds a change, the chat shows each stage of the work as it happens.
 - R19: While the assistant builds a change, the editor is read-only and shows a "IA montando o
   treino…" overlay.
-- R20: While the assistant answers a question, only the chat input is locked; the editor stays
-  usable.
+- R20: While the assistant answers a question, only the chat input is locked once the answer
+  starts; the editor stays usable.
 - R21: When a message fails, or shows no progress (no new stage and no new text) for 60
   seconds, the chat shows an error with "Tentar novamente",
   the trainer's message stays in the chat, and the editor is unchanged and unlocked.
@@ -184,12 +184,14 @@ outside review the editor behaves exactly as WE describes.
   ainda não salva" (WE-R13 does not apply to review).
 - R52: While a proposal is in review, "Usar treino existente como base" (WE-R24) is not
   offered.
-- R53: When a change is requested, the editor becomes read-only at once (R19), any pending or
-  in-progress save is completed first, and only then does the assistant start; R21's 60-second
-  timer starts with the assistant. If that save fails, or the last save had already failed, the
-  assistant doesn't start: the chat asks the trainer to save first ("Tentar novamente" in the
-  footer), the editor unlocks, and the trainer's message stays so it can be sent again. This way
-  no edit is lost by a later "Descartar".
+- R53: When the trainer sends any message, the editor becomes read-only and any pending or
+  in-progress save is completed first; only then is the message sent, and R21's 60-second timer
+  starts with it. If that save fails, or the last save had already failed, nothing is sent: the
+  chat asks the trainer to save first ("Tentar novamente" in the footer), the editor unlocks,
+  and the message stays so it can be sent again. As soon as the assistant shows it is answering
+  a question, the editor unlocks (R20); when it builds a change, it stays read-only (R19). This
+  way no edit is lost by a later "Descartar", because whether a message is a question or a
+  change is only known once the assistant starts (R23).
 - R46: The leave warnings of R42 and R50 are extra cases of WE-R12, on top of a save in progress or a
   failed save.
 
@@ -228,9 +230,9 @@ outside review the editor behaves exactly as WE describes.
 | E25 | Trainer then reopens the panel with the AI icon. | The panel shows the current stage and "Parar"; pressing it unlocks the editor unchanged. | R16, R48, R49 |
 | E26 | Trainer presses "Concluir" while an answer or a change is still being processed. | Warning that the assistant's progress will be lost; leaving anyway stops the message and nothing is changed. | R49, R50 |
 | E27 | Trainer closes the tab while a message is still being processed. | The browser's own leave prompt appears; leaving anyway stops the message and nothing is changed. | R50 |
-| E28 | Trainer edits a set and asks for a change before the footer says "Salvo". | The request waits for the save, then starts. | R53 |
-| E29 | The last save failed ("Erro ao salvar — Tentar novamente") and the trainer asks for a change. | The assistant doesn't start; the chat asks the trainer to save first; the message stays. | R53 |
-| E29a | The trainer asks for a change and the pending save then fails. | The assistant doesn't start; the editor unlocks; the chat asks the trainer to save first; the message stays. | R53 |
+| E28 | Trainer edits a set and sends a message before the footer says "Salvo". | The editor locks, the save completes, then the message is sent. | R53 |
+| E29 | The last save failed ("Erro ao salvar — Tentar novamente") and the trainer sends a message. | The assistant doesn't start; the chat asks the trainer to save first; the message stays. | R53 |
+| E29a | The trainer sends a message and the pending save then fails. | Nothing is sent; the editor unlocks; the chat asks the trainer to save first; the message stays. | R53 |
 | E31 | The browser window is 1100 pixels wide and the trainer opens the assistant. | The panel opens over the editor on the right. | R55 |
 | E32 | The conversation has 25 turns and the trainer sends another message. | The assistant receives the last 20 turns; all 25 stay on screen. | R56 |
 | E30 | A new workout is in review and the trainer looks for "Usar treino existente como base". | It isn't offered until the proposal is applied or discarded. | R52 |
@@ -280,9 +282,9 @@ outside review the editor behaves exactly as WE describes.
 | Baseline for change markers and "Descartar" after chained proposals | Always the last saved workout | Owner's choice in PR review. (proposed, accepted) |
 | When a message counts as "too long" | No new stage or text for 60 seconds | Owner's choice in PR review; it also caps how long the editor stays locked. (proposed, accepted) |
 | Partly possible requests | Propose what fits and name what was left out | Owner's choice (2026-11-18). (proposed, accepted) |
-| A change request while a save is pending or failed | Wait for the save; don't start after a failed save | Owner's choice (2026-11-18): no edit is lost by a later "Descartar". (proposed, accepted) |
+| A message while a save is pending or failed | Every message waits for the save, and nothing is sent after a failed save | Owner's choice (2026-11-18) for change requests: no edit is lost by a later "Descartar". It applies to every message because the web only learns that a message is a change after the assistant starts (R23); questions unlock the editor as soon as the answer starts. (proposed, accepted) |
 | Footer and "Usar treino existente como base" during review | Footer reads "Proposta em revisão — ainda não salva"; the action is hidden | Owner's choice (2026-11-18). (proposed, accepted) |
-| Personal data before launch | Before the feature reaches trainers, vertice-api's data inventory and the privacy policy name Anthropic as a sub-processor Vertice uses on the trainer's behalf. Vertice is the operator and the trainer the controller, as the privacy policy already says. LangSmith receives metadata only (inputs and outputs hidden), so it receives no workout data. No new client consent, and the assistant isn't blocked by any client's consent version | Owner's choice (2026-11-18): there are no real clients yet, only the owner and test users. The operator framing goes to the existing legal review before real clients arrive; if a lawyer requires consent, re-consent is added then. |
+| Personal data before launch | Before the feature reaches trainers, vertice-api's data inventory and the privacy policy name Anthropic as a sub-processor Vertice uses on the trainer's behalf. Vertice is the operator and the trainer the controller, as the privacy policy already says. LangSmith receives metadata only (inputs and outputs hidden; `LANGSMITH_ALLOW_CONTENT` stays off in production for this feature), so it receives no workout data. No new client consent, and the assistant isn't blocked by any client's consent version | Owner's choice (2026-11-18): there are no real clients yet, only the owner and test users. The operator framing goes to the existing legal review before real clients arrive; if a lawyer requires consent, re-consent is added then. |
 | Reply language, error handling, new-workout apply, the 20/10 limits, invalid proposals, client never told | As in R9, R21–R22, R40, R31, R32, R6 | (proposed, accepted) |
 
 ## 8. Open questions
