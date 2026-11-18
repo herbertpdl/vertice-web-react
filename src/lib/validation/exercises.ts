@@ -6,7 +6,7 @@ import {
   VIDEO_URL_MAX,
   boundedText,
   requiredText,
-  tooLong,
+  maxUnits,
 } from "./bounds";
 
 export const exerciseSchema = z.object({
@@ -18,10 +18,7 @@ export const exerciseSchema = z.object({
   description: boundedText(DESCRIPTION_MAX),
   // YouTube only (R8), as vertice-api and the BFF: the client app plays videos in an embedded
   // YouTube player. The same parser on every repo, so what one accepts the others do.
-  videoUrl: z
-    .string()
-    .trim()
-    .max(VIDEO_URL_MAX, tooLong(VIDEO_URL_MAX))
+  videoUrl: maxUnits(z.string().trim(), VIDEO_URL_MAX)
     .refine((value) => youtubeVideoId(value) !== null, "Só aceitamos vídeos do YouTube (youtube.com ou youtu.be).")
     .optional()
     .or(z.literal("")),

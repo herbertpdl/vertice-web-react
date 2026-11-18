@@ -3,8 +3,9 @@ import { z } from "zod";
 /**
  * Field rules shared by every schema. They mirror vertice-api's validation (its PR #70 is the table
  * of record) and vertice-bff's `lib/validation.ts`, so a bad value is caught in the form before any
- * request. String lengths count UTF-16 code units, like Java's `String.length()`, so `.max(n)` is the
- * same bound on all three layers.
+ * request. String lengths count UTF-16 code units, like Java's `String.length()`, so `maxUnits(n)` is
+ * the same bound on all three layers. Never Zod 4's `.max(n)` on a string: it counts code points (an
+ * emoji is 1, Java's 2), so it lets through a value the API refuses.
  */
 
 export const NAME_MAX = 255;
@@ -36,22 +37,20 @@ export const LOAD_PERCENTAGE_PATTERN = /^\d{1,3}(\.\d{1,2})?$/;
 
 export const tooLong = (max: number) => `Use no máximo ${max} caracteres`;
 
+/** A string of at most `max` UTF-16 code units (`String.prototype.length`, Java's `String.length()`). */
+export const maxUnits = <T extends z.ZodString>(schema: T, max: number): T =>
+  schema.refine((value) => value.length <= max, tooLong(max)) as T;
+
 /** A required text: not blank, at most `max` characters (checked on the raw value, stored trimmed). */
 export const requiredText = (max: number, requiredMessage: string) =>
-  z.string().max(max, tooLong(max)).trim().min(1, requiredMessage);
+  maxUnits(z.string(), max).trim().min(1, requiredMessage);
 
 /** An optional free text with a column bound. */
-export const boundedText = (max: number) => z.string().max(max, tooLong(max));
+export const boundedText = (max: number) => maxUnits(z.string(), max);
 
 /** Trimmed, lower-cased, at most 255 characters: the way vertice-api stores emails. */
 export const emailField = (requiredMessage = "Informe o e-mail") =>
-  z
-    .string()
-    .trim()
-    .toLowerCase()
-    .min(1, requiredMessage)
-    .email("E-mail inválido")
-    .max(EMAIL_MAX, tooLong(EMAIL_MAX));
+  maxUnits(z.string().trim().toLowerCase().min(1, requiredMessage).email("E-mail inválido"), EMAIL_MAX);
 
 export const weightMessage = "Use até 4 dígitos inteiros e 2 decimais";
 export const loadPercentageMessage = "Use até 3 dígitos inteiros e 2 decimais";
