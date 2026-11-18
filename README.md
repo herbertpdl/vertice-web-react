@@ -228,3 +228,23 @@ Local dev needs none of this: one developer sharing a bucket with themselves is 
   browser console. Once a release shows none, switch `CSP_HEADER` there to
   `Content-Security-Policy`. Clickjacking is already blocked (`X-Frame-Options: DENY` plus an
   enforced `frame-ancestors 'none'`).
+
+### Deployment: the admin host (infra)
+
+`admin.vertice.fit` reaches this same `vertice-web` service. The infra is shared with www, so
+check it whenever a CloudFront behaviour or an ALB rule changes:
+
+- **DNS:** the Hostinger CNAME `admin` → `d3h3s9dovm7j87.cloudfront.net`.
+- **CloudFront** `EP28H1IFFHEP9`: `admin.vertice.fit` is an alternate domain name next to
+  `vertice.fit`, `www` and `app`, on the same us-east-1 ACM certificate (`vertice.fit` +
+  `*.vertice.fit`). Behaviours are per path, not per host, so the admin host gets www's:
+  `CachingDisabled` on the default behaviour (pages and `/api/*`, cookies and query strings
+  forwarded), only `/_next/static/*` cached, and the `AllViewer` origin request policy on both, so
+  the viewer's `Host` reaches Next unchanged. `Set-Cookie` passes through untouched.
+- **ALB:** a listener rule holds at most 5 condition values (a fixed quota). Rule 5 (the web hosts)
+  already uses all five: four hosts plus the origin header. So the admin host gets its own rule,
+  **priority 6**: host `admin.vertice.fit` plus the same `X-Origin-Verify` header → target group
+  `vertice-web`. It is created only once `ADMIN_HOST` is deployed. Until then the hostname gets the
+  listener's default 403 and never serves the trainer workspace. To roll it back, delete the
+  priority-6 rule, and do that before rolling back the admin code.
+- The chain is still CloudFront → ALB → Next, so `TRUSTED_PROXY_HOPS=2` holds on this host too.
