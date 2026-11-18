@@ -114,11 +114,11 @@ cannot send another message until the current one is finished.
   continues.
 - R48: Reopening the chat panel while a message is being processed shows its current progress
   and "Parar".
-- R49: The AI icon stays usable while the editor is read-only (R19), so the trainer can always
-  reopen the panel and stop a change being built.
-- R50: Leaving the editor while a message is being processed ("Concluir", navigating away,
-  reloading or closing the tab) warns that the assistant's progress will be lost; leaving
-  anyway stops the message.
+- R49: The AI icon and "Concluir" stay usable while the editor is read-only (R19), so the
+  trainer can always reopen the panel and stop a change being built, or leave.
+- R50: Leaving the editor while a message is being processed ("Concluir" or navigating within
+  the app) warns that the assistant's progress will be lost; reloading or closing the tab shows
+  the browser's own leave prompt (as WE-R12 does today); leaving anyway stops the message.
 
 **Changes proposed by the assistant**
 
@@ -158,8 +158,9 @@ cannot send another message until the current one is finished.
 - R41: When applying would remove an exercise or set a client has already recorded data against,
   that exercise or set stays in the workout and a message names it; everything else is saved
   (WE-R27).
-- R42: Leaving the editor with a proposal in review ("Concluir", navigating away, reloading or
-  closing the tab) warns that the proposal has not been applied; leaving anyway discards it.
+- R42: Leaving the editor with a proposal in review ("Concluir" or navigating within the app)
+  warns that the proposal has not been applied; reloading or closing the tab shows the
+  browser's own leave prompt (as WE-R12 does today); leaving anyway discards it.
 
 **Effect on the workout editor (WE)**
 
@@ -207,7 +208,8 @@ outside review the editor behaves exactly as WE describes.
 | E23 | A client opens the workout after the trainer applied a proposal. | The client sees a normal workout, with no mention of the assistant. | R6 |
 | E24 | Trainer closes the chat panel while a change is being built. | The work continues; the editor stays read-only under the overlay. | R19, R47 |
 | E25 | Trainer then reopens the panel with the AI icon. | The panel shows the current stage and "Parar"; pressing it unlocks the editor unchanged. | R16, R48, R49 |
-| E26 | Trainer presses "Concluir" or closes the tab while an answer or a change is still being processed. | Warning that the assistant's progress will be lost; leaving anyway stops the message and nothing is changed. | R50 |
+| E26 | Trainer presses "Concluir" while an answer or a change is still being processed. | Warning that the assistant's progress will be lost; leaving anyway stops the message and nothing is changed. | R49, R50 |
+| E27 | Trainer closes the tab while a message is still being processed. | The browser's own leave prompt appears; leaving anyway stops the message and nothing is changed. | R50 |
 
 ## 6. Out of scope
 
@@ -242,7 +244,7 @@ outside review the editor behaves exactly as WE describes.
 | Usage limit | None in this version; token/cost-based limit in a later PRD | Owner: a message count is not enough to control cost. |
 | Off-topic questions | Politely declined | (proposed, accepted) |
 | Leaving with a proposal in review | Warn, then discard | (proposed, accepted) |
-| Closing the chat panel while a message is processing | Allowed; the work continues; leaving the page warns that the progress will be lost | Owner's choice after PR #83. The AI icon staying usable (R49) is (proposed) so a closed panel never leaves a locked editor with no way to stop it. |
+| Closing the chat panel while a message is processing | Allowed; the work continues; leaving the page warns that the progress will be lost | Owner's choice after PR #83. The AI icon and "Concluir" staying usable (R49) were proposed so a closed panel never leaves a locked editor with no way to stop it, and the owner accepted them when asking to merge this amendment. (proposed, accepted) |
 | Question or change | The assistant decides and asks when unclear | (proposed, accepted) |
 | Message on arrival of a proposal | One line saying it is ready; no explanation of what or why | Owner: save cost; the editor marks the changes. |
 | Showing what changed | "Novo" marks, highlighted values, struck-through removals | (proposed, accepted) |
