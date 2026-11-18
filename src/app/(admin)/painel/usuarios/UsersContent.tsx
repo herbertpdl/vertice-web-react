@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, CircleAlert, SearchX, Users } from "lucide-react";
@@ -154,12 +154,14 @@ export function UsersContent({ initialFilters }: { initialFilters: AdminUserFilt
   const filtersKey = JSON.stringify(filters);
   const pages = useCursorPages(filtersKey);
 
-  // Keep the URL in step with the filters actually applied, without a history entry per keystroke.
-  const [syncedKey, setSyncedKey] = useState(filtersKey);
-  if (syncedKey !== filtersKey) {
-    setSyncedKey(filtersKey);
-    router.replace(`/painel/usuarios${userFiltersToSearch(filters)}`, { scroll: false });
-  }
+  // Keep the URL in step with the filters actually applied (no history entry per keystroke). In an
+  // effect: a navigation is a side effect, never something to start while rendering.
+  const urlSearch = userFiltersToSearch(filters);
+  useEffect(() => {
+    if (window.location.search !== urlSearch) {
+      router.replace(`/painel/usuarios${urlSearch}`, { scroll: false });
+    }
+  }, [urlSearch, router]);
 
   const page = { limit: pages.pageSize, cursor: pages.cursor };
   const { data, isPending, isError, isPlaceholderData, isFetching, refetch } = useQuery({
