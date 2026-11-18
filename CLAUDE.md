@@ -75,7 +75,15 @@ the app is published). Every BFF call sends `bffHeaders(request, …)`, which ad
 required in production: unset, `src/instrumentation.ts` exits at boot and the call throws);
 use it, and `relayBffResponse` (keeps `Retry-After`, `Content-Disposition` on a 2xx for the
 `GET /auth/me/export` file name, null body on 204), for any new route.
-Every `/api/*` handler starts with `guardApiRequest(request, "json" | "optional-json" | "none")`
+**Two workspaces, one app** (admin-panel spec, `docs/specs/admin-panel/spec.md`): the request's
+`Host` alone picks the trainer workspace or the admin one (`workspaceOf` in `src/lib/host.ts`;
+`ADMIN_HOST`, unset in production = no admin host, every admin path a 404). `src/proxy.ts` applies
+each workspace's own page table (admin pages live under `/painel`, and each host 404s the other's
+paths), and **every `/api/*` handler starts with `hostGuard(request, "trainer" | "admin" |
+"any")`**, before anything else: the proxy's matcher excludes `/api`, and
+`src/app/api/hostGuard.test.ts` fails on a handler without it (add each new handler to its table).
+The BFF proxy forwards per host (`src/lib/bffAllowList.ts`) with only that host's cookie.
+Every `/api/*` handler then calls `guardApiRequest(request, "json" | "optional-json" | "none")`
 (`src/lib/requestGuard.ts`): 403 unless `Sec-Fetch-Site`/`Origin` say same-origin (unsafe methods
 must carry `Origin`), 415 for a non-JSON body. The BFF proxy encodes each path segment and 400s
 `.`, `..`, empty or slash-carrying ones (`bffProxyPath` in `src/lib/bff.ts`). The session cookie

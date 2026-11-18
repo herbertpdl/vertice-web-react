@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { components } from "@/lib/api/schema";
 import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from "@/lib/bff";
+import { hostGuard } from "@/lib/host";
 import { guardApiRequest } from "@/lib/requestGuard";
 import { setSession } from "@/lib/session";
 import {
@@ -13,6 +14,9 @@ import { loginRequestSchema } from "@/lib/validation/auth";
 import { withNoStore } from "@/lib/noStore";
 
 async function post(request: NextRequest) {
+  // www only (admin-panel spec W3): on the admin host this is a 404.
+  const wrong = hostGuard(request, "trainer");
+  if (wrong) return wrong;
   const refused = guardApiRequest(request, "json");
   if (refused) return refused;
 

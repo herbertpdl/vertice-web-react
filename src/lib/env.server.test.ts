@@ -19,6 +19,7 @@ describe("parseServerEnv", () => {
       isProduction: false,
       bffUrl: DEFAULT_BFF_URL,
       trustedProxyHops: 0,
+      adminHost: "admin.localhost",
     });
     expect(parseServerEnv({ BFF_URL: "  " }).bffUrl).toBe(DEFAULT_BFF_URL);
   });
@@ -79,6 +80,38 @@ describe("parseServerEnv", () => {
       expect(() => parseServerEnv({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: value })).toThrow(
         ServerEnvError,
       );
+    });
+  });
+
+  describe("ADMIN_HOST", () => {
+    const production = { NODE_ENV: "production", TRUSTED_PROXY_HOPS: "2" };
+
+    it("defaults to admin.localhost outside production", () => {
+      expect(parseServerEnv({}).adminHost).toBe("admin.localhost");
+      expect(parseServerEnv({ ADMIN_HOST: " " }).adminHost).toBe("admin.localhost");
+    });
+
+    it("is unset in production unless set: no host is the admin one (fails closed)", () => {
+      expect(parseServerEnv(production).adminHost).toBeUndefined();
+      expect(parseServerEnv({ ...production, ADMIN_HOST: "" }).adminHost).toBeUndefined();
+    });
+
+    it("reads a bare hostname, lower-cased", () => {
+      expect(parseServerEnv({ ...production, ADMIN_HOST: "Admin.Vertice.fit" }).adminHost).toBe(
+        "admin.vertice.fit",
+      );
+    });
+
+    it.each([
+      "https://admin.vertice.fit",
+      "admin.vertice.fit:443",
+      "admin.vertice.fit/",
+      ".vertice.fit",
+      "admin..vertice.fit",
+      "admin vertice",
+      "-admin.vertice.fit",
+    ])("refuses %s", (value) => {
+      expect(() => parseServerEnv({ ADMIN_HOST: value })).toThrow(/ADMIN_HOST must be a bare hostname/);
     });
   });
 

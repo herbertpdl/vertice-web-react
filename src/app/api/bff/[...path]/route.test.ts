@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 vi.mock("@/lib/session", () => ({ getSessionToken: vi.fn(async () => "jwt") }));
+vi.mock("@/lib/adminSession", () => ({ getAdminSessionToken: vi.fn(async () => "admin-jwt") }));
 
+import { getAdminSessionToken } from "@/lib/adminSession";
 import { getSessionToken } from "@/lib/session";
 
 import { DELETE, GET, PATCH, POST } from "./route";
@@ -34,6 +36,65 @@ afterEach(() => {
   vi.unstubAllEnvs();
   resetServerEnvForTests();
   fetchMock.mockReset();
+  vi.mocked(getSessionToken).mockClear();
+  vi.mocked(getAdminSessionToken).mockClear();
+});
+
+describe("/api/bff/[...path]: per host (admin-panel spec W5)", () => {
+  const ADMIN_HOST = "admin.localhost:5173";
+
+  function at(host: string, method: string, path: string[]) {
+    const request = new NextRequest(`http://${host}/api/bff/${path.join("/")}`, {
+      method,
+      headers: { Host: host, Origin: `http://${host}`, "Sec-Fetch-Site": "same-origin" },
+    });
+    const handler = { GET, POST, PATCH, DELETE }[method as "GET"];
+    return handler(request, { params: Promise.resolve({ path }) });
+  }
+
+  it("sends the admin cookie's token from the admin host, never the trainer's", async () => {
+    fetchMock.mockResolvedValue(Response.json({}));
+    await at(ADMIN_HOST, "GET", ["admin", "users"]);
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:3000/api/admin/users");
+    expect((fetchMock.mock.calls[0][1]!.headers as Record<string, string>).Authorization).toBe(
+      "Bearer admin-jwt",
+    );
+    expect(getSessionToken).not.toHaveBeenCalled();
+  });
+
+  it("sends the trainer cookie's token from www, never the admin's", async () => {
+    fetchMock.mockResolvedValue(Response.json({}));
+    await at("localhost:5173", "GET", ["clients"]);
+    expect((fetchMock.mock.calls[0][1]!.headers as Record<string, string>).Authorization).toBe(
+      "Bearer jwt",
+    );
+    expect(getAdminSessionToken).not.toHaveBeenCalled();
+  });
+
+  it("answers 401 on the admin host without the admin cookie, even with a trainer one", async () => {
+    vi.mocked(getAdminSessionToken).mockResolvedValueOnce(undefined);
+    const res = await at(ADMIN_HOST, "GET", ["auth", "me"]);
+    expect(res.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [ADMIN_HOST, "GET", ["clients"]],
+    [ADMIN_HOST, "PATCH", ["auth", "me"]],
+    [ADMIN_HOST, "DELETE", ["auth", "me"]],
+    [ADMIN_HOST, "GET", ["auth", "me", "export"]],
+    [ADMIN_HOST, "GET", ["exercises"]],
+    [ADMIN_HOST, "POST", ["admin", "auth", "renew"]],
+    ["localhost:5173", "GET", ["admin", "users"]],
+    ["localhost:5173", "POST", ["admin", "auth", "login"]],
+  ])("on %s refuses %s %s with 404 before reading a cookie or calling the BFF", async (host, method, path) => {
+    const res = await at(host, method, path);
+    expect(res.status).toBe(404);
+    expect((await res.json()).error.code).toBe("NOT_FOUND");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(getSessionToken).not.toHaveBeenCalled();
+    expect(getAdminSessionToken).not.toHaveBeenCalled();
+  });
 });
 
 describe("/api/bff/[...path] proxy", () => {

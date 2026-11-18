@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import type { components } from "@/lib/api/schema";
 import { bffHeaders, bffUrl, readJson, relayBffResponse, validationError } from "@/lib/bff";
+import { hostGuard } from "@/lib/host";
 import { guardApiRequest } from "@/lib/requestGuard";
 import { passwordSetupRequestSchema } from "@/lib/validation/auth";
 import { withNoStore } from "@/lib/noStore";
@@ -9,6 +10,9 @@ import { withNoStore } from "@/lib/noStore";
 // set; the client logs in normally afterwards. 204 on success, 400 INVALID_SETUP_TOKEN for an
 // unknown, expired or used token.
 async function post(request: NextRequest) {
+  // www only (admin-panel spec W3): on the admin host this is a 404.
+  const wrong = hostGuard(request, "trainer");
+  if (wrong) return wrong;
   const refused = guardApiRequest(request, "json");
   if (refused) return refused;
 
