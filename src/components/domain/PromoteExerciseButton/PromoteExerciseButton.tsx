@@ -37,7 +37,7 @@ export function PromoteExerciseButton({
       type="button"
       aria-label={`Promover ${exerciseName} ao catálogo`}
       onClick={onClick}
-      className="font-base flex shrink-0 items-center gap-[6px] rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] px-[10px] py-[6px] text-[12px] font-semibold text-[color:var(--color-primary)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-hover)]"
+      className="font-base flex shrink-0 items-center gap-[6px] rounded-[var(--radius-sm)] border border-[var(--color-border-strong)] px-[10px] py-[6px] text-[12px] leading-[1.25] font-semibold text-[color:var(--color-primary)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-hover)]"
     >
       <ArrowUpRight aria-hidden="true" width={14} height={14} />
       {label}

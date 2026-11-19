@@ -179,9 +179,9 @@ function InUseBanner({ name, onClose }: { name: string; onClose: () => void }) {
   return (
     <div
       role="alert"
-      className="flex w-full items-start gap-[10px] rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[#ff5c5c1a] px-[16px] py-[12px]"
+      className="flex w-full items-center gap-[10px] rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[#ff5c5c1a] px-[16px] py-[12px]"
     >
-      <CircleAlert aria-hidden="true" width={16} height={16} className="mt-[1px] shrink-0 text-[color:var(--color-danger)]" />
+      <CircleAlert aria-hidden="true" width={16} height={16} className="shrink-0 text-[color:var(--color-danger)]" />
       <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
         <span className="text-[13px] font-semibold text-[color:var(--color-danger)]">
           Este exercício está em uso e não pode ser excluído
