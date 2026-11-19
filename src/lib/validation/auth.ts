@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isValidCpf, onlyDigits } from "./cpf";
-import { CREF_MAX, NAME_MAX, boundedText, emailField, requiredText, tooLong } from "./bounds";
+import { CREF_MAX, NAME_MAX, boundedText, emailField, maxUnits, requiredText, tooLong } from "./bounds";
 
 // vertice-api's password policy, mirrored by the BFF: at least 8 characters, at most 72 UTF-8
 // bytes (bcrypt's input limit), not blank. Applies wherever a password is chosen, not to login
@@ -57,7 +57,7 @@ export const registerRequestSchema = z.object({
   name: requiredText(NAME_MAX, "Informe o nome"),
   email: emailSchema,
   cpf: cpfSchema.transform(onlyDigits),
-  cref: z.string().max(CREF_MAX).trim().optional(),
+  cref: maxUnits(z.string(), CREF_MAX).trim().optional(),
   password: newPasswordSchema,
   // The Terms / Privacy Policy version accepted on the form (P1-04), vertice-api's format.
   acceptedTermsVersion: z.string().regex(/^[A-Za-z0-9._-]{1,32}$/),

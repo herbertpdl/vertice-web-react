@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { apiClient } from "./client";
+import type { AdminCatalogFilters, AdminMostUsedFilters } from "./adminCatalog";
 import type {
   AdminAction,
   AdminActionAdmins,
@@ -53,6 +54,14 @@ export const adminKeys = {
     ["admin", "actions", { ...filters, ...page }] as const,
   suspension: (id: number) => ["admin", "actions", "suspension", id] as const,
   actionAdmins: () => ["admin", "action-admins"] as const,
+  /** Both catalog lists: the tabs' pages and the dashboard's most-used pages sit under it. */
+  exercises: () => ["admin", "exercises"] as const,
+  exercisesPage: (filters: AdminCatalogFilters, page: PageRequest) =>
+    ["admin", "exercises", { ...filters, ...page }] as const,
+  mostUsedPage: (filters: AdminMostUsedFilters, page: PageRequest) =>
+    ["admin", "exercises", "most-used", { ...filters, ...page }] as const,
+  /** `GET /muscle-groups` on the admin host, with `MUSCLE_GROUPS_STALE_TIME`. */
+  muscleGroups: () => ["admin", "muscle-groups"] as const,
 };
 
 export function fetchAdminDashboard() {

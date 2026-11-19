@@ -3,6 +3,9 @@ import type { AdminActionEntry, AdminDirectoryRole } from "@/lib/api/types";
 import { formatDateNumeric, formatInstantDate, todayLocalIso } from "@/lib/format";
 import { ADMIN_SEARCH_MAX } from "@/lib/validation/bounds";
 
+/** A user's admin profile page. */
+export const profilePath = (id: number) => `/painel/usuarios/${id}`;
+
 /** The directory's role labels, keyed by the contract's union (an admin is never listed). */
 export const roleLabels: Record<AdminDirectoryRole, string> = {
   TRAINER: "Treinador",

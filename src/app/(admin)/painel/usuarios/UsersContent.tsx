@@ -16,7 +16,7 @@ import {
 } from "@/components/ui";
 import { RoleAvatar } from "@/components/domain/RoleAvatar";
 import { RoleBadge, StatusBadge } from "@/components/domain/UserBadges";
-import { clientCountLabel, normalizeSearch, userFiltersToSearch } from "@/lib/admin/users";
+import { clientCountLabel, normalizeSearch, profilePath, userFiltersToSearch } from "@/lib/admin/users";
 import { adminKeys, fetchAdminUsers, type AdminUserFilters } from "@/lib/api/admin";
 import type { AdminDirectoryUser } from "@/lib/api/types";
 import { PAGE_SIZES, rowRange } from "@/lib/cursorPages";
@@ -35,8 +35,6 @@ const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Ativos" },
   { value: "SUSPENDED", label: "Suspensos" },
 ];
-
-export const profilePath = (id: number) => `/painel/usuarios/${id}`;
 
 /** "12 alunos" for a trainer; the current trainer (a link) or "Sem treinador" for a client (E15). */
 function Relation({ user }: { user: AdminDirectoryUser }) {

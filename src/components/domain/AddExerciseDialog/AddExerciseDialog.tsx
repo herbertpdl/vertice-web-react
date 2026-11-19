@@ -16,7 +16,7 @@ import {
   TextField,
 } from "@/components/ui";
 import { createExercise } from "@/lib/api/exercises";
-import { fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
+import { MUSCLE_GROUPS_STALE_TIME, fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 import { exerciseSchema, type ExerciseFormInput } from "@/lib/validation/exercises";
 import { safeHttpUrl } from "@/lib/validation/bounds";
 import { useExerciseSearch } from "@/lib/hooks/useExerciseSearch";
@@ -49,7 +49,7 @@ export function AddExerciseDialog({ atCap = false, onClose, onPick }: AddExercis
   const groups = useQuery({
     queryKey: muscleGroupsQueryKey,
     queryFn: fetchMuscleGroups,
-    staleTime: Infinity,
+    staleTime: MUSCLE_GROUPS_STALE_TIME,
   });
 
   function pick(exercise: Exercise) {

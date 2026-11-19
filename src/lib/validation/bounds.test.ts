@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { safeHttpUrl } from "./bounds";
+import { boundedText, maxUnits, requiredText, safeHttpUrl } from "./bounds";
+import { z } from "zod";
 import { exerciseSchema } from "./exercises";
 import { exerciseSetSchema, workoutExerciseSchema } from "./exerciseSets";
 import { studentSchema, editStudentSchema } from "./students";
@@ -25,6 +26,32 @@ describe("safeHttpUrl", () => {
   it("refuses null and undefined", () => {
     expect(safeHttpUrl(null)).toBeNull();
     expect(safeHttpUrl(undefined)).toBeNull();
+  });
+});
+
+// Zod 4's `.max()` counts code points; the API counts UTF-16 units (Java's `String.length()`), so an
+// emoji (2 units) must count as 2 on every bounded text.
+describe("UTF-16 length bounds", () => {
+  const emoji = "\u{1F4AA}"; // 💪, one code point, two UTF-16 units
+
+  it("maxUnits counts UTF-16 code units, not code points", () => {
+    const schema = maxUnits(z.string(), 4);
+    expect(ok(schema, emoji.repeat(2))).toBe(true);
+    expect(ok(schema, emoji.repeat(2) + "a")).toBe(false);
+  });
+
+  it("requiredText and boundedText refuse a value over the bound in UTF-16 units", () => {
+    expect(ok(requiredText(4, "x"), emoji.repeat(2))).toBe(true);
+    expect(ok(requiredText(4, "x"), emoji.repeat(3))).toBe(false);
+    expect(ok(boundedText(4), emoji.repeat(3))).toBe(false);
+    expect(requiredText(4, "x").safeParse(" a ").data).toBe("a");
+  });
+
+  it("exerciseSchema counts an emoji name as two units", () => {
+    const valid = { name: "Remada", muscleGroupIds: [1], description: "", videoUrl: "" };
+    expect(ok(exerciseSchema, { ...valid, name: emoji.repeat(127) + "a" })).toBe(true);
+    expect(ok(exerciseSchema, { ...valid, name: emoji.repeat(128) })).toBe(false);
+    expect(ok(exerciseSchema, { ...valid, description: emoji.repeat(128) })).toBe(false);
   });
 });
 

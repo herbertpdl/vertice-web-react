@@ -8,7 +8,7 @@ import { TriangleAlert } from "lucide-react";
 import { Button, Dialog, DialogFooter, MultiSelect, TextField } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { createExercise, updateExercise, deleteExercise } from "@/lib/api/exercises";
-import { fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
+import { MUSCLE_GROUPS_STALE_TIME, fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 import { exerciseSchema, type ExerciseFormInput } from "@/lib/validation/exercises";
 import type { Exercise } from "@/lib/api/types";
 
@@ -61,7 +61,7 @@ export function ExerciseDialog({
   const groups = useQuery({
     queryKey: muscleGroupsQueryKey,
     queryFn: fetchMuscleGroups,
-    staleTime: Infinity,
+    staleTime: MUSCLE_GROUPS_STALE_TIME,
   });
 
   const {
