@@ -72,6 +72,11 @@ export function DataTable<T>({
     column.width === undefined
       ? { flex: "1 1 0%", minWidth: column.minWidth ?? 0 }
       : { width: column.width, flexShrink: 0 };
+  // The narrowest the table may get: every fixed width plus the flexible column's `minWidth`, the
+  // gaps and the row padding. Both rowgroups share it (so the head stays over its columns); below
+  // it the table scrolls sideways, and above it the flexible column grows and truncates.
+  const fixedSum = columns.reduce((sum, column) => sum + (column.width ?? column.minWidth ?? 0), 0);
+  const tableMinWidth = `calc(${fixedSum}px + ${columns.length - 1} * var(--space-4) + 2 * var(--space-5))`;
   const alignClass = (column: DataTableColumn<T>) =>
     column.align === "end" ? "justify-end text-right" : "";
 
@@ -104,7 +109,7 @@ export function DataTable<T>({
         // Narrow viewports above `md` (a tablet beside the side nav): scroll sideways, never clip.
         className={`hidden w-full flex-col overflow-x-auto md:flex ${header ? "border-t border-[var(--color-border)]" : ""}`}
       >
-        <div role="rowgroup" className="w-max min-w-full">
+        <div role="rowgroup" className="w-full" style={{ minWidth: tableMinWidth }}>
           <div role="row" className={`flex w-full items-center gap-[var(--space-4)] py-[12px] ${cellPadding}`}>
             {columns.map((column) => (
               <div
@@ -119,7 +124,7 @@ export function DataTable<T>({
           </div>
         </div>
         {hasRows && (
-          <div role="rowgroup" className="w-max min-w-full">
+          <div role="rowgroup" className="w-full" style={{ minWidth: tableMinWidth }}>
             {shown.map((row) => (
               <div
                 key={rowKey(row)}

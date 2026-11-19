@@ -5,7 +5,8 @@ import { adminMostUsed, adminMuscleGroups } from "../adminStoryFixtures";
 import { withSeededQueries } from "../storyQuery";
 import { MostUsedExercises } from "./MostUsedExercises";
 
-type Mode = "ok" | "pending" | "error" | "empty";
+type Mode = "ok" | "pending" | "error" | "empty" | "long";
+const LONG_NAME = "Agachamento búlgaro unilateral no smith com pausa isométrica de três segundos";
 let mode: Mode = "ok";
 
 const json = (body: unknown, status = 200) => Response.json(body, { status });
@@ -17,6 +18,10 @@ const mostUsedFetch = fn(async (input: RequestInfo | URL) => {
   if (mode === "pending") return new Promise<Response>(() => {});
   if (mode === "error") return json({ error: { code: "UPSTREAM_UNAVAILABLE", message: "x" } }, 503);
   if (mode === "empty") return json({ exercises: [], nextCursor: null });
+  if (mode === "long") {
+    const [first, ...rest] = adminMostUsed;
+    return json({ exercises: [{ ...first, exercise: { ...first.exercise, name: LONG_NAME } }, ...rest], nextCursor: null });
+  }
   const group = Number(url.searchParams.get("muscleGroupId")) || null;
   const rows = adminMostUsed.filter((row) => !group || row.exercise.muscleGroups.some((g) => g.id === group));
   if (url.searchParams.get("cursor") === "c2") return json({ exercises: rows.slice(0, 2), nextCursor: null });
@@ -114,6 +119,9 @@ export const Promote: Story = {
  * the table scrolls sideways rather than clipping "Promover".
  */
 export const NarrowDesktop: Story = {
+  beforeEach: () => {
+    mode = "long";
+  },
   decorators: [
     (Story) => (
       <div style={{ width: 712 }}>
@@ -123,7 +131,16 @@ export const NarrowDesktop: Story = {
   ],
   play: async ({ canvas }) => {
     const tableEl = await table(canvas);
-    const name = await within(tableEl).findByText("Supino reto com barra");
+    const name = await within(tableEl).findByText("Agachamento livre");
+    // A long name truncates instead of widening the body past the head: every column stays aligned.
+    const long = within(tableEl).getByText(LONG_NAME);
+    await expect(long.scrollWidth).toBeGreaterThan(long.clientWidth);
+    const [head, firstRow] = within(tableEl).getAllByRole("row");
+    const heads = within(head).getAllByRole("columnheader");
+    const cells = within(firstRow).getAllByRole("cell");
+    heads.forEach((cell, i) =>
+      expect(Math.round(cells[i].getBoundingClientRect().left)).toBe(Math.round(cell.getBoundingClientRect().left)),
+    );
     await expect(name.getBoundingClientRect().width).toBeGreaterThan(100);
     await expect(tableEl.scrollWidth).toBeGreaterThan(tableEl.clientWidth);
     const promote = within(tableEl).getByRole("button", { name: "Promover Elevação pélvica com pausa ao catálogo" });
