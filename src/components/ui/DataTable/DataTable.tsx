@@ -8,6 +8,11 @@ export interface DataTableColumn<T> {
   header: string;
   /** Fixed width in px. Leave it out on the one column that takes the rest (e.g. "E-mail"). */
   width?: number;
+  /**
+   * The flexible column's narrowest width in px (0 by default). When the fixed columns leave less,
+   * the table scrolls sideways instead of squeezing that column away or clipping the last ones.
+   */
+  minWidth?: number;
   align?: "start" | "end";
   cell: (row: T) => ReactNode;
 }
@@ -33,6 +38,11 @@ interface DataTableProps<T> {
   mobileRow: (row: T) => ReactNode;
   /** Under the rows, behind a divider: usually `Pagination`. */
   footer?: ReactNode;
+  /**
+   * Above the head row, inside the card and behind a divider: a title and filters (the
+   * dashboard's "Exercícios mais usados" head, `En3Ju`). The caller pads it.
+   */
+  header?: ReactNode;
   className?: string;
 }
 
@@ -55,10 +65,18 @@ export function DataTable<T>({
   error,
   mobileRow,
   footer,
+  header,
   className = "",
 }: DataTableProps<T>) {
   const widthStyle = (column: DataTableColumn<T>) =>
-    column.width === undefined ? { flex: "1 1 0%", minWidth: 0 } : { width: column.width, flexShrink: 0 };
+    column.width === undefined
+      ? { flex: "1 1 0%", minWidth: column.minWidth ?? 0 }
+      : { width: column.width, flexShrink: 0 };
+  // The narrowest the table may get: every fixed width plus the flexible column's `minWidth`, the
+  // gaps and the row padding. Both rowgroups share it (so the head stays over its columns); below
+  // it the table scrolls sideways, and above it the flexible column grows and truncates.
+  const fixedSum = columns.reduce((sum, column) => sum + (column.width ?? column.minWidth ?? 0), 0);
+  const tableMinWidth = `calc(${fixedSum}px + ${columns.length - 1} * var(--space-4) + 2 * var(--space-5))`;
   const alignClass = (column: DataTableColumn<T>) =>
     column.align === "end" ? "justify-end text-right" : "";
 
@@ -84,8 +102,14 @@ export function DataTable<T>({
     <div
       className={`font-base flex w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] ${className}`}
     >
-      <div role="table" aria-label={label} className="hidden w-full flex-col md:flex">
-        <div role="rowgroup">
+      {header && <div className="border-b border-[var(--color-border)] md:border-b-0">{header}</div>}
+      <div
+        role="table"
+        aria-label={label}
+        // Narrow viewports above `md` (a tablet beside the side nav): scroll sideways, never clip.
+        className={`hidden w-full flex-col overflow-x-auto md:flex ${header ? "border-t border-[var(--color-border)]" : ""}`}
+      >
+        <div role="rowgroup" className="w-full" style={{ minWidth: tableMinWidth }}>
           <div role="row" className={`flex w-full items-center gap-[var(--space-4)] py-[12px] ${cellPadding}`}>
             {columns.map((column) => (
               <div
@@ -100,7 +124,7 @@ export function DataTable<T>({
           </div>
         </div>
         {hasRows && (
-          <div role="rowgroup">
+          <div role="rowgroup" className="w-full" style={{ minWidth: tableMinWidth }}>
             {shown.map((row) => (
               <div
                 key={rowKey(row)}

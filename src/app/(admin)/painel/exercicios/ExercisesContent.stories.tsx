@@ -254,6 +254,24 @@ export const ErrorState: Story = {
   },
 };
 
+/** Beside the side nav on a 1024 px screen (~712 px of content): names stay readable, the table scrolls. */
+export const NarrowDesktop: Story = {
+  args: { initialView: { tab: "trainers" } },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 776 }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvas }) => {
+    const tableEl = await table(canvas, "Exercícios dos treinadores");
+    const name = await within(tableEl).findByText("Elevação pélvica com pausa");
+    await expect(name.getBoundingClientRect().width).toBeGreaterThan(100);
+    await expect(tableEl.scrollWidth).toBeGreaterThan(tableEl.clientWidth);
+  },
+};
+
 const phone = { viewport: { value: "mobile1", isRotated: false } };
 
 /** Phone: stacked rows with the trainer and the promote action. */

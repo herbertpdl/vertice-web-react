@@ -18,7 +18,9 @@ import {
   muscleGroupFilterOptions,
   muscleGroupNames,
   parseId,
+  mostUsedRank,
   privateTagLabel,
+  workoutCountLabel,
 } from "./catalog";
 
 const apiError = (code: string, status: number) => new ApiError({ code, message: "English" }, status);
@@ -173,6 +175,19 @@ describe("list labels", () => {
     expect(muscleGroupNames(privateExercise)).toBe("Glúteos, Posteriores de coxa");
     expect(privateTagLabel(privateExercise)).toBe("Privado · Ana Ribeiro");
     expect(privateTagLabel({ ...privateExercise, isStarter: true, owner: null })).toBeNull();
+  });
+});
+
+describe("most-used list", () => {
+  it("counts workouts in pt-BR", () => {
+    expect(workoutCountLabel(1)).toBe("1 treino");
+    expect(workoutCountLabel(412)).toBe("412 treinos");
+    expect(workoutCountLabel(1234)).toBe("1.234 treinos");
+  });
+
+  it("ranks across pages", () => {
+    expect(mostUsedRank(0, 10, 0)).toBe(1);
+    expect(mostUsedRank(2, 25, 4)).toBe(55);
   });
 });
 

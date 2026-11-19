@@ -9,6 +9,7 @@ import type {
   AdminExerciseRequest,
   MuscleGroup,
 } from "@/lib/api/types";
+import { formatCount } from "@/lib/format";
 import type { ExerciseFormInput } from "@/lib/validation/exercises";
 import { normalizeSearch } from "./users";
 
@@ -202,6 +203,16 @@ export function muscleGroupNames(exercise: AdminCatalogExercise): string {
 /** The most-used table's tag for a trainer's private exercise: "Privado · Ana Ribeiro". */
 export function privateTagLabel(exercise: AdminCatalogExercise): string | null {
   return exercise.owner ? `Privado · ${exercise.owner.name}` : null;
+}
+
+/** "1 treino", "412 treinos" (the phone list's meta line). */
+export function workoutCountLabel(count: number): string {
+  return count === 1 ? "1 treino" : `${formatCount(count)} treinos`;
+}
+
+/** A row's 1-based rank across pages: every page before this one was full (cursor paging). */
+export function mostUsedRank(pageIndex: number, pageSize: number, indexOnPage: number): number {
+  return pageIndex * pageSize + indexOnPage + 1;
 }
 
 // --- Invalidation (spec §9) ----------------------------------------------------------------------

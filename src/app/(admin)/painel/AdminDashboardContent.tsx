@@ -3,6 +3,7 @@
 import { Activity, CircleAlert, CircleCheck, UserCheck, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button, DataTableMessage, MetricCard, SkeletonLine } from "@/components/ui";
+import { MostUsedExercises } from "@/components/domain/MostUsedExercises";
 import { WeeklySignupsChart } from "@/components/domain/WeeklySignupsChart";
 import { adminKeys, fetchAdminDashboard } from "@/lib/api/admin";
 import type { AdminDashboard } from "@/lib/api/types";
@@ -132,8 +133,9 @@ function PhoneMetrics({ data }: { data: AdminDashboard | undefined }) {
 /**
  * The admin dashboard (admin-panel spec §7; pen.dev `En3Ju`, loading `rNMsp`, phone `qzCk9`):
  * totals, active users over 7 and 30 days, completed workouts and the weekly sign-ups chart, from
- * one `GET /admin/dashboard`. The frame's "+6 nos últimos 7 dias" deltas are left out: the contract
- * has no such field (§7.1). The most-used exercises table arrives below the chart in VRT-32.
+ * one `GET /admin/dashboard`, and the most-used exercises table below (its own query,
+ * `MostUsedExercises`). The frame's "+6 nos últimos 7 dias" deltas are left out: the contract has
+ * no such field (§7.1).
  */
 export function AdminDashboardContent() {
   const { data, isError, isPending, dataUpdatedAt, refetch, isRefetching } = useQuery({
@@ -179,6 +181,7 @@ export function AdminDashboardContent() {
           <DesktopMetrics data={data} />
           <PhoneMetrics data={data} />
           <WeeklySignupsChart weeks={data?.weeklySignups} loading={isPending} />
+          <MostUsedExercises />
         </>
       )}
     </main>

@@ -111,6 +111,7 @@ function columnsFor(tab: CatalogTab, actions: RowActions): DataTableColumn<Admin
   const name: DataTableColumn<AdminCatalogExercise> = {
     key: "name",
     header: "Exercício",
+    minWidth: 160,
     cell: (exercise) => (
       <span className="truncate text-[13px] font-semibold text-[color:var(--color-text-primary)]">{exercise.name}</span>
     ),
@@ -130,17 +131,17 @@ function columnsFor(tab: CatalogTab, actions: RowActions): DataTableColumn<Admin
   }
   return [
     name,
-    { key: "groups", header: "Grupos musculares", width: 240, cell: (exercise) => <GroupBadges exercise={exercise} /> },
+    { key: "groups", header: "Grupos musculares", width: 200, cell: (exercise) => <GroupBadges exercise={exercise} /> },
     {
       key: "owner",
       header: "Treinador",
-      width: 180,
+      width: 160,
       cell: (exercise) => (exercise.owner ? <OwnerLink owner={exercise.owner} /> : null),
     },
     {
       key: "actions",
       header: "",
-      width: 200,
+      width: 180,
       align: "end",
       cell: (exercise) => <PromoteExerciseButton exerciseName={exercise.name} onClick={() => actions.promote(exercise)} />,
     },
@@ -178,9 +179,9 @@ function InUseBanner({ name, onClose }: { name: string; onClose: () => void }) {
   return (
     <div
       role="alert"
-      className="flex w-full items-start gap-[10px] rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[#ff5c5c1a] px-[16px] py-[12px]"
+      className="flex w-full items-center gap-[10px] rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[#ff5c5c1a] px-[16px] py-[12px]"
     >
-      <CircleAlert aria-hidden="true" width={16} height={16} className="mt-[1px] shrink-0 text-[color:var(--color-danger)]" />
+      <CircleAlert aria-hidden="true" width={16} height={16} className="shrink-0 text-[color:var(--color-danger)]" />
       <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
         <span className="text-[13px] font-semibold text-[color:var(--color-danger)]">
           Este exercício está em uso e não pode ser excluído

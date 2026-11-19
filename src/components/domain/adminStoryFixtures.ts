@@ -1,5 +1,6 @@
 import type {
   AdminCatalogExercise,
+  AdminMostUsedExercise,
   AdminActionEntry,
   AdminClientProfile,
   AdminDashboard,
@@ -253,4 +254,18 @@ export const adminPrivateExercises: AdminCatalogExercise[] = [
   }),
   catalogExercise(202, "Agachamento búlgaro no smith", ["Quadríceps", "Glúteos"], { id: 3, name: "Rafael Torres" }),
   catalogExercise(203, "Remada serrote com apoio", ["Costas"], { id: 5, name: "Bruno Almeida" }),
+];
+
+/** The first rows of `QdD67` ("Exercícios mais usados" in `En3Ju`), one of them a trainer's. */
+export const adminMostUsed: AdminMostUsedExercise[] = [
+  { exercise: adminStarterExercises[0], workoutCount: 412 },
+  { exercise: adminStarterExercises[1], workoutCount: 398 },
+  { exercise: adminStarterExercises[2], workoutCount: 351 },
+  { exercise: adminStarterExercises[3], workoutCount: 330 },
+  { exercise: adminStarterExercises[4], workoutCount: 297 },
+  { exercise: adminPrivateExercises[0], workoutCount: 241 },
+  { exercise: adminStarterExercises[5], workoutCount: 233 },
+  { exercise: adminStarterExercises[6], workoutCount: 219 },
+  { exercise: adminStarterExercises[7], workoutCount: 205 },
+  { exercise: adminPrivateExercises[1], workoutCount: 188 },
 ];
