@@ -19,6 +19,8 @@ export const FEEDBACK_MAX = 2000;
 export const ADMIN_SEARCH_MAX = 100;
 /** A suspension or reactivation reason, trimmed (admin-panel spec W15, BFF VRT-28). */
 export const REASON_MAX = 500;
+/** A muscle group's name, trimmed (admin-panel spec W15, BFF `MuscleGroupNameRequest`). */
+export const MUSCLE_GROUP_NAME_MAX = 50;
 
 export const ORDER_MAX = 1000;
 export const REPS_MAX = 1000;

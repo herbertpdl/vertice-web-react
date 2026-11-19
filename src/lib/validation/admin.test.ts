@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { adminLoginSchema, adminReasonSchema, adminVerifyRequestSchema, secondFactorCodeSchema } from "./admin";
+import {
+  adminLoginSchema,
+  adminReasonSchema,
+  adminVerifyRequestSchema,
+  muscleGroupNameSchema,
+  secondFactorCodeSchema,
+} from "./admin";
 
 describe("secondFactorCodeSchema", () => {
   it("accepts six digits", () => {
@@ -39,5 +45,19 @@ describe("adminReasonSchema", () => {
     // An emoji is two UTF-16 units, as vertice-api counts it.
     expect(adminReasonSchema.safeParse("😀".repeat(250)).success).toBe(true);
     expect(adminReasonSchema.safeParse(`${"😀".repeat(250)}a`).success).toBe(false);
+  });
+});
+
+describe("muscleGroupNameSchema", () => {
+  it("trims, and refuses a blank name", () => {
+    expect(muscleGroupNameSchema.parse("  Adutores ")).toBe("Adutores");
+    for (const blank of ["", "   "]) expect(muscleGroupNameSchema.safeParse(blank).success).toBe(false);
+  });
+
+  it("takes 50 UTF-16 units after the trim and refuses 51; an emoji counts as two", () => {
+    expect(muscleGroupNameSchema.safeParse(` ${"a".repeat(50)} `).success).toBe(true);
+    expect(muscleGroupNameSchema.safeParse("a".repeat(51)).success).toBe(false);
+    expect(muscleGroupNameSchema.safeParse("\u{1F4AA}".repeat(25)).success).toBe(true);
+    expect(muscleGroupNameSchema.safeParse("\u{1F4AA}".repeat(26)).success).toBe(false);
   });
 });

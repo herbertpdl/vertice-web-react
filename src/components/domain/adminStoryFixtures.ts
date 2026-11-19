@@ -1,4 +1,5 @@
 import type {
+  AdminCatalogExercise,
   AdminActionEntry,
   AdminClientProfile,
   AdminDashboard,
@@ -191,4 +192,65 @@ export const adminHistory: AdminActionEntry[] = [
     createdAt: "2026-11-15T13:00:00Z",
   }),
   historyEntry(1, { action: "CHANGE_OWN_PASSWORD", createdAt: "2026-11-14T11:00:00Z" }),
+];
+
+const group = (id: number, name: string) => ({ id, name });
+
+/** The muscle groups of `D2koD`, in list order. */
+export const adminMuscleGroups = [
+  group(1, "Peito"),
+  group(2, "Costas"),
+  group(3, "Ombros"),
+  group(4, "Bíceps"),
+  group(5, "Tríceps"),
+  group(6, "Quadríceps"),
+  group(7, "Posteriores de coxa"),
+  group(8, "Glúteos"),
+  group(9, "Abdômen"),
+];
+
+const groupsNamed = (...names: string[]) => names.map((name) => adminMuscleGroups.find((g) => g.name === name)!);
+
+function catalogExercise(
+  id: number,
+  name: string,
+  groups: string[],
+  owner: AdminCatalogExercise["owner"] = null,
+  extra: Partial<AdminCatalogExercise> = {},
+): AdminCatalogExercise {
+  return {
+    id,
+    name,
+    description: "",
+    videoUrl: "",
+    muscleGroups: groupsNamed(...groups),
+    isStarter: owner === null,
+    owner,
+    ...extra,
+  };
+}
+
+/** The "Catálogo inicial" rows of `c53jx`. */
+export const adminStarterExercises: AdminCatalogExercise[] = [
+  catalogExercise(101, "Supino reto com barra", ["Peito", "Tríceps"]),
+  catalogExercise(102, "Agachamento livre", ["Quadríceps", "Glúteos"], null, {
+    description: "Pés na largura dos ombros, desça até a coxa ficar paralela ao chão mantendo a coluna neutra.",
+    videoUrl: "https://youtube.com/watch?v=aclHkVaku9U",
+  }),
+  catalogExercise(103, "Puxada alta na polia", ["Costas", "Bíceps"]),
+  catalogExercise(104, "Leg press 45°", ["Quadríceps", "Glúteos"]),
+  catalogExercise(105, "Remada curvada com barra", ["Costas"]),
+  catalogExercise(106, "Desenvolvimento com halteres", ["Ombros", "Tríceps"]),
+  catalogExercise(107, "Rosca direta com barra", ["Bíceps"]),
+  catalogExercise(108, "Prancha abdominal", ["Abdômen"]),
+];
+
+/** The "Exercícios dos treinadores" rows of `iiou2`. */
+export const adminPrivateExercises: AdminCatalogExercise[] = [
+  catalogExercise(201, "Elevação pélvica com pausa", ["Glúteos", "Posteriores de coxa"], { id: 1, name: "Ana Ribeiro" }, {
+    description: "Pausa de 2 s no topo, contraindo os glúteos. Banco na altura das escápulas.",
+    videoUrl: "https://youtube.com/watch?v=xDmFkJxPzeM",
+  }),
+  catalogExercise(202, "Agachamento búlgaro no smith", ["Quadríceps", "Glúteos"], { id: 3, name: "Rafael Torres" }),
+  catalogExercise(203, "Remada serrote com apoio", ["Costas"], { id: 5, name: "Bruno Almeida" }),
 ];

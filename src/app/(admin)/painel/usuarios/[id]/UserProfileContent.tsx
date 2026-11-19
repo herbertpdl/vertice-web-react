@@ -11,7 +11,7 @@ import { RoleAvatar } from "@/components/domain/RoleAvatar";
 import { RoleBadge, StatusBadge } from "@/components/domain/UserBadges";
 import { emailErrorMessage, emailSentMessage, type AccountEmail } from "@/lib/admin/account";
 import { historyPathFor } from "@/lib/admin/history";
-import { lastActiveLabel, statusLabel, suspensionNotice } from "@/lib/admin/users";
+import { lastActiveLabel, profilePath, statusLabel, suspensionNotice } from "@/lib/admin/users";
 import { adminKeys, adminProfileQuery, fetchAdminActions } from "@/lib/api/admin";
 import { sendAdminFirstAccessEmail, sendAdminPasswordResetEmail } from "@/lib/api/adminAccount";
 import type { AdminClientProfile, AdminRelationship, AdminTrainerProfile, AdminUserProfile } from "@/lib/api/types";
@@ -20,8 +20,6 @@ import { useRedirectOnError } from "@/lib/hooks/useRedirectOnError";
 
 /** How many current clients a trainer's card lists before "Ver todos os N alunos". */
 export const CLIENTS_PREVIEW = 4;
-
-const profilePath = (id: number) => `/painel/usuarios/${id}`;
 
 function Card({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (

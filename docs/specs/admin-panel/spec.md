@@ -260,7 +260,7 @@ error states its frames show, and a phone layout (R13; `qzCk9`, `fXng6`, `jJXT5`
 | `CodeInput` | `ui/` | `Cv0BV`, `p5TLVn`, `duiOr`, `q9XrXD` | empty, partial, full, error |
 | `AdminShell` | `layout/` | `izLYp` + page frames | desktop, phone |
 | `WeeklySignupsChart` | `domain/` | `izEoo` in `En3Ju` | 12 weeks, all zeros, one dominant week |
-| `SuspendDialog` / `ReactivateDialog`, `AdminExerciseDialog`, `PromoteExerciseDialog`, `MuscleGroupsDialog` | `domain/` | §7 frames | disabled-until-reason, filled, `NAME_TAKEN`, prefilled promote |
+| `SuspendDialog` / `ReactivateDialog`, `AdminExerciseDialog` (create, edit and the prefilled promote copy, one form), `MuscleGroupsDialog`, `PromoteExerciseButton` | `domain/` | §7 frames | disabled-until-reason, filled, `NAME_TAKEN`, prefilled promote |
 
 Kit components are generated or synced from the `.pen` through the `pencil` MCP tools and checked
 with `pencil-design-audit` before their ticket merges (CLAUDE.md). `Badge` is reused for Admin

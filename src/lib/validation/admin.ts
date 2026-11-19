@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { loginSchema } from "./auth";
-import { REASON_MAX, tooLong } from "./bounds";
+import { MUSCLE_GROUP_NAME_MAX, REASON_MAX, tooLong } from "./bounds";
 
 // The admin workspace's form rules (admin-panel spec W15). VRT-26/29/32 add the reason, muscle
 // group and search bounds here.
@@ -27,3 +27,13 @@ export const adminReasonSchema = z
   .trim()
   .min(1, "Informe o motivo")
   .refine((reason) => reason.length <= REASON_MAX, tooLong(REASON_MAX));
+
+/**
+ * A muscle group's name (R61, R62): trimmed, then 1 to `MUSCLE_GROUP_NAME_MAX` UTF-16 units, the
+ * BFF's rule (it also NFC-normalizes). Bounded after the trim, like the reason.
+ */
+export const muscleGroupNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe o nome do grupo")
+  .refine((name) => name.length <= MUSCLE_GROUP_NAME_MAX, tooLong(MUSCLE_GROUP_NAME_MAX));

@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button, Dropdown, Spinner, TableRowSkeleton, TextField } from "@/components/ui";
 import { ExerciseDialog } from "@/components/domain/ExerciseDialog";
 import { EXERCISE_COLUMN_WIDTHS, ExerciseRow } from "@/components/domain/ExerciseRow";
-import { fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
+import { MUSCLE_GROUPS_STALE_TIME, fetchMuscleGroups, muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
 import { useExerciseSearch } from "@/lib/hooks/useExerciseSearch";
 import { useLoadMoreRef } from "@/lib/hooks/useLoadMoreRef";
 import type { Exercise } from "@/lib/api/types";
@@ -33,7 +33,7 @@ export function ExerciciosContent() {
   const groups = useQuery({
     queryKey: muscleGroupsQueryKey,
     queryFn: fetchMuscleGroups,
-    staleTime: Infinity,
+    staleTime: MUSCLE_GROUPS_STALE_TIME,
   });
 
   // Never the whole catalog: nothing until 3+ letters or a group, then one page at a time as the
