@@ -1,15 +1,23 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect } from "storybook/test";
-import { adminDashboard } from "@/components/domain/adminStoryFixtures";
+import { adminDashboard, adminMostUsed, adminMuscleGroups } from "@/components/domain/adminStoryFixtures";
 import { withSeededQueries } from "@/components/domain/storyQuery";
 import { AdminDashboardContent } from "./AdminDashboardContent";
 
 const key = JSON.stringify(["admin", "dashboard"]);
+// The most-used table's first page and the group filter, so it renders without a BFF.
+const tableSeed = {
+  [JSON.stringify(["admin", "exercises", "most-used", { limit: 10, cursor: null }])]: {
+    exercises: adminMostUsed,
+    nextCursor: null,
+  },
+  [JSON.stringify(["admin", "muscle-groups"])]: adminMuscleGroups,
+};
 
 const meta = {
   component: AdminDashboardContent,
   parameters: { layout: "fullscreen" },
-  decorators: [withSeededQueries({ [key]: adminDashboard })],
+  decorators: [withSeededQueries({ [key]: adminDashboard, ...tableSeed })],
 } satisfies Meta<typeof AdminDashboardContent>;
 
 export default meta;
@@ -29,12 +37,14 @@ export const Loaded: Story = {
     await expect(canvas.getAllByText("14.106")[0]).toBeVisible();
     await expect(canvas.getByRole("img", { name: /Novos cadastros nas últimas 12 semanas/ })).toBeVisible();
     await expect(canvas.queryByText(/nos últimos 7 dias/)).toBeNull();
+    // The most-used table sits under the chart.
+    await expect(canvas.getByRole("table", { name: "Exercícios mais usados" })).toBeVisible();
   },
 };
 
 /** `rNMsp`: card and chart skeletons while the dashboard loads. */
 export const Loading: Story = {
-  decorators: [withSeededQueries({}, { pending: [key] })],
+  decorators: [withSeededQueries(tableSeed, { pending: [key] })],
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     await expect(canvas.queryByText("128")).toBeNull();

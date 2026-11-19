@@ -102,6 +102,24 @@ export const Loaded: Story = {
   },
 };
 
+/** A head inside the card, above the head row (the dashboard's most-used table, `En3Ju`). */
+export const WithHeader: Story = {
+  args: {
+    header: (
+      <div className="flex items-center justify-between px-[20px] py-[16px]">
+        <span className="text-[15px] font-semibold text-[color:var(--color-text-primary)]">Exercícios mais usados</span>
+      </div>
+    ),
+  },
+  play: async ({ canvas }) => {
+    const title = canvas.getByText("Exercícios mais usados");
+    await expect(title).toBeVisible();
+    // The head sits before the table, inside the same card.
+    const table = canvas.getByRole("table", { name: "Usuários" });
+    await expect(title.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  },
+};
+
 /** Skeleton rows (`TableRowSkeleton`) under the head row. */
 export const Loading: Story = {
   args: { rows: undefined, loading: true },

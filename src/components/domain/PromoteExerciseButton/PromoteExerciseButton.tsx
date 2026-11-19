@@ -6,6 +6,8 @@ interface PromoteExerciseButtonProps {
   onClick: () => void;
   /** "Promover ao catálogo" in the catalog (`iiou2`), "Promover" in the dashboard's table (`En3Ju`). */
   label?: string;
+  /** `outline` (the tables) or `link`, the phone list's plain "Promover" (`qzCk9`). */
+  variant?: "outline" | "link";
 }
 
 /**
@@ -16,7 +18,20 @@ export function PromoteExerciseButton({
   exerciseName,
   onClick,
   label = "Promover ao catálogo",
+  variant = "outline",
 }: PromoteExerciseButtonProps) {
+  if (variant === "link") {
+    return (
+      <button
+        type="button"
+        aria-label={`Promover ${exerciseName} ao catálogo`}
+        onClick={onClick}
+        className="font-base shrink-0 text-[12px] font-semibold text-[color:var(--color-primary)] hover:underline"
+      >
+        {label}
+      </button>
+    );
+  }
   return (
     <button
       type="button"

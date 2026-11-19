@@ -27,3 +27,12 @@ export const Short: Story = {
     await expect(canvas.getByRole("button", { name: /ao catálogo/ })).toHaveTextContent("Promover");
   },
 };
+
+/** `qzCk9`: the phone list's plain-text "Promover". */
+export const Link: Story = {
+  args: { label: "Promover", variant: "link" },
+  play: async ({ canvas, userEvent, args }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Promover Elevação pélvica com pausa ao catálogo" }));
+    await expect(args.onClick).toHaveBeenCalledTimes(1);
+  },
+};

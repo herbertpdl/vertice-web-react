@@ -33,6 +33,11 @@ interface DataTableProps<T> {
   mobileRow: (row: T) => ReactNode;
   /** Under the rows, behind a divider: usually `Pagination`. */
   footer?: ReactNode;
+  /**
+   * Above the head row, inside the card and behind a divider: a title and filters (the
+   * dashboard's "Exercícios mais usados" head, `En3Ju`). The caller pads it.
+   */
+  header?: ReactNode;
   className?: string;
 }
 
@@ -55,6 +60,7 @@ export function DataTable<T>({
   error,
   mobileRow,
   footer,
+  header,
   className = "",
 }: DataTableProps<T>) {
   const widthStyle = (column: DataTableColumn<T>) =>
@@ -84,7 +90,12 @@ export function DataTable<T>({
     <div
       className={`font-base flex w-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] ${className}`}
     >
-      <div role="table" aria-label={label} className="hidden w-full flex-col md:flex">
+      {header && <div className="border-b border-[var(--color-border)] md:border-b-0">{header}</div>}
+      <div
+        role="table"
+        aria-label={label}
+        className={`hidden w-full flex-col md:flex ${header ? "border-t border-[var(--color-border)]" : ""}`}
+      >
         <div role="rowgroup">
           <div role="row" className={`flex w-full items-center gap-[var(--space-4)] py-[12px] ${cellPadding}`}>
             {columns.map((column) => (
