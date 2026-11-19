@@ -33,6 +33,10 @@ export const errorMessages: Readonly<Partial<Record<ApiErrorCode, string>>> = {
   INTERNAL_ERROR: "Ocorreu um erro inesperado. Tente novamente.",
   // A suspended account's correct password, on either login (PRD admin-panel R41, E18).
   ACCOUNT_SUSPENDED: "Sua conta está suspensa. Entre em contato com o suporte.",
+  // The admin catalog's exercise writes (spec §6); the muscle-group dialog has its own copy for it.
+  NAME_TAKEN: "Já existe um exercício com esse nome",
+  // `DELETE /admin/exercises/:id` while a workout contains the exercise.
+  EXERCISE_IN_USE: "Este exercício está em uso e não pode ser excluído",
 };
 
 /**

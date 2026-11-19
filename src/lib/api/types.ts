@@ -13,7 +13,7 @@
  * The names are this app's, not the spec's, where the two differ (`StudentDetailOverview` for
  * `ClientOverview`, ...): the screens read "student" and the BFF's module is "clients".
  */
-import type { components } from "./schema";
+import type { components, operations } from "./schema";
 
 type Schemas = components["schemas"];
 
@@ -189,3 +189,26 @@ export type AdminUserResult = Schemas["AdminUserResult"];
 
 /** The page sizes every admin list accepts (`limit`); 25 when absent. */
 export type AdminPageSize = 10 | 25 | 50;
+
+// --- Admin catalog (`/admin/exercises`, `/admin/muscle-groups`, ADMIN only; spec W15, VRT-32) --
+
+/** A catalog row: an `Exercise` plus its `owner` (`null` for a starter exercise). */
+export type AdminCatalogExercise = Schemas["AdminCatalogExercise"];
+
+/** `GET /admin/exercises`: starter first, then by name; follow `nextCursor` with the same filters. */
+export type AdminCatalogPage = Schemas["AdminCatalogPage"];
+
+/** One row of `GET /admin/exercises/most-used`: the exercise and how many workouts contain it. */
+export type AdminMostUsedExercise = Schemas["AdminMostUsedExercise"];
+export type AdminMostUsedPage = Schemas["AdminMostUsedPage"];
+
+/** `GET /admin/exercises?scope=`: the starter set or trainers' private exercises. */
+export type AdminCatalogScope = NonNullable<
+  NonNullable<operations["listAdminCatalogExercises"]["parameters"]["query"]>["scope"]
+>;
+
+/** The body of every exercise write (create, full-replace update, promote). */
+export type AdminExerciseRequest = Schemas["ExerciseRequest"];
+
+/** The body of a muscle-group create or rename. */
+export type MuscleGroupNameRequest = Schemas["MuscleGroupNameRequest"];
