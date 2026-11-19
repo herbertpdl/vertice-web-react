@@ -13,6 +13,11 @@ import { ExercisesContent } from "./ExercisesContent";
 type Mode = "ok" | "pending" | "error";
 let mode: Mode = "ok";
 let deleteAnswer: "ok" | "in-use" = "ok";
+/** Starter list in two pages: page 2 ("p2") holds one row until it is deleted. */
+let twoPages = false;
+let lastRowDeleted = false;
+/** Delay the trainers' list, to see what shows while it loads. */
+let slowPrivate = false;
 const replace = fn();
 
 const json = (body: unknown, status = 200) => Response.json(body, { status });
@@ -23,6 +28,7 @@ const catalogFetch = fn(async (input: RequestInfo | URL, init?: RequestInit) => 
   const method = init?.method ?? "GET";
   if (url.pathname.endsWith("/muscle-groups") && method === "GET") return json(adminMuscleGroups);
   if (method === "DELETE") {
+    if (twoPages) lastRowDeleted = true;
     return deleteAnswer === "in-use"
       ? json({ error: { code: "EXERCISE_IN_USE", message: "x" } }, 409)
       : new Response(null, { status: 204 });
@@ -30,6 +36,13 @@ const catalogFetch = fn(async (input: RequestInfo | URL, init?: RequestInit) => 
   if (mode === "pending") return new Promise<Response>(() => {});
   if (mode === "error") return json({ error: { code: "UPSTREAM_UNAVAILABLE", message: "x" } }, 503);
   const scope = url.searchParams.get("scope");
+  if (scope === "PRIVATE" && slowPrivate) return new Promise<Response>(() => {});
+  if (twoPages && scope === "STARTER") {
+    if (url.searchParams.get("cursor") === "p2") {
+      return json({ exercises: lastRowDeleted ? [] : [adminStarterExercises[7]], nextCursor: null });
+    }
+    return json({ exercises: adminStarterExercises.slice(0, 7), nextCursor: "p2" });
+  }
   const group = Number(url.searchParams.get("muscleGroupId")) || null;
   const q = url.searchParams.get("q")?.toLowerCase();
   const exercises = (scope === "PRIVATE" ? adminPrivateExercises : adminStarterExercises).filter(
@@ -54,6 +67,9 @@ const meta = {
   beforeEach: () => {
     mode = "ok";
     deleteAnswer = "ok";
+    twoPages = false;
+    lastRowDeleted = false;
+    slowPrivate = false;
     replace.mockClear();
     catalogFetch.mockClear();
     useRouter.mockReturnValue({ replace, push: fn(), prefetch: fn(), back: fn(), forward: fn(), refresh: fn() } as unknown as ReturnType<typeof useRouter>);
@@ -175,6 +191,35 @@ export const DeleteInUse: Story = {
     await expect(banner).toHaveTextContent('"Supino reto com barra" é usado em treinos. Você ainda pode editá-lo.');
     await userEvent.click(canvas.getByRole("button", { name: "Fechar aviso" }));
     await expect(canvas.queryByRole("alert")).toBeNull();
+  },
+};
+
+/** Deleting the only row of a later page steps back a page instead of showing an empty catalog. */
+export const DeleteLastRowOfPage: Story = {
+  beforeEach: () => {
+    twoPages = true;
+  },
+  play: async ({ canvas, userEvent }) => {
+    await table(canvas, "Catálogo inicial");
+    await userEvent.click(await canvas.findByRole("button", { name: "Próxima página" }));
+    const rows = within(await table(canvas, "Catálogo inicial"));
+    await userEvent.click(await rows.findByRole("button", { name: "Excluir Prancha abdominal" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Excluir" }));
+    await waitFor(() => expect(canvas.getByText("1–7")).toBeVisible());
+    await expect(canvas.queryByText("O catálogo inicial está vazio")).toBeNull();
+  },
+};
+
+/** Switching tabs never shows one tab's actions on the other's rows: it loads instead. */
+export const TabSwitchLoads: Story = {
+  beforeEach: () => {
+    slowPrivate = true;
+  },
+  play: async ({ canvas, userEvent }) => {
+    await within(await table(canvas, "Catálogo inicial")).findByText("Supino reto com barra");
+    await userEvent.click(canvas.getByRole("tab", { name: "Exercícios dos treinadores" }));
+    await expect(await canvas.findByLabelText("Carregando")).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: /Promover Supino/ })).toBeNull();
   },
 };
 

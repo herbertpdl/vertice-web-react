@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleAlert, Dumbbell, Pencil, Plus, SearchX, Trash2, X } from "lucide-react";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Badge,
   Button,
@@ -35,7 +35,7 @@ import {
 } from "@/lib/admin/catalog";
 import { normalizeSearch, profilePath } from "@/lib/admin/users";
 import { adminKeys } from "@/lib/api/admin";
-import { deleteAdminStarterExercise, fetchAdminCatalog } from "@/lib/api/adminCatalog";
+import { deleteAdminStarterExercise, fetchAdminCatalog, type AdminCatalogFilters } from "@/lib/api/adminCatalog";
 import { apiErrorMessage } from "@/lib/api/errorMessages";
 import { MUSCLE_GROUPS_STALE_TIME, fetchMuscleGroups } from "@/lib/api/muscleGroups";
 import type { AdminCatalogExercise } from "@/lib/api/types";
@@ -239,7 +239,10 @@ export function ExercisesContent({ initialView }: { initialView: CatalogView }) 
   const { data, isPending, isError, isPlaceholderData, isFetching, refetch } = useQuery({
     queryKey: adminKeys.exercisesPage(filters, page),
     queryFn: () => fetchAdminCatalog(filters, page),
-    placeholderData: keepPreviousData,
+    // Keep the previous page on screen only within a tab: another tab's rows would show this tab's
+    // actions (edit on a private exercise, promote on a starter one) until the new page arrives.
+    placeholderData: (previous, previousQuery) =>
+      (previousQuery?.queryKey[2] as AdminCatalogFilters | undefined)?.scope === filters.scope ? previous : undefined,
   });
 
   const actions: RowActions = {
@@ -253,6 +256,10 @@ export function ExercisesContent({ initialView }: { initialView: CatalogView }) 
     setMuscleGroupId(undefined);
     setSearch("");
   };
+
+  // A delete can empty a later page (its only row gone): step back one page rather than show an
+  // empty catalog with no way back. Adjusted while rendering, like `useCursorPages`' own reset.
+  if (data && !isPlaceholderData && data.exercises.length === 0 && pages.hasPrev) pages.prev();
 
   const exercises = data?.exercises;
   const range = exercises ? rowRange(pages.pageIndex, pages.pageSize, exercises.length) : null;
