@@ -109,6 +109,29 @@ export const Promote: Story = {
   },
 };
 
+/**
+ * The content width beside the side nav on a 1024 px screen (~712 px): the name keeps its room and
+ * the table scrolls sideways rather than clipping "Promover".
+ */
+export const NarrowDesktop: Story = {
+  decorators: [
+    (Story) => (
+      <div style={{ width: 712 }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvas }) => {
+    const tableEl = await table(canvas);
+    const name = await within(tableEl).findByText("Supino reto com barra");
+    await expect(name.getBoundingClientRect().width).toBeGreaterThan(100);
+    await expect(tableEl.scrollWidth).toBeGreaterThan(tableEl.clientWidth);
+    const promote = within(tableEl).getByRole("button", { name: "Promover Elevação pélvica com pausa ao catálogo" });
+    promote.scrollIntoView();
+    await waitFor(() => expect(promote.getBoundingClientRect().right).toBeLessThanOrEqual(tableEl.getBoundingClientRect().right + 1));
+  },
+};
+
 /** `rNMsp`: skeleton rows under the head. */
 export const Loading: Story = {
   beforeEach: () => {

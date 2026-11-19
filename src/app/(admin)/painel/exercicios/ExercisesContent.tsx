@@ -111,6 +111,7 @@ function columnsFor(tab: CatalogTab, actions: RowActions): DataTableColumn<Admin
   const name: DataTableColumn<AdminCatalogExercise> = {
     key: "name",
     header: "Exercício",
+    minWidth: 160,
     cell: (exercise) => (
       <span className="truncate text-[13px] font-semibold text-[color:var(--color-text-primary)]">{exercise.name}</span>
     ),
@@ -130,17 +131,17 @@ function columnsFor(tab: CatalogTab, actions: RowActions): DataTableColumn<Admin
   }
   return [
     name,
-    { key: "groups", header: "Grupos musculares", width: 240, cell: (exercise) => <GroupBadges exercise={exercise} /> },
+    { key: "groups", header: "Grupos musculares", width: 200, cell: (exercise) => <GroupBadges exercise={exercise} /> },
     {
       key: "owner",
       header: "Treinador",
-      width: 180,
+      width: 160,
       cell: (exercise) => (exercise.owner ? <OwnerLink owner={exercise.owner} /> : null),
     },
     {
       key: "actions",
       header: "",
-      width: 200,
+      width: 180,
       align: "end",
       cell: (exercise) => <PromoteExerciseButton exerciseName={exercise.name} onClick={() => actions.promote(exercise)} />,
     },

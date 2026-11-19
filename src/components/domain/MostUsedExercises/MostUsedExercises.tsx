@@ -47,6 +47,7 @@ function columns(promote: (exercise: AdminCatalogExercise) => void): DataTableCo
     {
       key: "name",
       header: "Exercício",
+      minWidth: 160,
       cell: (row) => (
         <span className="truncate text-[13px] font-semibold text-[color:var(--color-text-primary)]">
           {row.exercise.name}
@@ -56,7 +57,7 @@ function columns(promote: (exercise: AdminCatalogExercise) => void): DataTableCo
     {
       key: "groups",
       header: "Grupos musculares",
-      width: 220,
+      width: 180,
       cell: (row) => (
         <span className="truncate text-[12px] text-[color:var(--color-text-secondary)]">
           {muscleGroupNames(row.exercise)}
@@ -66,7 +67,7 @@ function columns(promote: (exercise: AdminCatalogExercise) => void): DataTableCo
     {
       key: "count",
       header: "Treinos",
-      width: 90,
+      width: 72,
       cell: (row) => (
         <span className="text-[13px] font-semibold text-[color:var(--color-text-primary)]">
           {formatCount(row.workoutCount)}
@@ -76,7 +77,7 @@ function columns(promote: (exercise: AdminCatalogExercise) => void): DataTableCo
     {
       key: "private",
       header: "",
-      width: 300,
+      width: 260,
       cell: (row) =>
         row.exercise.owner ? (
           <span className="flex min-w-0 items-center gap-[10px]">

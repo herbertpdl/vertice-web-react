@@ -8,6 +8,11 @@ export interface DataTableColumn<T> {
   header: string;
   /** Fixed width in px. Leave it out on the one column that takes the rest (e.g. "E-mail"). */
   width?: number;
+  /**
+   * The flexible column's narrowest width in px (0 by default). When the fixed columns leave less,
+   * the table scrolls sideways instead of squeezing that column away or clipping the last ones.
+   */
+  minWidth?: number;
   align?: "start" | "end";
   cell: (row: T) => ReactNode;
 }
@@ -64,7 +69,9 @@ export function DataTable<T>({
   className = "",
 }: DataTableProps<T>) {
   const widthStyle = (column: DataTableColumn<T>) =>
-    column.width === undefined ? { flex: "1 1 0%", minWidth: 0 } : { width: column.width, flexShrink: 0 };
+    column.width === undefined
+      ? { flex: "1 1 0%", minWidth: column.minWidth ?? 0 }
+      : { width: column.width, flexShrink: 0 };
   const alignClass = (column: DataTableColumn<T>) =>
     column.align === "end" ? "justify-end text-right" : "";
 
@@ -94,9 +101,10 @@ export function DataTable<T>({
       <div
         role="table"
         aria-label={label}
-        className={`hidden w-full flex-col md:flex ${header ? "border-t border-[var(--color-border)]" : ""}`}
+        // Narrow viewports above `md` (a tablet beside the side nav): scroll sideways, never clip.
+        className={`hidden w-full flex-col overflow-x-auto md:flex ${header ? "border-t border-[var(--color-border)]" : ""}`}
       >
-        <div role="rowgroup">
+        <div role="rowgroup" className="w-max min-w-full">
           <div role="row" className={`flex w-full items-center gap-[var(--space-4)] py-[12px] ${cellPadding}`}>
             {columns.map((column) => (
               <div
@@ -111,7 +119,7 @@ export function DataTable<T>({
           </div>
         </div>
         {hasRows && (
-          <div role="rowgroup">
+          <div role="rowgroup" className="w-max min-w-full">
             {shown.map((row) => (
               <div
                 key={rowKey(row)}
