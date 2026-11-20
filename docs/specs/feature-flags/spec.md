@@ -39,7 +39,7 @@ an owner decision.
 | D6 | **The everyone switch asks first; user settings save at once.** The everyone switch, on the list rows and in the detail header, opens `FeatureFlagEveryoneDialog` (over `ConfirmDialog`, `cancelVariant="ghost"`). Cancel and Escape send nothing. Add, change and remove a user setting have no dialog. | R12, R14, E13 |
 | D7 | **A user is added by a positive whole number, with no lookup and no identification.** `featureFlagUserIdSchema` accepts only digits forming a positive safe integer (`^[1-9]\d{0,15}$` and `Number.isSafeInteger`), after trimming. Anything else ("0", "-3", "1.5", "12a", "", leading zeros, past `Number.MAX_SAFE_INTEGER`) shows "Digite um número de usuário válido" and sends nothing. The add form has a "Configuração" `Dropdown` with "Ligado" (default) and "Desligado". A user is rendered as plain text "Usuário #N" (`String(n)`, no thousands separator) everywhere on these pages, never a link to `/painel/usuarios/:id`, whose read would identify the person and write a history entry. The same number again replaces the setting (the helper text says so). | W6, R13, R15, R17, E3, E4, E5, E15 |
 | D8 | **The list's search is client-side, over key and description.** `filterFeatureFlags(flags, q)`: trimmed, case- and accent-insensitive (`normalize("NFD")`, combining marks removed, `toLocaleLowerCase("pt-BR")`), a substring of the key or the description. No debounce and no request. The query lives in the URL as `?q=` (`router.replace`, as `ExercisesContent` does), bounded by `ADMIN_SEARCH_MAX`. | R4, E7, W7 |
-| D9 | **Per-row pending state, and every save single-flight.** "Adicionar" is disabled while its mutation is pending (plus a submitting ref, as `ConfirmDialog` does), so a double click sends one request. A user row's switch and remove button are disabled while any mutation for that user number is pending (the add included). A pending remove shows "Removendo…" with the `Spinner` in place of the row's actions (frame `gJQrD`). A pending switch stays disabled at its old state. Different rows may save at the same time. | W8, R14 |
+| D9 | **Per-row pending state, and every save single-flight.** "Adicionar" is disabled while its mutation is pending (plus a submitting ref, as `ConfirmDialog` does), so a double click sends one request. A user row's switch and remove button are **pending** while any mutation for that user number is pending (the add included). Pending means `aria-disabled="true"`, still focusable, and activation (click, Space, Enter) ignored; never the `disabled` attribute on a control that may hold focus, which would drop focus to `<body>`. The kit `Switch` only dims on `disabled`, so it gets the same dimmed, non-pointer style for `aria-disabled="true"` (one selector change in `Switch.tsx`, its story extended). A pending remove shows "Removendo…" with the `Spinner` in place of the row's actions (frame `gJQrD`). A pending switch stays at its old state. Different rows may save at the same time. Focus rules are in §10. | W8, R14 |
 | D10 | **Errors: one generic save failure, one "flag gone" path.** A failed write shows "Não foi possível salvar. Tente de novo." (in the dialog for the everyone switch, frame `vBk8U`; as an error toast otherwise). A `NOT_FOUND` on any write means developers removed the flag (E9): the dialog closes, the toast says "Esta flag não existe mais. A lista foi atualizada.", and the list key is invalidated. On the detail page the refetched list no longer has the key, so the page shows "Flag não encontrada" (frame `vJYcq`). A detail URL whose key isn't in the list shows the same state. A 401 follows `apiClient`'s existing admin sign-out. The copy is keyed on `error.code` (`flagSaveErrorMessage` in `src/lib/admin/featureFlags.ts`), never on `error.message`; it is generic for every other code because the approved frames are. | W8, E9 |
 | D11 | **The editor's assistant-status query follows the R21 budget.** `WorkoutEditor.tsx:101-106` (on `main` at c935896) changes from `staleTime: 5 * 60_000, retry: false` to `staleTime: 30_000, refetchInterval: 30_000, retry: 1` (`refetchIntervalInBackground` stays at its default `false`, so a hidden tab doesn't poll). Worst case about 60 s (API cache 30 s + interval 30 s); cost one status call per 30 s per open, visible editor. A failure before the first success hides the AI button; a later failed poll keeps the last data. **A flip to off never interrupts the assistant (§8.1):** `WorkoutEditorSession` latches the last `true` while the chat is busy, a proposal is in review or the panel is open, and applies `false` only once all three are idle; a flip to on applies at once. The two comments that name `AI_ASSISTANT_ENABLED` as a BFF env switch (`WorkoutEditor.tsx:99-100`, `assistant.ts:8`) are rewritten (§8). | W11, R7, R21, R22, R27, E10, E11 |
 | D12 | **Built against the documented contract, merged after the BFF.** The wrappers and screens are written against §3 and developed with stories over a fetch stub. Types come only from the generated `schema.ts`: during development, `.bff-ref` points at the BFF implementation branch's commit and `npm run api:types -- --local` reads it; before merging, `.bff-ref` holds the BFF merge commit. No wire type is hand-written. | **W2 (Blocker)** |
@@ -62,6 +62,7 @@ an owner decision.
 | `src/lib/validation/admin.ts` | `featureFlagUserIdSchema` (D7). |
 | `src/components/layout/AdminShell/nav.ts` | The new item (D2). |
 | `src/components/domain/WorkoutEditor/WorkoutEditor.tsx`, `src/lib/api/assistant.ts` | D11. |
+| `src/components/ui/Switch/Switch.tsx` | The dimmed style also for `aria-disabled="true"` (D9). |
 
 Links to a flag are `/painel/flags/${encodeURIComponent(key)}`. The proxy, the `(admin)` layout's
 role check and `bffAllowList` (`/admin/**` on the admin host) need no change.
@@ -87,14 +88,17 @@ outcomes.
 "Adicionar". An invalid number shows the field error and sends nothing. Otherwise
 `PUT /admin/feature-flags/:key/users/:userId` `{ enabled }`. On success: the awaited
 invalidation (D4), the toast "Usuário #N definido como Ligado." / "… Desligado.", the number field
-cleared (the dropdown keeps its choice). The row appears in user-number order, as sent.
+cleared (the dropdown keeps its choice) and focus kept in the number field, ready for the next
+number. The row appears in user-number order, as sent.
 
 **Change a user** (row switch): `target = !row.enabled` captured on click; the same `PUT` with
 `{ enabled: target }`; the same success toast; the row disabled while pending.
 
 **Remove a user** (row trash button, `aria-label="Remover usuário #N"`): `DELETE
 /admin/feature-flags/:key/users/:userId`. The row shows "Removendo…" until the result. On success
-the toast reads "Usuário #N agora segue a configuração para todos." and the row is gone (R16, E6).
+the toast reads "Usuário #N agora segue a configuração para todos." and the row is gone (R16, E6);
+focus moves to the next row's switch (the previous row's when it was the last), or to the number
+field when the list is now empty.
 
 Every user-setting failure is an error toast (D10), with the row back to its saved state.
 
@@ -178,7 +182,8 @@ exist (R26).
 - Loading: `DataTable loading` (`U8EYgf` rows). Error: `DataTableMessage` with the list error copy
   and "Tentar novamente" (`refetch`). No match: `DataTableMessage` with "Limpar busca", which
   clears the field and `?q=`.
-- While the dialog's save is pending, the row's switch is disabled.
+- While the dialog's save is pending, the row's switch is pending (`aria-disabled`, D9). The
+  dialog returns focus to that switch when it closes.
 
 ### 6.2 One flag (`FeatureFlagContent`; frames `gJQrD`, `oONTU`, `MzesP`, `vJYcq`, toasts `z4yUNx`)
 
@@ -196,6 +201,8 @@ exist (R26).
 - The list query failing: the header's key from the URL, then the list error message with
   "Tentar novamente" in place of the body (no frame; it reuses `Xp9eO`'s copy).
 - The key not in the loaded list: the `vJYcq` state only (no form, no table), with the back link.
+  When the page turns into this state after a write's 404, focus moves to its heading "Flag não
+  encontrada" (`tabIndex={-1}`), since the control that held it is gone.
 
 ## 7. Data fetching
 
@@ -302,7 +309,11 @@ the panel (with the chat idle and no review) then hides the button.
   sends once; empty; loading; list error; unknown key; a 404 on a write leads to "Flag não
   encontrada"; **two rows saved at once**: row A's `PUT` resolves, row B's `PUT` is sent while the
   list refetch for A is held, B's invalidation cancels it; A stays pending (switch unchanged, no
-  toast) until a list response with A's saved state lands, then re-enables showing it.
+  toast) until a list response with A's saved state lands, then re-enables showing it;
+  **keyboard**: Tab to a row switch, Space; the switch is `aria-disabled`, keeps focus, and a
+  second Space sends nothing; after the response and refetch it shows the new state and still has
+  focus; a keyboard remove moves focus to the next row's switch, and removing the last row moves
+  it to the number field.
 - `WorkoutEditorSession.stories.tsx` gains `AssistantTurnedOffWhileBuilding`: `assistantAvailable`
   starts `true`, the trainer sends, and while the stub stream is in `building` the story re-renders
   with `assistantAvailable={false}`. The editor stays locked (`inert`), the panel stays open, the
@@ -317,6 +328,15 @@ Pages stay untested, as in the rest of the panel.
 Each switch is the kit `Switch` (`role="switch"`) with an `aria-label` naming its flag or user
 number; the visible "Ligado"/"Desligado" label is text, not color alone. The remove button has an
 `aria-label`. Toasts use `Toast`'s existing live region. The dialog is `ConfirmDialog`.
+
+Focus never falls to `<body>` during a save:
+- Pending controls are `aria-disabled`, not `disabled` (D9), so a switch toggled with Space keeps
+  focus through the request and the refetch.
+- After a remove, focus goes to the next row's switch, else the previous row's, else the number
+  field.
+- After an add, focus stays in the number field.
+- After the everyone dialog closes, focus returns to the switch that opened it.
+- When the detail page becomes "Flag não encontrada", focus moves to that heading.
 
 ## 11. Merge and deploy order
 
