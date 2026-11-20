@@ -221,7 +221,7 @@ withdrawn).
 | Admin — Feature flag — usuários | `gJQrD` | `/painel/flags/[key]`: back link, header with the "Para todos" switch, the add form (number + Ligado/Desligado dropdown + "Adicionar"), the per-user table (switch, remove), one row pending ("Removendo…"), a success toast |
 | Admin — Feature flag — usuários vazio, número inválido | `oONTU` | No user settings, and the number field's error "Digite um número de usuário válido" |
 | Admin — Feature flag — carregando | `MzesP` | Description skeleton, switch disabled, skeleton rows |
-| Admin — Feature flag — não existe mais (404) | `vJYcq` | "Flag não encontrado" + "Voltar para Feature flags" |
+| Admin — Feature flag — não existe mais (404) | `vJYcq` | "Flag não encontrada" + "Voltar para Feature flags" |
 | Avisos (toasts) — Feature flags | `z4yUNx` | Success and error toasts for immediate saves, and a "flag no longer exists" toast |
 
 **Copy rule (owner, 2026-11-20): dialogs and toasts use generic copy; the only per-flag text is
@@ -298,7 +298,7 @@ Choices fixed by the approved frames:
 - **Recommendation:**
   - Disable the add button and the row's controls while their mutation is pending.
   - Show failures as an error toast keyed on `apiErrorMessage`.
-  - On NOT_FOUND, refetch the list: on the detail route, show a "Flag não encontrado" message with
+  - On NOT_FOUND, refetch the list: on the detail route, show a "Flag não encontrada" message with
     a link back.
   - A 401 follows the existing `apiClient` hard navigation. Nothing is lost, since every save is
     already sent.
@@ -485,4 +485,4 @@ Stories can be built against the documented contract before step 2 merges.
 - W7: one key `adminKeys.featureFlags()`; writes invalidate only that key (not the history); a
   client-side, accent-insensitive filter, with `?q=` in the URL.
 - W8: per-row pending and disabled controls, error toasts, and NOT_FOUND refetch or a "Flag não
-  encontrado" state.
+  encontrada" state.
