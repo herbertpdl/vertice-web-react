@@ -9,7 +9,9 @@ const linkClass = "font-semibold text-[color:var(--color-primary)]";
 
 // DRAFT (P1-04), written from vertice-api's docs/data-inventory.md (D1–D6 and the inventory by
 // table), all pending legal review. Not final legal text: change it only together with
-// LEGAL_VERSIONS.terms (the Terms of Use and this policy are accepted together).
+// LEGAL_VERSIONS.terms (the Terms of Use and this policy are accepted together). One exception:
+// the AI workout assistant's text (sections 4, 6 and 7, VRT-44) changed only LEGAL_TEXT_DATE,
+// because the AI PRD's §7 decides there is no re-consent; the lawyer's review may reverse that.
 export default function PrivacyPage() {
   return (
     <LegalDocument
@@ -101,6 +103,20 @@ export default function PrivacyPage() {
           aplicativo, antes de qualquer registro de treino, e a versão consentida e a data ficarão
           registradas. O aluno pode revogar o consentimento pelo e-mail de contato.
         </p>
+        <p>
+          <strong>Assistente de treino com IA:</strong> quando o treinador usa o assistente no
+          editor de treinos, a Vertice envia à Anthropic, em nome do treinador, o que o assistente
+          precisa para responder: o treino aberto na tela (exercícios, séries, cargas, descansos e
+          observações), o nome, a descrição, o nível e as datas do plano, um resumo dos outros
+          treinos do plano, os nomes e grupos musculares dos exercícios do catálogo do treinador e
+          a conversa com o assistente. Esses dados são enviados apenas para gerar as respostas do
+          assistente.
+        </p>
+        <p>
+          Não enviamos dados que identifiquem o aluno (como nome, e-mail ou CPF), nem os registros
+          de treino e o feedback dele. As mensagens do treinador vão como ele as escreveu; por
+          isso, evite incluir nelas o nome ou outros dados pessoais do aluno.
+        </p>
       </LegalSection>
 
       <LegalSection title="5. Quem pode ver os seus dados">
@@ -119,10 +135,25 @@ export default function PrivacyPage() {
       </LegalSection>
 
       <LegalSection title="6. Operadores e compartilhamento">
+        <p>A Vertice usa estes fornecedores, que tratam dados pessoais em nome dela:</p>
+        <ul>
+          <li>
+            <strong>Provedor de hospedagem da plataforma:</strong> guarda e processa os dados para
+            que a Vertice funcione.
+          </li>
+          <li>
+            <strong>Anthropic:</strong> fornece o modelo de inteligência artificial do assistente
+            de treino. Recebe apenas os dados descritos na seção 4, quando o treinador usa o
+            assistente, e os processa para gerar as respostas dele, como suboperadora: a Vertice a
+            contrata para prestar o serviço ao treinador, que continua sendo o controlador dos
+            dados dos alunos.
+          </li>
+        </ul>
         <p>
-          Hoje a Vertice não usa outros fornecedores que tratem dados pessoais além do provedor de
-          hospedagem da plataforma. Se isso mudar, esta política será atualizada antes.
+          O monitoramento técnico do assistente recebe só dados de funcionamento (como tempo de
+          resposta, volume de uso e erros), sem o conteúdo dos treinos nem das mensagens.
         </p>
+        <p>Se a lista de fornecedores mudar, esta política será atualizada antes.</p>
       </LegalSection>
 
       <LegalSection title="7. Por quanto tempo guardamos">
@@ -133,6 +164,11 @@ export default function PrivacyPage() {
             excluídos ou anonimizados.
           </li>
           <li>Os registros de acesso dos servidores são mantidos por 30 dias.</li>
+          <li>
+            A Vertice não guarda as conversas com o assistente de treino: elas ficam apenas no
+            navegador do treinador e se perdem ao sair do editor. Uma proposta do assistente só é
+            salva quando o treinador a aplica, e passa a fazer parte do treino.
+          </li>
           <li>
             Os links de primeiro acesso valem até serem usados, expirarem ou serem substituídos
             por um novo.

@@ -15,8 +15,11 @@ export const LEGAL_VERSIONS = {
   healthData: "2026-10-draft",
 } as const;
 
-/** When the current drafts were written, shown under each page's title. */
-export const LEGAL_TEXT_DATE = "14 de outubro de 2026";
+/**
+ * When the current drafts were last changed, shown under each page's title. Changing it alone (no
+ * version bump) asks nobody to accept again: used for the AI assistant's text (VRT-44, AI PRD §7).
+ */
+export const LEGAL_TEXT_DATE = "20 de novembro de 2026";
 
 /** True when the user has never accepted the Terms, or accepted a version other than `current`. */
 export function needsTermsAcceptance(
