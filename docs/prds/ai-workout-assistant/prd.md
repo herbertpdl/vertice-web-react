@@ -12,7 +12,7 @@ restated, except where §4 "Effect on the workout editor" says otherwise),
 (the 20-exercise and 10-set limits and the recorded-data protection, `API-R8`/`R9`/`R12`),
 [vertice-ai/docs/assessments/vertice-ai-foundation/assessment.md](https://github.com/herbertpdl/vertice-ai/blob/main/docs/assessments/vertice-ai-foundation/assessment.md)
 (the AI platform this feature is the first user of)
-Spec: not yet written (will be `docs/specs/ai-workout-assistant/spec.md`)
+Spec: [docs/specs/ai-workout-assistant/spec.md](../../specs/ai-workout-assistant/spec.md)
 
 ## 1. Summary
 

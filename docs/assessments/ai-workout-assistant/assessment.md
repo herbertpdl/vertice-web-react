@@ -7,7 +7,7 @@ rules it amends are `WE-R#` in [the editor PRD](../../prds/create-workout-with-e
 [editor spec](../../specs/create-workout-with-exercises/spec.md) (the autosave engine this changes),
 [vertice-bff assessment](https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/ai-workout-assistant/assessment.md)
 (the streamed endpoint this calls, `POST /api/assistant/workout-chat`)
-Spec: not yet written (will be `docs/specs/ai-workout-assistant/spec.md`)
+Spec: [docs/specs/ai-workout-assistant/spec.md](../../specs/ai-workout-assistant/spec.md)
 
 ## 1. Summary
 

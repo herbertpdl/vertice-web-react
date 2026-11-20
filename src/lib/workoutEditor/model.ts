@@ -134,6 +134,12 @@ export function toEntries(exercises: EditorExercise[]): WorkoutExerciseEntry[] {
   }));
 }
 
+/** `toEntries` plus each exercise's opaque `key`, for the assistant's request (AI assistant F5). */
+export function toKeyedEntries(exercises: EditorExercise[]): (WorkoutExerciseEntry & { key: string })[] {
+  const entries = toEntries(exercises);
+  return exercises.map((we, i) => ({ ...entries[i], key: we.key }));
+}
+
 export function sameSetFields(a: EditorSet, b: EditorSet): boolean {
   return (
     a.reps === b.reps &&

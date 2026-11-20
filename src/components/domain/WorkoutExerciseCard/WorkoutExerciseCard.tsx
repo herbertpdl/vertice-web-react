@@ -18,6 +18,7 @@ import { Button, TextField, Tooltip } from "@/components/ui";
 import { setCountLabel } from "@/lib/workoutEditor/collapse";
 import { MAX_SETS, type EditorExercise, type ExerciseFields, type SetFields } from "@/lib/workoutEditor/model";
 import { NOTES_MAX, REST_SECONDS_MAX, safeHttpUrl } from "@/lib/validation/bounds";
+import type { ExerciseDiff } from "@/lib/workoutEditor/proposalDiff";
 import { SET_GRID, SetRow } from "../SetRow";
 
 export type CardDragState = "idle" | "dragging" | "not-allowed";
@@ -51,11 +52,21 @@ export interface WorkoutExerciseCardProps {
   collapsed?: boolean;
   /** The card's own "Ocultar séries" / "Mostrar séries" button (R1); without it the button is not shown. */
   onToggleCollapsed?: () => void;
+  /** AI proposal in review (ai-workout-assistant R33): "Novo" / "Alterado" against the saved workout. */
+  diff?: ExerciseDiff;
 }
 
 const INTEGER = /^\d*$/;
 
-function RestField({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
+function RestField({
+  value,
+  onCommit,
+  highlight = false,
+}: {
+  value: number;
+  onCommit: (value: number) => void;
+  highlight?: boolean;
+}) {
   const [local, setLocal] = useState(String(value));
   const [lastValue, setLastValue] = useState(value);
   if (value !== lastValue) {
@@ -63,7 +74,7 @@ function RestField({ value, onCommit }: { value: number; onCommit: (value: numbe
     setLocal(String(value));
   }
   return (
-    <div className="flex h-[27px] w-[90px] items-center justify-end gap-[2px] rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] px-[10px] py-[6px] focus-within:border-[var(--color-primary)]">
+    <div className={`flex h-[27px] w-[90px] items-center justify-end gap-[2px] rounded-[var(--radius-sm)] border ${highlight ? "border-[var(--color-warning)] bg-[#ffb0201f]" : "border-[var(--color-border)] bg-[var(--color-bg)]"} px-[10px] py-[6px] focus-within:border-[var(--color-primary)]`}>
       <input
         value={local}
         aria-label="Descanso entre séries (segundos)"
@@ -116,6 +127,7 @@ export function WorkoutExerciseCard({
   onSetDragEnd,
   collapsed = false,
   onToggleCollapsed,
+  diff,
 }: WorkoutExerciseCardProps) {
   const bodyId = useId();
   const notesTooltipId = useId();
@@ -133,7 +145,11 @@ export function WorkoutExerciseCard({
       ? "border-[var(--color-primary)] bg-[var(--color-surface-hover)] shadow-[0_12px_32px_#00000080]"
       : refused
         ? "border-[var(--color-danger)] bg-[var(--color-surface)]"
-        : "border-[var(--color-border)] bg-[var(--color-surface)]";
+        : diff?.marker === "new"
+          ? "border-[var(--color-secondary)] bg-[var(--color-surface)]"
+          : diff?.marker === "changed"
+            ? "border-[var(--color-warning)] bg-[var(--color-surface)]"
+            : "border-[var(--color-border)] bg-[var(--color-surface)]";
 
   function handleRowDragOver(event: DragEvent<HTMLDivElement>, index: number) {
     if (!draggingOwnSet) return;
@@ -206,6 +222,22 @@ export function WorkoutExerciseCard({
               <span className="font-heading text-[length:var(--text-md)] font-semibold text-[color:var(--color-text-primary)]">
                 {exercise.exercise.name}
               </span>
+              {diff && (
+                <span
+                  className={`rounded-[var(--radius-full)] px-[10px] py-[3px] text-[11px] font-semibold ${
+                    diff.marker === "new"
+                      ? "bg-[#7c4dff26] text-[color:var(--color-secondary-hover)]"
+                      : "bg-[#ffb02026] text-[color:var(--color-warning)]"
+                  }`}
+                >
+                  {diff.marker === "new" ? "Novo" : "Alterado"}
+                </span>
+              )}
+              {diff && diff.removedSets > 0 && (
+                <span className="rounded-[var(--radius-full)] bg-[#ff5c5c26] px-[10px] py-[3px] text-[11px] font-semibold text-[color:var(--color-danger)]">
+                  {diff.removedSets === 1 ? "1 série removida" : `${diff.removedSets} séries removidas`}
+                </span>
+              )}
               {dragState === "dragging" && (
                 <span className="flex items-center gap-[6px] rounded-[var(--radius-full)] bg-[#00e5ff26] px-[10px] py-[3px] text-[11px] font-semibold text-[color:var(--color-primary)]">
                   <Move width={12} height={12} />
@@ -263,6 +295,7 @@ export function WorkoutExerciseCard({
                 Descanso entre séries
               </span>
               <RestField
+                highlight={diff?.marker === "changed" && diff.fields.includes("rest")}
                 value={exercise.restSecondsBetweenSets}
                 onCommit={(restSecondsBetweenSets) => onUpdate({ restSecondsBetweenSets })}
               />
@@ -307,7 +340,11 @@ export function WorkoutExerciseCard({
             value={exercise.notes}
             maxLength={NOTES_MAX}
             onChange={(event) => onUpdate({ notes: event.target.value })}
-            className="[&>div]:bg-[var(--color-bg)]"
+            className={
+              diff?.marker === "changed" && diff.fields.includes("notes")
+                ? "[&>div]:border-[var(--color-warning)] [&>div]:bg-[#ffb0201f]"
+                : "[&>div]:bg-[var(--color-bg)]"
+            }
           />
 
           {exercise.sets.length === 0 ? (
@@ -346,6 +383,7 @@ export function WorkoutExerciseCard({
                       setNumber={index + 1}
                       dragging={draggingSetKey === set.key}
                       refused={refusedSetKeys?.includes(set.key)}
+                      diff={diff?.marker === "changed" ? diff.sets[set.key] : undefined}
                       duplicateDisabled={atSetCap}
                       onUpdate={(patch) => onUpdateSet(set.key, patch)}
                       onDuplicate={() => onDuplicateSet(set.key)}

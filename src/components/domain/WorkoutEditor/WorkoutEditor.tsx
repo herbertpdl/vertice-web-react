@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownToLine, ChevronRight, CircleAlert, Dumbbell, TriangleAlert } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Dropdown, PageLoadingOverlay, TextField } from "@/components/ui";
+import { Button, Dropdown, PageLoadingOverlay, Spinner, TextField } from "@/components/ui";
 import { NAME_MAX } from "@/lib/validation/bounds";
 import { AddExerciseDialog } from "../AddExerciseDialog";
+import { AiAssistantButton } from "../AiAssistantButton";
+import { AiChatPanel } from "../AiChatPanel";
+import { ConfirmDialog } from "../ConfirmDialog";
+import { RemovedExerciseCard } from "../RemovedExerciseCard";
+import { ReviewBanner } from "../ReviewBanner";
 import { CloneWorkoutDialog } from "../CloneWorkoutDialog";
 import { DeleteWorkoutDialog } from "../DeleteWorkoutDialog";
 import { EditorFooter } from "../EditorFooter";
@@ -31,9 +36,26 @@ import {
   emptyWorkout,
   exceedsCaps,
   fromFullWorkout,
+  sameTree,
+  toKeyedEntries,
+  type EditorExercise,
   type EditorWorkout,
 } from "@/lib/workoutEditor/model";
 import { useWorkoutAutosave } from "@/lib/workoutEditor/useWorkoutAutosave";
+import { proposalDiff } from "@/lib/workoutEditor/proposalDiff";
+import {
+  assistantStatusQueryKey,
+  fetchAssistantStatus,
+  streamWorkoutChat,
+  type StreamWorkoutChat,
+} from "@/lib/api/assistant";
+import { createChatStore, isBusy, locksEditor } from "@/lib/assistant/chat";
+import {
+  EDITS_REPLACED_MESSAGE,
+  LEAVE_WHILE_BUSY_MESSAGE,
+  LEAVE_WITH_PROPOSAL_MESSAGE,
+} from "@/lib/assistant/copy";
+import { proposalToExercises } from "@/lib/assistant/proposal";
 import type { DayOfWeek } from "@/lib/api/types";
 
 const dayOptions = DAY_ORDER.map((day) => ({ value: day, label: DAY_NAMES_LONG[day] }));
@@ -74,6 +96,15 @@ export function WorkoutEditor({
   });
   useRedirectOnError(workoutError, `/planos/${planId}`);
 
+  // The AI button exists only while the BFF says the assistant is on (its `AI_ASSISTANT_ENABLED`,
+  // off by default). Any failure keeps it hidden: the editor never depends on this call.
+  const { data: assistantStatus } = useQuery({
+    queryKey: assistantStatusQueryKey,
+    queryFn: fetchAssistantStatus,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+
   // The session only reads `initial` at mount, so it is computed once here
   // (a later refetch of the query never touches the editor's draft).
   const [initial] = useState<EditorWorkout | null>(() =>
@@ -99,6 +130,7 @@ export function WorkoutEditor({
       planName={plan?.name}
       clientId={plan?.clientId}
       studentName={student?.name}
+      assistantEnabled={assistantStatus?.enabled === true}
     />
   );
 }
@@ -115,6 +147,10 @@ export interface WorkoutEditorSessionProps {
   /** Test/story hook: replaces `DELETE /workouts/:id`. */
   deleteWorkout?: (id: number) => Promise<unknown>;
   delayMs?: number;
+  /** Shows the AI assistant (ai-workout-assistant spec, "Switching it on"). */
+  assistantEnabled?: boolean;
+  /** Test/story hook: replaces the assistant's stream. */
+  streamChat?: StreamWorkoutChat;
 }
 
 export function WorkoutEditorSession({
@@ -127,6 +163,8 @@ export function WorkoutEditorSession({
   transport,
   deleteWorkout = deleteWorkoutRequest,
   delayMs,
+  assistantEnabled = false,
+  streamChat = streamWorkoutChat,
 }: WorkoutEditorSessionProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -162,6 +200,55 @@ export function WorkoutEditorSession({
   });
   const { draft, status, refusal } = state;
 
+  // The exercises the last message sent: a proposal is built on them, so edits made after the
+  // send (the editor unlocks while text streams, R20) are replaced, and the chat says so.
+  const sentExercises = useRef<EditorExercise[] | null>(null);
+  // The assistant's chat lives as long as this editor mount (R4, R5): unmounting aborts the
+  // message in flight, which is how every way out of the page stops it (R50, assessment F6).
+  const [chat] = useState(() =>
+    createChatStore({
+      prepare: async () => {
+        // R53: whatever is pending is saved before the message goes; nothing goes after a
+        // failed save. A proposal in review is not saved by design (R34), so nothing to wait for.
+        const current = engine.getState();
+        if (current.review) return true;
+        if (current.status === "error") return false;
+        return engine.finish();
+      },
+      buildRequest: () => {
+        const current = engine.getState();
+        sentExercises.current = current.draft.exercises;
+        return {
+          trainingPlanId: planId,
+          ...(current.workoutId !== null ? { workoutId: current.workoutId } : {}),
+          // R36: a proposal in review is sent as it stands on screen, trainer edits included.
+          workout: { exercises: toKeyedEntries(current.draft.exercises) },
+        };
+      },
+      onProposal: (entries) => {
+        const onScreen = engine.getState().draft.exercises;
+        const exercises = proposalToExercises(entries, onScreen);
+        // The BFF enforces the caps (R31); one that slips through is never shown (R32).
+        if (exceedsCaps(exercises)) throw new Error("Proposal over the workout caps");
+        const sent = sentExercises.current;
+        const editedSinceSend = sent !== null && !sameTree(sent, onScreen);
+        engine.propose(exercises);
+        return editedSinceSend ? EDITS_REPLACED_MESSAGE : undefined;
+      },
+      stream: streamChat,
+    }),
+  );
+  useEffect(() => () => chat.dispose(), [chat]);
+  const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const aiButtonRef = useRef<HTMLButtonElement>(null);
+  const chatBusy = assistantEnabled && isBusy(chatState);
+  const locked = assistantEnabled && locksEditor(chatState);
+  const review = state.review;
+  const diff = review ? proposalDiff(review.base, draft.exercises) : null;
+  const [applying, setApplying] = useState(false);
+  const [leaveConfirm, setLeaveConfirm] = useState<"busy" | "review" | null>(null);
+
   const [addOpen, setAddOpen] = useState(false);
   const [cloneOpen, setCloneOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -193,7 +280,8 @@ export function WorkoutEditorSession({
   // Leaving warns only while something could still be lost (R12). A hard
   // unload (reload, tab close) kills a pending save, so `beforeunload` covers
   // both "saving" and "error".
-  const warnOnLeave = status === "saving" || status === "error";
+  // The assistant adds two cases (R42, R46, R50): a message in flight, a proposal in review.
+  const warnOnLeave = status === "saving" || status === "error" || chatBusy || review !== null;
   useEffect(() => {
     if (!warnOnLeave) return;
     const handler = (event: BeforeUnloadEvent) => {
@@ -208,9 +296,15 @@ export function WorkoutEditorSession({
   // Router has no route-change event to veto — so while the last save failed,
   // clicks on in-app links are intercepted here (capture phase, before
   // `Link`, which skips its navigation once the default is prevented).
-  const guardLinks = status === "error";
+  const leaveMessage = chatBusy
+    ? LEAVE_WHILE_BUSY_MESSAGE
+    : review
+      ? LEAVE_WITH_PROPOSAL_MESSAGE
+      : status === "error"
+        ? LEAVE_WITH_ERROR_MESSAGE
+        : null;
   useEffect(() => {
-    if (!guardLinks) return;
+    if (!leaveMessage) return;
     const handler = (event: MouseEvent) => {
       if (event.defaultPrevented || event.button !== 0) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -218,11 +312,16 @@ export function WorkoutEditorSession({
       if (!(anchor instanceof HTMLAnchorElement) || anchor.target === "_blank") return;
       const url = new URL(anchor.href, window.location.href);
       if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
-      if (!window.confirm(LEAVE_WITH_ERROR_MESSAGE)) event.preventDefault();
+      if (!window.confirm(leaveMessage)) {
+        event.preventDefault();
+        return;
+      }
+      // Leaving anyway: the message stops on unmount; the proposal is dropped (R42, R50).
+      engine.discardProposal();
     };
     document.addEventListener("click", handler, true);
     return () => document.removeEventListener("click", handler, true);
-  }, [guardLinks]);
+  }, [leaveMessage, engine]);
 
   // The name/day/actions row is sticky; once it is pinned to the viewport top it
   // gets a bottom border so the cards visibly scroll under it.
@@ -270,6 +369,22 @@ export function WorkoutEditorSession({
   const atCap = draft.exercises.length >= MAX_EXERCISES;
   const offerClone = state.offersClone;
   const crumbName = draft.name.trim() || DEFAULT_WORKOUT_NAME;
+
+  function requestFinish() {
+    // "Concluir" with the assistant working or a proposal in review asks first (E17, E26).
+    if (chatBusy) setLeaveConfirm("busy");
+    else if (review) setLeaveConfirm("review");
+    else void handleFinish();
+  }
+
+  async function handleApply() {
+    setApplying(true);
+    try {
+      await engine.applyProposal();
+    } finally {
+      setApplying(false);
+    }
+  }
 
   async function handleFinish() {
     setFinishing(true);
@@ -357,7 +472,8 @@ export function WorkoutEditorSession({
   );
 
   return (
-    <div className="relative flex w-full flex-col">
+    <div className="flex w-full items-start">
+    <div className="relative flex min-w-0 flex-1 flex-col">
       <div className="flex w-full flex-col gap-[var(--space-6)] px-[var(--space-8)] py-[var(--space-8)]">
         <div className="flex w-full items-center justify-between gap-[var(--space-4)]">
           <nav aria-label="Navegação" className="flex items-center gap-2">
@@ -381,7 +497,7 @@ export function WorkoutEditorSession({
           </nav>
           {/* Only once the workout exists upstream (a new one gets its id on the first save). */}
           {state.workoutId !== null && (
-            <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
+            <Button variant="ghost" onClick={() => setDeleteOpen(true)} disabled={locked || review !== null}>
               Excluir treino
             </Button>
           )}
@@ -396,7 +512,7 @@ export function WorkoutEditorSession({
             toolbarStuck ? "border-[var(--color-border)]" : "border-transparent"
           }`}
         >
-          <div className="flex items-start gap-[var(--space-4)]">
+          <div className="flex items-start gap-[var(--space-4)]" inert={locked}>
             <TextField
               label="Nome do treino"
               placeholder="Treino A — Superior"
@@ -423,9 +539,28 @@ export function WorkoutEditorSession({
                 adicionar outro.
               </span>
             )}
-            {headerActions}
+            <div className="flex items-center gap-[var(--space-3)]">
+              {assistantEnabled && (
+                <AiAssistantButton
+                  ref={aiButtonRef}
+                  open={panelOpen}
+                  busy={chatBusy}
+                  onClick={() => setPanelOpen((open) => !open)}
+                />
+              )}
+              <div inert={locked}>{headerActions}</div>
+            </div>
           </div>
         </div>
+
+        {review && (
+          <ReviewBanner
+            onApply={() => void handleApply()}
+            onDiscard={() => engine.discardProposal()}
+            applying={applying}
+            disabled={chatBusy}
+          />
+        )}
 
         {refusal && (
           <div
@@ -447,7 +582,24 @@ export function WorkoutEditorSession({
           </div>
         )}
 
-        {draft.exercises.length === 0 ? (
+        <div className="relative w-full">
+        {locked && (
+          <div
+            role="status"
+            className="absolute inset-0 z-[5] flex items-start justify-center rounded-[var(--radius-xl)] bg-[#0a0e14b3] pt-[96px]"
+          >
+            <span className="sticky top-[45vh] flex items-center gap-[10px] rounded-[var(--radius-full)] border border-[var(--color-secondary)] bg-[var(--color-surface)] px-[18px] py-[10px] text-[length:var(--text-sm)] font-semibold text-[color:var(--color-text-primary)] shadow-[0_12px_32px_#00000080]">
+              <Spinner size="sm" className="!h-[15px] !w-[15px]" />
+              {chatState.phase === "saving"
+                ? "Salvando antes de enviar…"
+                : chatState.phase === "waiting"
+                  ? "IA analisando o pedido…"
+                  : "IA montando o treino…"}
+            </span>
+          </div>
+        )}
+        <div inert={locked} className="w-full">
+        {draft.exercises.length === 0 && !diff?.removed.length ? (
           <div className="flex w-full flex-col items-center gap-[var(--space-5)] rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--color-surface)] px-[var(--space-6)] py-[107px] text-center">
             <span className="flex h-[64px] w-[64px] items-center justify-center rounded-[var(--radius-full)] bg-[var(--color-surface-hover)] text-[color:var(--color-primary)]">
               <Dumbbell width={28} height={28} />
@@ -481,6 +633,11 @@ export function WorkoutEditorSession({
                     : "idle";
               return (
                 <div key={we.key} className="contents">
+                  {diff?.removed
+                    .filter((r) => r.index === index)
+                    .map((r) => (
+                      <RemovedExerciseCard key={`removed-${r.exercise.key}`} exercise={r.exercise} />
+                    ))}
                   {placeholderIndex === index && placeholder}
                   <div onDragOver={(event) => handleCardDragOver(event, index)}>
                     <WorkoutExerciseCard
@@ -491,6 +648,7 @@ export function WorkoutEditorSession({
                       onToggleCollapsed={() => setCollapsed(toggleCollapsed(collapsed, we.key))}
                       refused={refusal?.exerciseKeys.includes(we.key)}
                       refusedSetKeys={refusal?.setKeys}
+                      diff={diff?.exercises[we.key]}
                       draggingSetKey={draggingSet?.exerciseKey === we.key ? draggingSet.setKey : null}
                       onUpdate={(patch) =>
                         engine.dispatch({ type: "updateExercise", exerciseKey: we.key, patch })
@@ -526,8 +684,13 @@ export function WorkoutEditorSession({
               );
             })}
             {placeholderIndex === draft.exercises.length && placeholder}
+            {diff?.removed
+              .filter((r) => r.index >= draft.exercises.length)
+              .map((r) => <RemovedExerciseCard key={`removed-${r.exercise.key}`} exercise={r.exercise} />)}
           </div>
         )}
+        </div>
+        </div>
       </div>
 
       <EditorFooter
@@ -536,7 +699,8 @@ export function WorkoutEditorSession({
         errorMessage={state.errorMessage}
         finishing={finishing}
         onRetry={() => void engine.retry()}
-        onFinish={() => void handleFinish()}
+        onFinish={requestFinish}
+        review={review !== null}
       />
 
       {deleteOpen && state.workoutId !== null && (
@@ -556,6 +720,28 @@ export function WorkoutEditorSession({
             },
           }}
         />
+      )}
+      {leaveConfirm && (
+        <ConfirmDialog
+          title={leaveConfirm === "busy" ? "A IA ainda está trabalhando" : "Proposta não aplicada"}
+          confirmLabel="Sair mesmo assim"
+          onConfirm={async () => {
+            chat.stop();
+            engine.discardProposal();
+          }}
+          errorMessage={() => "Não foi possível sair agora. Tente novamente."}
+          onDone={() => {
+            setLeaveConfirm(null);
+            void handleFinish();
+          }}
+          onClose={() => setLeaveConfirm(null)}
+        >
+          <p>
+            {leaveConfirm === "busy"
+              ? "Se sair agora, a mensagem em andamento é interrompida e o progresso do assistente será perdido. O treino não é alterado."
+              : "A proposta da IA ainda não foi aplicada. Se sair agora, ela será descartada e o treino continua como estava salvo."}
+          </p>
+        </ConfirmDialog>
       )}
       {addOpen && (
         <AddExerciseDialog
@@ -578,6 +764,20 @@ export function WorkoutEditorSession({
           }}
         />
       )}
+    </div>
+    {assistantEnabled && panelOpen && (
+      <AiChatPanel
+        state={chatState}
+        onInput={chat.setInput}
+        onSend={() => void chat.send()}
+        onStop={chat.stop}
+        onRetry={() => void chat.retry()}
+        onClose={() => {
+          setPanelOpen(false);
+          aiButtonRef.current?.focus();
+        }}
+      />
+    )}
     </div>
   );
 }

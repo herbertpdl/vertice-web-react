@@ -17,6 +17,7 @@ import { withSeededQueries } from "../storyQuery";
 import { emptyWorkout } from "@/lib/workoutEditor/model";
 import { exercisesQueryKey } from "@/lib/api/exercises";
 import { muscleGroupsQueryKey } from "@/lib/api/muscleGroups";
+import type { StreamWorkoutChat } from "@/lib/api/assistant";
 
 const meta = {
   component: WorkoutEditorSession,
@@ -366,5 +367,84 @@ export const RefusedRemovalExpandsCollapsedCard: Story = {
     await expect(
       within(supino).getByText("Remoção desfeita — desempenho registrado por um aluno"),
     ).toBeVisible();
+  },
+};
+
+/**
+ * A stream the story drives: answers every message with two stages and a proposal that adds
+ * Agachamento and changes the Supino's rest, then `done`.
+ */
+const proposingStream: StreamWorkoutChat = async (body, { signal, onEvent }) => {
+  const wait = (ms: number) =>
+    new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, ms);
+      signal.addEventListener("abort", () => {
+        clearTimeout(timer);
+        reject(new DOMException("aborted", "AbortError"));
+      });
+    });
+  await wait(50);
+  onEvent({ type: "stage", stage: "analyzing" });
+  await wait(50);
+  onEvent({ type: "stage", stage: "building_sets" });
+  await wait(50);
+  const [first, ...rest] = body.workout.exercises;
+  onEvent({
+    type: "proposal",
+    exercises: [
+      { ...first, key: first.key, exercise: supinoCard.exercise, restSecondsBetweenSets: 45, sets: first.sets ?? [] },
+      ...rest.map((entry) => ({
+        key: entry.key,
+        exerciseId: entry.exerciseId,
+        exercise: puxadaCard.exercise,
+        restSecondsBetweenSets: entry.restSecondsBetweenSets ?? 60,
+        notes: entry.notes ?? "",
+        sets: entry.sets ?? [],
+      })),
+      { key: null, exerciseId: agachamentoCard.exercise.id, exercise: agachamentoCard.exercise, restSecondsBetweenSets: 60, notes: "", sets: [{ reps: 12, strategy: "STRAIGHT" }] },
+    ],
+  });
+  onEvent({ type: "done" });
+};
+
+const assistantTransport = fakeTransport();
+
+/**
+ * The AI assistant end to end against a fake stream: the panel opens, the message builds a
+ * proposal that shows in review with its markers and the review footer (R26, R33, R45), and
+ * "Descartar" puts the saved workout back without saving anything (R39).
+ */
+export const AssistantProposalReview: Story = {
+  args: {
+    workoutId: 42,
+    initial: { ...treinoA, exercises: [supinoCard, puxadaCard] },
+    transport: assistantTransport,
+    assistantEnabled: true,
+    streamChat: proposingStream,
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Abrir assistente IA" }));
+    await userEvent.type(canvas.getByLabelText("Mensagem para o assistente"), "Adicione agachamento");
+    await userEvent.click(canvas.getByRole("button", { name: "Enviar" }));
+    await expect(await canvas.findByText("Proposta pronta para revisão no editor.")).toBeVisible();
+    await expect(canvas.getByText("Proposta em revisão — ainda não salva")).toBeVisible();
+    await expect(canvas.getByText("Novo")).toBeVisible();
+    await expect(canvas.getByText("Alterado")).toBeVisible();
+    await expect(canvas.getByRole("group", { name: /Exercício 3: Agachamento/ })).toBeVisible();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Descartar" }));
+    await waitFor(() =>
+      expect(canvas.queryByRole("group", { name: /Exercício 3/ })).not.toBeInTheDocument(),
+    );
+    await expect(canvas.queryByText("Proposta em revisão — ainda não salva")).not.toBeInTheDocument();
+    await expect(assistantTransport.calls).not.toContain("replace");
+  },
+};
+
+/** The flag off (production default): no AI button at all. */
+export const AssistantDisabled: Story = {
+  args: { workoutId: 42, initial: treinoA, assistantEnabled: false },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button", { name: /assistente IA/ })).not.toBeInTheDocument();
   },
 };
