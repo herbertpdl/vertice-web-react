@@ -179,5 +179,7 @@ export const FlagGone: Story = {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(canvas.queryByText("FIRST_ACCESS_EMAIL_ENABLED")).toBeNull());
     await expect(canvas.getByText("1 flag")).toBeVisible();
+    // The switch that opened the dialog is gone: focus lands on the search field.
+    await waitFor(() => expect(canvas.getByLabelText("Buscar")).toHaveFocus());
   },
 };

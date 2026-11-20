@@ -26,6 +26,7 @@ import { FlagSwitch, focusFirstVisible } from "./flagControls";
 type OpenDialog = { key: string; target: boolean } | null;
 
 const everyoneFocusId = (key: string) => `everyone:${key}`;
+const SEARCH_FOCUS = "flag-search";
 
 const usersLinkClass =
   "font-base inline-flex items-center justify-center rounded-[var(--radius-md)] border border-[var(--color-border-strong)] px-[14px] py-[7px] text-[length:var(--text-sm)] font-semibold whitespace-nowrap text-[color:var(--color-text-primary)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-hover)] hover:text-[color:var(--color-primary)]";
@@ -90,7 +91,8 @@ export function FeatureFlagsContent({ initialQuery }: { initialQuery: string }) 
 
   useEffect(() => {
     if (dialog !== null || returnFocusTo.current === null) return;
-    focusFirstVisible(everyoneFocusId(returnFocusTo.current));
+    // The row may be gone (a 404: the flag was removed): then the search field, never <body>.
+    if (!focusFirstVisible(everyoneFocusId(returnFocusTo.current))) focusFirstVisible(SEARCH_FOCUS);
     returnFocusTo.current = null;
   }, [dialog]);
 
@@ -139,6 +141,7 @@ export function FeatureFlagsContent({ initialQuery }: { initialQuery: string }) 
         placeholder="Buscar por nome ou descrição"
         value={search}
         maxLength={ADMIN_SEARCH_MAX}
+        data-focus-id={SEARCH_FOCUS}
         onChange={(event) => setSearch(event.target.value)}
         className="w-full md:w-[360px] [&>label]:sr-only md:[&>label]:not-sr-only"
       />
