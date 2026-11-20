@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@f465c01646230ee6aace373d6d5c52965924fbfc:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@20444752b6c0aa79a70e4e4805adbf628361d196:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -913,8 +913,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Whether the AI workout assistant is switched on
-         * @description Roles: TRAINER. No upstream call. The web hides the AI icon while `enabled` is false.
+         * Whether the AI workout assistant is on for this trainer
+         * @description Roles: TRAINER. Per trainer: the `AI_ASSISTANT_ENABLED` feature flag, read with one `EvaluateFeatureFlag` call with the trainer’s token (20 s deadline, no cache). Always 200: any failure to read the flag, or a BFF with no vertice-ai configured, answers `false`. May lag an admin change by up to 30 s (the API’s cache). The web hides the AI icon while `enabled` is false.
          */
         get: operations["getAssistantStatus"];
         put?: never;
@@ -936,7 +936,7 @@ export interface paths {
         put?: never;
         /**
          * Send a message to the AI workout assistant (server-sent events)
-         * @description Roles: TRAINER. Answers `text/event-stream` (see `AssistantStreamEvent` and docs/api-contract.md, "AI workout assistant"). Before the stream: 400 (body, a workout of another plan, an exercise outside the trainer’s catalog), 403 (another trainer’s plan or workout), 413 `AI_CATALOG_TOO_LARGE`, 503 `AI_UNAVAILABLE` (switched off). Once streaming, failures are an `error` event (`AI_UNAVAILABLE`, `AI_TIMEOUT`, `AI_INVALID_PROPOSAL`, `AI_ERROR`, `AI_SUPERSEDED`) and the stream ends. A new message from the same trainer supersedes a running one.
+         * @description Roles: TRAINER. Answers `text/event-stream` (see `AssistantStreamEvent` and docs/api-contract.md, "AI workout assistant"). Before the stream: 400 (body, a workout of another plan, an exercise outside the trainer’s catalog), 403 (another trainer’s plan or workout), 413 `AI_CATALOG_TOO_LARGE`, 503 `AI_UNAVAILABLE` (the `AI_ASSISTANT_ENABLED` flag is off for this trainer or cannot be read, or vertice-ai is not configured; checked first, so nothing else is read). Once streaming, failures are an `error` event (`AI_UNAVAILABLE`, `AI_TIMEOUT`, `AI_INVALID_PROPOSAL`, `AI_ERROR`, `AI_SUPERSEDED`) and the stream ends. A new message from the same trainer supersedes a running one.
          */
         post: operations["workoutChat"];
         delete?: never;
@@ -1353,6 +1353,70 @@ export interface paths {
         patch: operations["renameAdminMuscleGroup"];
         trace?: never;
     };
+    "/api/admin/feature-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every feature flag with its user settings
+         * @description Roles: ADMIN. Ordered by key, each flag with its everyone state and every user setting (ordered by user number), in upstream order. Not paginated. Flags are created and removed by developers: there is no create or delete. Not recorded in the action history.
+         */
+        get: operations["listAdminFeatureFlags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/feature-flags/{key}/everyone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Turn a feature flag on or off for everyone
+         * @description Roles: ADMIN. Applies to every user without a setting of their own; user settings are kept. Sends the absolute state (never a toggle); the last save wins. Not recorded in the action history. A change reaches the product within about a minute. An unknown key is 404 `NOT_FOUND` (refetch the list).
+         */
+        put: operations["setAdminFeatureFlagEveryone"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/feature-flags/{key}/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give one user their own ON or OFF for a feature flag
+         * @description Roles: ADMIN. Replaces any earlier setting of this user number, and wins over the everyone state. The number is not checked against any account. Sends the absolute state (never a toggle); the last save wins. Not recorded in the action history. A change reaches the product within about a minute. An unknown key is 404 `NOT_FOUND` (refetch the list).
+         */
+        put: operations["setAdminFeatureFlagUser"];
+        post?: never;
+        /**
+         * Remove one user’s setting of a feature flag
+         * @description Roles: ADMIN. That user follows the everyone state again. Idempotent: a number with no setting answers 200 with the flag unchanged. No body. Not recorded in the action history. A change reaches the product within about a minute. An unknown key is 404 `NOT_FOUND` (refetch the list).
+         */
+        delete: operations["removeAdminFeatureFlagUser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1508,6 +1572,25 @@ export interface components {
         AdminEnrollment: {
             /** @description The `otpauth://totp/...` URI with the new secret. Render it as a QR code in-process (never through a third-party service), never log or store it. Each enroll call replaces it with a new secret. */
             provisioningUri: string;
+        };
+        AdminFeatureFlag: {
+            /** @description Uppercase snake case; also the flag’s name on the page. */
+            key: string;
+            /** @description What the flag controls (pt-BR, developer-written). Render as text. */
+            description: string;
+            /** @description The everyone state: applies to every user without a setting of their own. */
+            enabled: boolean;
+            /** @description Every user setting, ordered by `userId`. Its length is the count the page shows. */
+            users: {
+                /** @description A user number; not checked against any account. */
+                userId: number;
+                /** @description This user’s own ON or OFF, which wins over the everyone state. */
+                enabled: boolean;
+            }[];
+        };
+        AdminFeatureFlagList: {
+            /** @description Every flag, ordered by key. Not paginated. */
+            flags: components["schemas"]["AdminFeatureFlag"][];
         };
         AdminMostUsedExercise: {
             exercise: components["schemas"]["AdminCatalogExercise"];
@@ -5627,7 +5710,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The switch’s state. */
+            /** @description Whether the assistant is on for the caller. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7058,6 +7141,237 @@ export interface operations {
             };
             /** @description Conflict with the current state (`CONFLICT`, `PRECONDITION_FAILED`, or a route-specific 409 code: `ACTIVE_CLIENTS`, `NAME_TAKEN`, `EXERCISE_IN_USE` on the routes that say so). */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAdminFeatureFlags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every flag. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFeatureFlagList"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code (`ACCOUNT_SUSPENDED`, `ADMIN_LOGIN_ELSEWHERE`, `SESSION_NOT_RENEWABLE` on the routes that say so). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setAdminFeatureFlagEveryone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The flag’s key: uppercase snake case, 1–64 characters. */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The flag as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFeatureFlag"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code (`ACCOUNT_SUSPENDED`, `ADMIN_LOGIN_ELSEWHERE`, `SESSION_NOT_RENEWABLE` on the routes that say so). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found (`NOT_FOUND`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setAdminFeatureFlagUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The flag’s key: uppercase snake case, 1–64 characters. */
+                key: string;
+                /** @description A user number: digits, no leading zero, at most 2^53 − 1. Not checked against any account. */
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The flag as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFeatureFlag"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code (`ACCOUNT_SUSPENDED`, `ADMIN_LOGIN_ELSEWHERE`, `SESSION_NOT_RENEWABLE` on the routes that say so). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found (`NOT_FOUND`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    removeAdminFeatureFlagUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The flag’s key: uppercase snake case, 1–64 characters. */
+                key: string;
+                /** @description A user number: digits, no leading zero, at most 2^53 − 1. Not checked against any account. */
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The flag as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFeatureFlag"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code (`ACCOUNT_SUSPENDED`, `ADMIN_LOGIN_ELSEWHERE`, `SESSION_NOT_RENEWABLE` on the routes that say so). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found (`NOT_FOUND`). */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

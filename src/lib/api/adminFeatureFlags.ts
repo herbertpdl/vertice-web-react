@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { adminKeys } from "./admin";
 import { apiClient } from "./client";
-import type { FeatureFlag, FeatureFlagList } from "./types";
+import type { FeatureFlag, FeatureFlagList, FeatureFlagStateRequest } from "./types";
 
 /**
  * The admin feature-flag routes (feature-flags spec §3; BFF FF7). Every write sends an absolute
@@ -9,9 +9,6 @@ import type { FeatureFlag, FeatureFlagList } from "./types";
  * the list is refreshed by `settleAfterWrite`, never edited by hand (D4). No write takes a reason
  * and none records a history entry (D13). An unknown key is 404 `NOT_FOUND` (the flag was removed).
  */
-
-/** The body of both `PUT`s: the state to save, `{ enabled }` and nothing else (BFF FF8). */
-type FeatureFlagState = Pick<FeatureFlag, "enabled">;
 
 const flagPath = (key: string) => `/admin/feature-flags/${encodeURIComponent(key)}`;
 
@@ -22,13 +19,13 @@ export function fetchFeatureFlags() {
 
 /** `PUT /admin/feature-flags/:key/everyone`: the flag's state for everyone with no own setting. */
 export function setFeatureFlagEveryone(key: string, enabled: boolean) {
-  const body: FeatureFlagState = { enabled };
+  const body: FeatureFlagStateRequest = { enabled };
   return apiClient.put<FeatureFlag>(`${flagPath(key)}/everyone`, body);
 }
 
 /** `PUT /admin/feature-flags/:key/users/:userId`: adds or replaces one user's own setting. */
 export function setFeatureFlagUser(key: string, userId: number, enabled: boolean) {
-  const body: FeatureFlagState = { enabled };
+  const body: FeatureFlagStateRequest = { enabled };
   return apiClient.put<FeatureFlag>(`${flagPath(key)}/users/${userId}`, body);
 }
 
