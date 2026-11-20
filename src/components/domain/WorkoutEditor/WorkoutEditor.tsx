@@ -98,8 +98,10 @@ export function WorkoutEditor({
 
   // Whether the assistant is on for this trainer: the `AI_ASSISTANT_ENABLED` flag, set on the admin
   // "Feature flags" page. Polled every 30 s while the tab is visible, so a change reaches an open
-  // editor within about a minute. A failure before the first answer keeps the AI button hidden; a
-  // later failed poll keeps the last answer. WorkoutEditorSession never turns it off mid-use.
+  // editor within about a minute. A failed request before the first answer keeps the AI button
+  // hidden; a later failed request keeps the last answer. A failure to evaluate the flag is not a
+  // failed request: the BFF answers 200 `{ enabled: false }`, so a blip hides the button until the
+  // next poll. WorkoutEditorSession never turns it off mid-use (the latch).
   const { data: assistantStatus } = useQuery({
     queryKey: assistantStatusQueryKey,
     queryFn: fetchAssistantStatus,
