@@ -78,7 +78,8 @@ role check and `bffAllowList` (`/admin/**` on the admin host) need no change.
 4. Confirm: `PUT /admin/feature-flags/:key/everyone` `{ enabled: target }`, once. The button shows
    loading.
 5. Success: the list is invalidated and refetched (D4), the switch shows the saved state, the
-   dialog closes, the toast reads "A flag `KEY` foi ligada para todos." / "… desligada para todos."
+   dialog closes (offline, it closes at the latest 10 s after the save, `PAUSED_DEADLINE_MS` in
+   §7, and the reconnect refetch corrects the row), the toast reads "A flag `KEY` foi ligada para todos." / "… desligada para todos."
 6. Failure: `NOT_FOUND` → D10's "flag gone" path; anything else → the dialog stays open with
    "Não foi possível salvar. Tente de novo." and the admin can retry or cancel.
 
@@ -224,10 +225,13 @@ waits for a real event (a fetch settling, a cache update) or returns, so it can'
 
 ```ts
 const MAX_REFETCHES = 3;
+/** How long a paused (offline) query may hold a save's pending state after the write succeeded. */
+const PAUSED_DEADLINE_MS = 10_000;
 
 export async function settleAfterWrite(queryClient: QueryClient) {
   const queryKey = adminKeys.featureFlags();
   const issuedAt = Date.now(); // after the write's response: the server has committed
+  const deadline = issuedAt + PAUSED_DEADLINE_MS;
   await queryClient.invalidateQueries({ queryKey, exact: true });
   for (let refetches = 0; ; ) {
     // Gone (the page unmounted and it was collected, or sign-out's `queryClient.clear()`).
@@ -237,7 +241,13 @@ export async function settleAfterWrite(queryClient: QueryClient) {
     if (before.dataUpdatedAt > issuedAt || before.errorUpdatedAt > issuedAt) return;
     if (before.fetchStatus === "paused") {
       // Offline: refetchQueries would resolve at once without fetching. Wait for the query to move.
-      await nextUpdate(queryClient, query.queryHash);
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return; // the write is saved; the reconnect refetch corrects the row
+      const woke = await Promise.race([
+        nextUpdate(queryClient, query.queryHash).then(() => true),
+        delay(remaining).then(() => false),
+      ]);
+      if (!woke) return;
       continue;
     }
     if (refetches === MAX_REFETCHES) return;
@@ -247,6 +257,11 @@ export async function settleAfterWrite(queryClient: QueryClient) {
     const moved = after.dataUpdatedAt !== before.dataUpdatedAt || after.errorUpdatedAt !== before.errorUpdatedAt;
     if (!moved && after.fetchStatus === "idle") return; // nothing ran and nothing will
   }
+}
+
+/** Resolves after `ms` (a plain `setTimeout`, so fake timers drive it in tests). */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Resolves on this query's next `updated` (or `removed`) cache event. */
@@ -274,9 +289,13 @@ invalidation cancels ours, `refetchQueries` resolves while the new fetch runs (`
 
 Exits, each without a busy loop: fresh data or an error after `issuedAt` (a failed refetch: the
 row re-enables and the list shows its error state); the query gone; a refetch after which nothing
-moved and nothing is fetching; three refetches. A paused (offline) query waits on the cache
-subscription and doesn't count toward the cap; back online, TanStack resumes the fetch, whose
-`updated` event wakes the loop. A row that exits without fresh data re-enables on the data it has;
+moved and nothing is fetching; three refetches; the paused deadline. A paused (offline) query
+waits on the cache subscription and doesn't count toward the cap; back online, TanStack resumes
+the fetch, whose `updated` event wakes the loop. That wait is the only one without its own end,
+so it races `PAUSED_DEADLINE_MS` (10 s from `issuedAt`): past it, the function returns like the
+other give-ups, since the write itself already succeeded. Only the paused wait can hit the
+deadline; refetches are bounded by the cap. The race's losing `nextUpdate` subscription stays
+until the query's next update or removal, which is harmless. A row that exits without fresh data re-enables on the data it has;
 the next focus or reconnect refetch corrects it.
 
 Starting a mutation counts as an interaction for `useAdminSession`'s renewal, as every admin
@@ -361,7 +380,9 @@ has no header heading, so the first always-present header control is the target.
   stubbed `queryFn` (no React): (1) the first refetch is cancelled by a second invalidation, then
   data arrives: it resolves once that data lands, not before; (2) `onlineManager.setOnline(false)`
   before it runs: it doesn't spin (the `queryFn` is called at most once, the promise stays pending
-  across fake-timer advances), and resolves after `setOnline(true)` lets the fetch land; (3) the
+  across fake-timer advances shorter than `PAUSED_DEADLINE_MS`), and resolves after
+  `setOnline(true)` lets the fetch land; (2b) offline, fake timers advanced past
+  `PAUSED_DEADLINE_MS`: it resolves without going back online, and the `queryFn` was not called again; (3) the
   query removed (`queryClient.removeQueries`) or never created: it resolves at once. Plus: with the
   fake clock frozen at `issuedAt`, so no landing is strictly newer, it stops after three refetches, and a failing `queryFn`
   resolves on the error.
