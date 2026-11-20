@@ -107,6 +107,16 @@ describe("chat store", () => {
     expect(store.getState().phase).toBe("idle");
   });
 
+  it("shows the editor's notice under the ready line", async () => {
+    const { store, fake } = setup({ onProposal: () => "edições substituídas" });
+    store.setInput("mude");
+    void store.send();
+    await flushAll();
+    fake.emit({ type: "proposal", exercises: [] });
+    const tail = store.getState().messages.slice(-2).map((m) => m.kind + ":" + ("text" in m ? m.text : ""));
+    expect(tail).toEqual([`ready:${READY_MESSAGE}`, "notice:edições substituídas"]);
+  });
+
   it("refuses to send while a message is in flight or over 2,000 characters (R10, R14)", async () => {
     const { store, fake } = setup();
     store.setInput("a".repeat(2001));

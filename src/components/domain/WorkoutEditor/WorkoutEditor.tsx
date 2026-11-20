@@ -36,7 +36,9 @@ import {
   emptyWorkout,
   exceedsCaps,
   fromFullWorkout,
+  sameTree,
   toKeyedEntries,
+  type EditorExercise,
   type EditorWorkout,
 } from "@/lib/workoutEditor/model";
 import { useWorkoutAutosave } from "@/lib/workoutEditor/useWorkoutAutosave";
@@ -48,7 +50,11 @@ import {
   type StreamWorkoutChat,
 } from "@/lib/api/assistant";
 import { createChatStore, isBusy, locksEditor } from "@/lib/assistant/chat";
-import { LEAVE_WHILE_BUSY_MESSAGE, LEAVE_WITH_PROPOSAL_MESSAGE } from "@/lib/assistant/copy";
+import {
+  EDITS_REPLACED_MESSAGE,
+  LEAVE_WHILE_BUSY_MESSAGE,
+  LEAVE_WITH_PROPOSAL_MESSAGE,
+} from "@/lib/assistant/copy";
 import { proposalToExercises } from "@/lib/assistant/proposal";
 import type { DayOfWeek } from "@/lib/api/types";
 
@@ -194,6 +200,9 @@ export function WorkoutEditorSession({
   });
   const { draft, status, refusal } = state;
 
+  // The exercises the last message sent: a proposal is built on them, so edits made after the
+  // send (the editor unlocks while text streams, R20) are replaced, and the chat says so.
+  const sentExercises = useRef<EditorExercise[] | null>(null);
   // The assistant's chat lives as long as this editor mount (R4, R5): unmounting aborts the
   // message in flight, which is how every way out of the page stops it (R50, assessment F6).
   const [chat] = useState(() =>
@@ -208,6 +217,7 @@ export function WorkoutEditorSession({
       },
       buildRequest: () => {
         const current = engine.getState();
+        sentExercises.current = current.draft.exercises;
         return {
           trainingPlanId: planId,
           ...(current.workoutId !== null ? { workoutId: current.workoutId } : {}),
@@ -216,10 +226,14 @@ export function WorkoutEditorSession({
         };
       },
       onProposal: (entries) => {
-        const exercises = proposalToExercises(entries, engine.getState().draft.exercises);
+        const onScreen = engine.getState().draft.exercises;
+        const exercises = proposalToExercises(entries, onScreen);
         // The BFF enforces the caps (R31); one that slips through is never shown (R32).
         if (exceedsCaps(exercises)) throw new Error("Proposal over the workout caps");
+        const sent = sentExercises.current;
+        const editedSinceSend = sent !== null && !sameTree(sent, onScreen);
         engine.propose(exercises);
+        return editedSinceSend ? EDITS_REPLACED_MESSAGE : undefined;
       },
       stream: streamChat,
     }),
@@ -227,6 +241,7 @@ export function WorkoutEditorSession({
   useEffect(() => () => chat.dispose(), [chat]);
   const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState);
   const [panelOpen, setPanelOpen] = useState(false);
+  const aiButtonRef = useRef<HTMLButtonElement>(null);
   const chatBusy = assistantEnabled && isBusy(chatState);
   const locked = assistantEnabled && locksEditor(chatState);
   const review = state.review;
@@ -527,6 +542,7 @@ export function WorkoutEditorSession({
             <div className="flex items-center gap-[var(--space-3)]">
               {assistantEnabled && (
                 <AiAssistantButton
+                  ref={aiButtonRef}
                   open={panelOpen}
                   busy={chatBusy}
                   onClick={() => setPanelOpen((open) => !open)}
@@ -756,7 +772,10 @@ export function WorkoutEditorSession({
         onSend={() => void chat.send()}
         onStop={chat.stop}
         onRetry={() => void chat.retry()}
-        onClose={() => setPanelOpen(false)}
+        onClose={() => {
+          setPanelOpen(false);
+          aiButtonRef.current?.focus();
+        }}
       />
     )}
     </div>

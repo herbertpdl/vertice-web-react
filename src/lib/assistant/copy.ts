@@ -20,6 +20,8 @@ export const READY_MESSAGE = "Proposta pronta para revisão no editor.";
 export const DISCLAIMER = "A IA pode cometer erros. Revise antes de aplicar.";
 export const SAVE_FIRST_MESSAGE =
   "Salve o treino antes de enviar: use “Tentar novamente” no rodapé. Sua mensagem continua no campo.";
+export const EDITS_REPLACED_MESSAGE =
+  "Você editou o treino enquanto a IA respondia; a proposta foi montada sobre a versão enviada e substituiu essas edições. Refaça-as se precisar.";
 export const REVIEW_STATUS = "Proposta em revisão — ainda não salva";
 
 /** Copy per error code the assistant's stream (or its route) can answer. */

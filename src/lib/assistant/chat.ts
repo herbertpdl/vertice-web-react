@@ -71,8 +71,11 @@ export interface ChatDeps {
   prepare(): Promise<boolean>;
   /** The workout on screen (keyed, F5), read after `prepare` so a just-created workout has its id. */
   buildRequest(): Omit<WorkoutChatRequest, "history" | "message">;
-  /** A proposal arrived: the editor shows it in review (R25). Throwing rejects it (R32). */
-  onProposal(exercises: ProposalExercise[]): void;
+  /**
+   * A proposal arrived: the editor shows it in review (R25). Throwing rejects it (R32). A returned
+   * string is a notice shown under the ready line (edits the proposal replaced).
+   */
+  onProposal(exercises: ProposalExercise[]): string | void;
   stream: StreamWorkoutChat;
   timeoutMs?: number;
 }
@@ -263,14 +266,16 @@ export function createChatStore(deps: ChatDeps): ChatStore {
       }
       case "proposal": {
         armTimer(handle);
+        let notice: string | void;
         try {
-          deps.onProposal(event.exercises);
+          notice = deps.onProposal(event.exercises);
         } catch {
           end(handle, { kind: "error", text: assistantErrorMessage("AI_INVALID_PROPOSAL"), retryable: true });
           return;
         }
         closeStages(handle);
         push({ id: nextId("m"), turn: handle.turn, role: "assistant", kind: "ready", text: READY_MESSAGE });
+        if (notice) push({ id: nextId("m"), turn: handle.turn, role: "assistant", kind: "notice", text: notice });
         markAnswered(handle.turn);
         // R51's "left out" line arrives as text after this: a new bubble under the ready line.
         handle.textId = null;
