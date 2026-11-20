@@ -7,11 +7,14 @@ interface SwitchProps
 
 export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
   ({ label, className = "", id, checked, ...props }, ref) => {
+    // `aria-disabled` looks the same as `disabled` but keeps the switch focusable: a caller that
+    // ignores activation while a save is pending uses it so focus never drops to <body>.
+    const dimmed = props.disabled || props["aria-disabled"] === true || props["aria-disabled"] === "true";
     return (
       <label
         htmlFor={id}
         className={`font-base inline-flex items-center justify-between gap-[var(--space-4)] ${
-          props.disabled ? "opacity-35" : "cursor-pointer"
+          dimmed ? "opacity-35" : "cursor-pointer"
         } ${className}`}
       >
         {label && (
