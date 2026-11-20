@@ -62,6 +62,11 @@ export const adminKeys = {
     ["admin", "exercises", "most-used", { ...filters, ...page }] as const,
   /** `GET /muscle-groups` on the admin host, with `MUSCLE_GROUPS_STALE_TIME`. */
   muscleGroups: () => ["admin", "muscle-groups"] as const,
+  /**
+   * Every feature flag with its user settings (feature-flags spec D4): both flag pages read it, and
+   * every flag write invalidates exactly this key (no history entry, so never `actions()`).
+   */
+  featureFlags: () => ["admin", "feature-flags"] as const,
 };
 
 export function fetchAdminDashboard() {

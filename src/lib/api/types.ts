@@ -230,3 +230,28 @@ export type AssistantProposalEntry = Schemas["AssistantProposalEntry"];
 /** The assistant's error codes, before the stream (`AI_CATALOG_TOO_LARGE`, ...) or as `error` events. */
 export type AssistantErrorCode = Extract<ApiErrorCode, `AI_${string}`>;
 
+
+// --- Feature flags (`/admin/feature-flags`, ADMIN only; feature-flags spec §3, BFF FF7) ----------
+
+/**
+ * TODO(VRT-54, after the vertice-bff feature-flags routes merge): bump `.bff-ref` to that merge
+ * commit, run `npm run api:types`, then delete `NotYetGenerated` and alias the two schemas directly
+ * (`Schemas["AdminFeatureFlag"]`, `Schemas["AdminFeatureFlagList"]`) and fix what typecheck rejects.
+ *
+ * Until then the pinned OpenAPI document has no flag schemas, and a hand-written wire type is not
+ * allowed (feature-flags spec D12), so each alias resolves to the generated schema once it exists
+ * and is untyped (`any`) before that. Nothing about the shape is assumed here.
+ */
+type NotYetGenerated<Name extends string> = Name extends keyof Schemas
+  ? Schemas[Name & keyof Schemas]
+  : // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see the TODO above
+    any;
+
+/** One flag: `key`, `description` (shown as sent), `enabled` for everyone, `users` by `userId`. */
+export type FeatureFlag = NotYetGenerated<"AdminFeatureFlag">;
+
+/** `GET /admin/feature-flags`: every flag, ordered by key, unpaginated. */
+export type FeatureFlagList = NotYetGenerated<"AdminFeatureFlagList">;
+
+/** One user's own setting on a flag (`userId` a positive number, never identified). */
+export type FeatureFlagUser = FeatureFlag["users"][number];
