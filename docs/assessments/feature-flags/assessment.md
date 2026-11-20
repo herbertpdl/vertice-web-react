@@ -182,8 +182,8 @@ Nothing else found. Checked:
 - **Why it matters:** R18 sets no cap on user settings, so a dialog can grow long. A route gives a
   stable link and its own loading and error states. With settings inline, it costs no extra BFF
   read: it selects its flag from the list query.
-- **Recommendation:** Option A in §5, a detail route `/painel/flags/[key]` under the same nav
-  item. It is decided with the frames (Q1).
+- **Recommendation:** Option A, settled by the approved frame `gJQrD`: a detail route
+  `/painel/flags/[key]` under the same nav item (§5).
 
 Nothing else found. Checked:
 - the route group `(admin)` is covered by the layout check and the proxy;
@@ -202,8 +202,7 @@ Reused as-is:
 - `Button`, `Toast`, `TableRowSkeleton` (through `DataTable loading`).
 
 No new `ui` component, so no `pencil-design-audit` run is needed for this feature. A segmented
-ON/OFF control would be the only candidate, and `Dropdown` makes it unnecessary unless the frames
-choose otherwise. `Dropdown` already portals (the reference pattern), so nothing clips.
+ON/OFF control would be the only candidate, and the approved frames use `Dropdown` instead. `Dropdown` already portals (the reference pattern), so nothing clips.
 
 Frames: the file had no feature-flags frames before. Step 4 drafted these on 2026-11-20, all
 **approved by the owner (design-ok, 2026-11-20)** (W1, Q1 resolved). The history table needs no new frame (R23
@@ -232,13 +231,13 @@ key may appear (in the monospace style), and the description is developer-writte
 sent (R3). The spec must not introduce a per-flag copy map. The frames follow this rule: both
 confirmations, the save error, the toasts and the 404 state are generic.
 
-Choices made in the draft that the owner may want to change:
-- Option A (detail route) for the per-user list (W5).
+Choices fixed by the approved frames:
+- Option A (detail route, `gJQrD`) for the per-user list (W5).
 - The ON/OFF choice on add uses the existing `Dropdown` ("Configuração": Ligado/Desligado), and a
   user row flips with a `Switch`. No new kit component.
 - The flag key is shown in a monospace font (W10). A list row's action is "Ver usuários".
 - No phone frame: the admin panel is used on a computer, and the `fXng6` row pattern applies
-  unchanged. The spec can ask for one if the owner wants it.
+  unchanged.
 
 ### 5. Data fetching and cache invalidation
 
@@ -393,7 +392,7 @@ Where a flag's user settings live (W5):
   many users, nests a `Switch` and a `Dropdown` inside a `Dialog`, and is the first admin dialog
   that saves several independent writes.
 
-The frames (Q1) settle it. Both read the same list query, since the settings are inline (A1).
+The approved frames chose A. Both options would read the same list query, since the settings are inline (A1).
 
 ## 6. Testing strategy
 
@@ -481,7 +480,7 @@ Stories can be built against the documented contract before step 2 merges.
   no per-flag copy map.
 - W4: absolute-value writes, with the confirm dialog's captured target state as the request body;
   no optimistic flip.
-- W5: Option A (detail route) unless the frames choose a dialog.
+- W5: Option A (detail route, `gJQrD`).
 - W6: the number schema (a positive safe integer), and no profile links anywhere for flag users.
 - W7: one key `adminKeys.featureFlags()`; writes invalidate only that key (not the history); a
   client-side, accent-insensitive filter, with `?q=` in the URL.
