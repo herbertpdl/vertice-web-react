@@ -121,7 +121,7 @@ engine.
 
 ### 1. PRD fit and the design gate
 
-**W1 (High, resolved 2026-11-20: design-ok). The design frames are drafted, but not approved.**
+**W1 (High, resolved). The design frames are approved (design-ok, 2026-11-20).**
 - **What:** Screens change (owner decision), and the PRD defines a new page, a per-user view and a
   confirmation. A first attempt at step 4 was blocked by pen.dev's plan limit. After the owner
   upgraded the plan (2026-11-20), step 4 drafted the frames in dimension 4's table. They reuse
@@ -130,10 +130,10 @@ engine.
 - **Where:** new `src/app/(admin)/painel/flags/**`; PRD R1–R4, R11–R17, E7, E13; CLAUDE.md
   "Design gate".
 - **Why it matters:** The admin pages are built from approved frames, and their doc comments cite
-  frame ids (`HistoryContent.tsx:113`, `ExercisesContent.tsx:204`). Drafted frames are never
-  approved frames.
-- **Recommendation:** The owner reviews section `tk2sX` and approves it or asks for changes (Q1).
-  Spec writing can start against these frames, but implementation waits for approval.
+  frame ids (`HistoryContent.tsx:113`, `ExercisesContent.tsx:204`). With the frames approved, the
+  design gate no longer blocks this feature.
+- **Recommendation:** Done. The spec and the implementation cite the `tk2sX` frame ids (dimension
+  4's table, §9) the same way the other admin pages do.
 
 **W10 (Info). A flag's "name" is its key.**
 - **What:** The API assessment defines a flag as a key, a description and the everyone state
@@ -477,8 +477,6 @@ Stories can be built against the documented contract before step 2 merges.
   - detail `gJQrD` (add form, per-user rows, pending row, toast);
   - detail empty with invalid number `oONTU`, detail loading `MzesP`, flag removed (404) `vJYcq`;
   - toasts `z4yUNx`.
-
-  Implementation waits for owner approval.
 - Copy: dialogs and toasts use generic copy; the only per-flag text is the flag's description. There is
   no per-flag copy map.
 - W4: absolute-value writes, with the confirm dialog's captured target state as the request body;
