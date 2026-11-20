@@ -369,7 +369,7 @@ later (PRD §6 deferred).
   `src/components/domain/WorkoutEditor/WorkoutEditor.tsx:101-106` (on `main` at 9a386d8) reads
   `GET /api/assistant/status`
   (a per-trainer `{ enabled }`, not a field of `/auth/me`) with `staleTime: 5 * 60_000` and
-  `retry: false`. With that, a flag change can take about 5 minutes to show in an open editor,
+  `retry: false`. With that, a flag change shows only on the next mount or focus once the 5-minute `staleTime` has passed, so it can take minutes or longer in an open editor,
   against R21's "about one minute". The agreed budget across the three repos is:
   - the API caches flags for at most 30 s;
   - the BFF caches nothing, and gives the evaluation a 20 s deadline, so the first call after an
@@ -379,8 +379,7 @@ later (PRD §6 deferred).
   React Query never refetches on staleness alone: without an interval, an open, focused editor
   would only see a change on remount or focus. With the interval, the worst case is about 60 s
   (API 30 s + interval 30 s). The cost is one status call per 30 s per open, visible editor,
-  answered from the API's 30 s cache. Turning the flag off is still enforced at once by the chat's
-  503.
+  answered from the API's 30 s cache. Turning the flag off is still enforced by the chat's 503 within the API's 30 s cache.
 - **Where:** `src/components/domain/WorkoutEditor/WorkoutEditor.tsx:101-106` (the query) and its
   comment at `:99-100`, both on `main` at 9a386d8 (the PR's base predates them); `src/lib/api/assistant.ts:8` (the `fetchAssistantStatus` comment). Both
   comments name the env switch `AI_ASSISTANT_ENABLED`, which R27 removes.
