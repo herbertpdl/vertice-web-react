@@ -41,7 +41,7 @@ an owner decision.
 | D8 | **The list's search is client-side, over key and description.** `filterFeatureFlags(flags, q)`: trimmed, case- and accent-insensitive (`normalize("NFD")`, combining marks removed, `toLocaleLowerCase("pt-BR")`), a substring of the key or the description. No debounce and no request. The query lives in the URL as `?q=` (`router.replace`, as `ExercisesContent` does), bounded by `ADMIN_SEARCH_MAX`. | R4, E7, W7 |
 | D9 | **Per-row pending state, and every save single-flight.** "Adicionar" is disabled while its mutation is pending (plus a submitting ref, as `ConfirmDialog` does), so a double click sends one request. A user row's switch and remove button are disabled while any mutation for that user number is pending (the add included). A pending remove shows "Removendo…" with the `Spinner` in place of the row's actions (frame `gJQrD`). A pending switch stays disabled at its old state. Different rows may save at the same time. | W8, R14 |
 | D10 | **Errors: one generic save failure, one "flag gone" path.** A failed write shows "Não foi possível salvar. Tente de novo." (in the dialog for the everyone switch, frame `vBk8U`; as an error toast otherwise). A `NOT_FOUND` on any write means developers removed the flag (E9): the dialog closes, the toast says "Esta flag não existe mais. A lista foi atualizada.", and the list key is invalidated. On the detail page the refetched list no longer has the key, so the page shows "Flag não encontrada" (frame `vJYcq`). A detail URL whose key isn't in the list shows the same state. A 401 follows `apiClient`'s existing admin sign-out. The copy is keyed on `error.code` (`flagSaveErrorMessage` in `src/lib/admin/featureFlags.ts`), never on `error.message`; it is generic for every other code because the approved frames are. | W8, E9 |
-| D11 | **The editor's assistant-status query follows the R21 budget.** `WorkoutEditor.tsx:101-106` (on `main` at c935896) changes from `staleTime: 5 * 60_000, retry: false` to `staleTime: 30_000, refetchInterval: 30_000, retry: 1` (`refetchIntervalInBackground` stays at its default `false`, so a hidden tab doesn't poll). Worst case about 60 s (API cache 30 s + interval 30 s); cost one status call per 30 s per open, visible editor. Any failure still hides the AI button. The two comments that name `AI_ASSISTANT_ENABLED` as a BFF env switch (`WorkoutEditor.tsx:99-100`, `assistant.ts:8`) are rewritten (§8). | W11, R7, R21, R22, R27, E10, E11 |
+| D11 | **The editor's assistant-status query follows the R21 budget.** `WorkoutEditor.tsx:101-106` (on `main` at c935896) changes from `staleTime: 5 * 60_000, retry: false` to `staleTime: 30_000, refetchInterval: 30_000, retry: 1` (`refetchIntervalInBackground` stays at its default `false`, so a hidden tab doesn't poll). Worst case about 60 s (API cache 30 s + interval 30 s); cost one status call per 30 s per open, visible editor. A failure before the first success hides the AI button; a later failed poll keeps the last data. **A flip to off never interrupts the assistant (§8.1):** `WorkoutEditorSession` latches the last `true` while the chat is busy, a proposal is in review or the panel is open, and applies `false` only once all three are idle; a flip to on applies at once. The two comments that name `AI_ASSISTANT_ENABLED` as a BFF env switch (`WorkoutEditor.tsx:99-100`, `assistant.ts:8`) are rewritten (§8). | W11, R7, R21, R22, R27, E10, E11 |
 | D12 | **Built against the documented contract, merged after the BFF.** The wrappers and screens are written against §3 and developed with stories over a fetch stub. Types come only from the generated `schema.ts`: during development, `.bff-ref` points at the BFF implementation branch's commit and `npm run api:types -- --local` reads it; before merging, `.bff-ref` holds the BFF merge commit. No wire type is hand-written. | **W2 (Blocker)** |
 | D13 | **No history, no reason, no create or delete.** `src/lib/admin/actions.ts`, `HistoryContent.tsx` and `contract.test.ts` don't change. No write takes a reason. The page has no control to create or delete a flag. | R9, R23 (withdrawn), R24 |
 
@@ -213,9 +213,10 @@ mutation already does.
 `WorkoutEditor.tsx` on `main` at c935896, lines 99-106, becomes:
 
 ```tsx
-  // The AI button exists only while the assistant is on for this trainer: the `AI_ASSISTANT_ENABLED`
-  // flag, set on the admin "Feature flags" page. Polled every 30 s while the tab is visible, so a
-  // change reaches an open editor within about a minute. Any failure keeps the button hidden.
+  // Whether the assistant is on for this trainer: the `AI_ASSISTANT_ENABLED` flag, set on the admin
+  // "Feature flags" page. Polled every 30 s while the tab is visible, so a change reaches an open
+  // editor within about a minute. A failure before the first answer keeps the AI button hidden; a
+  // later failed poll keeps the last answer. WorkoutEditorSession never turns it off mid-use.
   const { data: assistantStatus } = useQuery({
     queryKey: assistantStatusQueryKey,
     queryFn: fetchAssistantStatus,
@@ -227,8 +228,30 @@ mutation already does.
 
 `assistant.ts:8` becomes: `` /** `GET /assistant/status`: whether the `AI_ASSISTANT_ENABLED` flag is on for this trainer (the AI button's switch). */ ``.
 
-A chat sent after the flag turned off is refused by the BFF with 503 `AI_UNAVAILABLE`, which the
-editor already shows as its "unavailable" state; nothing changes there.
+Line 133 passes the server value as before, renamed `assistantAvailable={assistantStatus?.enabled === true}`
+(the `WorkoutEditorSessionProps` field is renamed with it, stories included).
+
+### 8.1 A flip to off while the assistant is in use
+
+`assistantEnabled` gates four things in `WorkoutEditorSession` (c935896): `chatBusy` (:245, which
+feeds `warnOnLeave` :284 and the "Concluir" confirm :374-376), `locked` (:246, the `inert` at
+:515/:551/:601), the AI button (:543) and `AiChatPanel` (:768). `engine.propose` and the review
+(:556) are not gated. A raw `false` arriving mid-build would therefore lift the lock and unmount
+the panel while the proposal still lands in a now-unlocked editor.
+
+So the session derives the effective value from the server's, during render (no effect):
+
+```tsx
+const [assistantEnabled, setAssistantEnabled] = useState(assistantAvailable);
+const assistantInUse = isBusy(chatState) || state.review !== null || panelOpen;
+if (assistantAvailable && !assistantEnabled) setAssistantEnabled(true);           // on: at once
+if (!assistantAvailable && assistantEnabled && !assistantInUse) setAssistantEnabled(false); // off: once idle
+```
+
+`chatState`, `state` and `panelOpen` are declared before it, and everything at :245-:768 reads
+`assistantEnabled` as today. While the latch holds `true`, the trainer may send again: the BFF
+answers 503 `AI_UNAVAILABLE`, which the panel already shows as its "unavailable" state. Closing
+the panel (with the chat idle and no review) then hides the button.
 
 ## 9. Tests
 
@@ -254,7 +277,12 @@ editor already shows as its "unavailable" state; nothing changes there.
   the opposite of what it shows and stays put until the response; remove shows "Removendo…" and
   sends once; empty; loading; list error; unknown key; a 404 on a write leads to "Flag não
   encontrada".
-- The workout editor's stories need no change; its query options are not story-tested.
+- `WorkoutEditorSession.stories.tsx` gains `AssistantTurnedOffWhileBuilding`: `assistantAvailable`
+  starts `true`, the trainer sends, and while the stub stream is in `building` the story re-renders
+  with `assistantAvailable={false}`. The editor stays locked (`inert`), the panel stays open, the
+  proposal reaches review; after discarding it and closing the panel, the AI button is gone. The
+  existing stories pass the renamed prop. The query options themselves (interval, retry) are not
+  story-tested.
 
 Pages stay untested, as in the rest of the panel.
 
