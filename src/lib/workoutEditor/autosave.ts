@@ -352,6 +352,12 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
       setState({ status: "error", errorMessage: errorMessage(error) });
     } finally {
       running = false;
+      // A save that finished during a review moved the saved workout: the markers and
+      // "Descartar" compare against what is saved now.
+      if (state.review && snapshot) {
+        beforeReview = { ...snapshot, name: beforeReview?.name ?? snapshot.name };
+        setState({ review: { base: snapshot.exercises } });
+      }
     }
   }
 
@@ -457,7 +463,9 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
    */
   function revertTree(error?: unknown) {
     const base = baseline();
-    const draft = { ...state.draft, exercises: base.exercises };
+    // In review the draft is the proposal: a save that began before it was proposed must not
+    // undo it (only the review's saved base is what that save left unchanged).
+    const draft = state.review ? state.draft : { ...state.draft, exercises: base.exercises };
     const limit = limitMessage(error);
     setState({
       draft,
@@ -607,7 +615,9 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
     hasSaved = true;
     let draft = mergeIds(state.draft, snapshot!);
     if (restoredExercises.length > 0 || restoredSets.length > 0) {
-      draft = reinsertRestored(draft, restoredExercises, restoredSets);
+      // In review the proposal keeps its shape; the refused items stay in the saved base (the
+      // snapshot still has them), and "Aplicar" names them again if the proposal removes them.
+      if (!state.review) draft = reinsertRestored(draft, restoredExercises, restoredSets);
       setState({ draft, refusal: removalRefusal(restoredExercises, restoredSets) });
     } else {
       setState({ draft });

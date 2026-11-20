@@ -847,6 +847,27 @@ describe("assistant review mode (ai-workout-assistant spec, F4)", () => {
     expect(vi.mocked(transport.create).mock.calls[0][1].name).toBe("Novo treino");
   });
 
+  it("a save in flight when the proposal arrives never changes the proposal, even when it is refused", async () => {
+    const transport = makeTransport();
+    let reject!: (e: unknown) => void;
+    vi.mocked(transport.replace).mockImplementationOnce(
+      () => new Promise((_, r) => (reject = r)),
+    );
+    const { engine, initial } = savedEngine(transport);
+    engine.dispatch({ type: "addSet", exerciseKey: initial.exercises[0].key });
+    const saving = engine.flush();
+    await settle();
+    const proposal = [...initial.exercises, newExercise(puxada)];
+    engine.propose(proposal);
+    reject(apiError("VALIDATION_ERROR", 400));
+    await saving;
+    await settle();
+    expect(engine.getState().draft.exercises.map((we) => we.exercise.id)).toEqual([1, 2]);
+    expect(engine.getState().review?.base).toEqual(initial.exercises);
+    engine.discardProposal();
+    expect(engine.getState().draft.exercises).toEqual(initial.exercises);
+  });
+
   it("a refused removal on apply keeps every protected item and names them together (R41, E16a)", async () => {
     const transport = makeTransport();
     const initial = fromFullWorkout(
