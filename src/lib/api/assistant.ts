@@ -5,7 +5,7 @@ import type { AssistantStatus } from "./types";
 
 export const assistantStatusQueryKey = ["assistantStatus"] as const;
 
-/** `GET /assistant/status`: the BFF's `AI_ASSISTANT_ENABLED`, the one switch for the AI button. */
+/** `GET /assistant/status`: whether the `AI_ASSISTANT_ENABLED` flag is on for this trainer (the AI button's switch). */
 export function fetchAssistantStatus(): Promise<AssistantStatus> {
   return apiClient.get<AssistantStatus>("/assistant/status");
 }

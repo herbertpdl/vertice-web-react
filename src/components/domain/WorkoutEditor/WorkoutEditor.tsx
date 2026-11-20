@@ -96,13 +96,16 @@ export function WorkoutEditor({
   });
   useRedirectOnError(workoutError, `/planos/${planId}`);
 
-  // The AI button exists only while the BFF says the assistant is on (its `AI_ASSISTANT_ENABLED`,
-  // off by default). Any failure keeps it hidden: the editor never depends on this call.
+  // Whether the assistant is on for this trainer: the `AI_ASSISTANT_ENABLED` flag, set on the admin
+  // "Feature flags" page. Polled every 30 s while the tab is visible, so a change reaches an open
+  // editor within about a minute. A failure before the first answer keeps the AI button hidden; a
+  // later failed poll keeps the last answer. WorkoutEditorSession never turns it off mid-use.
   const { data: assistantStatus } = useQuery({
     queryKey: assistantStatusQueryKey,
     queryFn: fetchAssistantStatus,
-    staleTime: 5 * 60_000,
-    retry: false,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    retry: 1,
   });
 
   // The session only reads `initial` at mount, so it is computed once here
@@ -130,7 +133,7 @@ export function WorkoutEditor({
       planName={plan?.name}
       clientId={plan?.clientId}
       studentName={student?.name}
-      assistantEnabled={assistantStatus?.enabled === true}
+      assistantAvailable={assistantStatus?.enabled === true}
     />
   );
 }
@@ -147,8 +150,11 @@ export interface WorkoutEditorSessionProps {
   /** Test/story hook: replaces `DELETE /workouts/:id`. */
   deleteWorkout?: (id: number) => Promise<unknown>;
   delayMs?: number;
-  /** Shows the AI assistant (ai-workout-assistant spec, "Switching it on"). */
-  assistantEnabled?: boolean;
+  /**
+   * The server's answer: the AI assistant is on for this trainer (ai-workout-assistant spec,
+   * "Switching it on"; feature-flags spec §8). A flip to off waits until the assistant is idle.
+   */
+  assistantAvailable?: boolean;
   /** Test/story hook: replaces the assistant's stream. */
   streamChat?: StreamWorkoutChat;
 }
@@ -163,7 +169,7 @@ export function WorkoutEditorSession({
   transport,
   deleteWorkout = deleteWorkoutRequest,
   delayMs,
-  assistantEnabled = false,
+  assistantAvailable = false,
   streamChat = streamWorkoutChat,
 }: WorkoutEditorSessionProps) {
   const router = useRouter();
@@ -242,6 +248,15 @@ export function WorkoutEditorSession({
   const chatState = useSyncExternalStore(chat.subscribe, chat.getState, chat.getState);
   const [panelOpen, setPanelOpen] = useState(false);
   const aiButtonRef = useRef<HTMLButtonElement>(null);
+  const addExerciseRef = useRef<HTMLButtonElement>(null);
+  const nameFieldRef = useRef<HTMLInputElement>(null);
+  // The effective switch (feature-flags spec §8.1): a flip to on applies at once, a flip to off only
+  // once the chat is idle, no proposal is in review and the panel is closed, so the flag never
+  // unlocks the editor or unmounts the panel while a proposal is on its way. Derived during render.
+  const [assistantEnabled, setAssistantEnabled] = useState(assistantAvailable);
+  const assistantInUse = isBusy(chatState) || state.review !== null || panelOpen;
+  if (assistantAvailable && !assistantEnabled) setAssistantEnabled(true);
+  if (!assistantAvailable && assistantEnabled && !assistantInUse) setAssistantEnabled(false);
   const chatBusy = assistantEnabled && isBusy(chatState);
   const locked = assistantEnabled && locksEditor(chatState);
   const review = state.review;
@@ -465,7 +480,7 @@ export function WorkoutEditorSession({
           Usar treino existente como base
         </Button>
       )}
-      <Button onClick={() => setAddOpen(true)} disabled={atCap}>
+      <Button ref={addExerciseRef} onClick={() => setAddOpen(true)} disabled={atCap}>
         + Adicionar exercício
       </Button>
     </div>
@@ -514,6 +529,7 @@ export function WorkoutEditorSession({
         >
           <div className="flex items-start gap-[var(--space-4)]" inert={locked}>
             <TextField
+              ref={nameFieldRef}
               label="Nome do treino"
               placeholder="Treino A — Superior"
               value={draft.name}
@@ -774,7 +790,12 @@ export function WorkoutEditorSession({
         onRetry={() => void chat.retry()}
         onClose={() => {
           setPanelOpen(false);
-          aiButtonRef.current?.focus();
+          // Closing may be what lets a flip to off hide the AI button (§8.1): decided here, from the
+          // latch's inputs, since the button unmounts in this same render.
+          const buttonGoes = !assistantAvailable && !isBusy(chatState) && state.review === null;
+          if (!buttonGoes) aiButtonRef.current?.focus();
+          else if (!atCap) addExerciseRef.current?.focus(); // "+ Adicionar exercício", always rendered
+          else nameFieldRef.current?.focus(); // at the cap that button is disabled
         }}
       />
     )}
