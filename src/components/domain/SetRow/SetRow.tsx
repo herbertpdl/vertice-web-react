@@ -10,6 +10,7 @@ import {
   type SetStrategyFormInput,
 } from "@/lib/validation/exerciseSets";
 import type { EditorSet, SetFields } from "@/lib/workoutEditor/model";
+import type { SetDiff } from "@/lib/workoutEditor/proposalDiff";
 
 const strategyOptions = Object.entries(setStrategyLabels).map(([value, label]) => ({
   value,
@@ -50,7 +51,9 @@ function Cell({
   kind,
   bounds,
   ariaLabel,
+  highlight = false,
 }: {
+  highlight?: boolean;
   value: string;
   onCommit: (value: string) => void;
   placeholder?: string;
@@ -90,7 +93,11 @@ function Cell({
         }
       }}
       className={`w-full rounded-[var(--radius-sm)] border bg-[var(--color-bg)] px-[10px] py-[7px] text-[12px] text-[color:var(--color-text-primary)] outline-none transition-colors placeholder:text-[color:var(--color-text-tertiary)] focus:border-[var(--color-primary)] ${
-        valid ? "border-[var(--color-border)]" : "border-[var(--color-danger)]"
+        !valid
+          ? "border-[var(--color-danger)]"
+          : highlight
+            ? "border-[var(--color-warning)] bg-[#ffb0201f]"
+            : "border-[var(--color-border)]"
       }`}
     />
   );
@@ -108,6 +115,8 @@ export interface SetRowProps {
   dragging?: boolean;
   /** A removal of this set was refused and undone (R27). */
   refused?: boolean;
+  /** AI proposal in review (ai-workout-assistant R33): "Novo", or the changed cells highlighted. */
+  diff?: SetDiff;
   onDragStart?: (event: DragEvent<HTMLDivElement>) => void;
   onDragEnd?: () => void;
 }
@@ -121,9 +130,11 @@ export function SetRow({
   duplicateDisabled,
   dragging,
   refused,
+  diff,
   onDragStart,
   onDragEnd,
 }: SetRowProps) {
+  const changed = (field: SetDiff["fields"][number]) => diff?.marker === "changed" && diff.fields.includes(field);
   // Only a drag that starts on the grip handle moves the row, so text
   // selection inside the cells keeps working.
   const [armed, setArmed] = useState(false);
@@ -136,7 +147,9 @@ export function SetRow({
     ? "rounded-[var(--radius-md)] border border-[var(--color-primary)] bg-[var(--color-surface-hover)] px-[8px] py-[4px] shadow-[0_8px_24px_#00000080]"
     : refused
       ? "rounded-[var(--radius-sm)] border border-[var(--color-danger)] px-[6px] py-[3px]"
-      : "";
+      : diff?.marker === "new"
+        ? "rounded-[var(--radius-sm)] border border-[var(--color-secondary)] bg-[#7c4dff0f] px-[6px] py-[3px]"
+        : "";
 
   return (
     <div
@@ -171,16 +184,19 @@ export function SetRow({
         <span className="text-[13px] font-semibold text-[color:var(--color-text-tertiary)]">
           {setNumber}
         </span>
-        <Dropdown
-          size="compact"
-          options={strategyOptions}
-          value={set.strategy}
-          onChange={(value) => onUpdate({ strategy: value as SetStrategyFormInput })}
-        />
+        <div className={changed("strategy") ? "rounded-[var(--radius-sm)] ring-1 ring-[var(--color-warning)]" : ""}>
+          <Dropdown
+            size="compact"
+            options={strategyOptions}
+            value={set.strategy}
+            onChange={(value) => onUpdate({ strategy: value as SetStrategyFormInput })}
+          />
+        </div>
         <Cell
           kind="integer"
           bounds={{ max: REPS_MAX }}
           ariaLabel={`Reps da série ${setNumber}`}
+          highlight={changed("reps")}
           value={set.reps !== undefined ? String(set.reps) : ""}
           placeholder="reps"
           onCommit={(v) => onUpdate({ reps: v === "" ? undefined : Number(v) })}
@@ -189,6 +205,7 @@ export function SetRow({
           kind="decimal"
           bounds={{ intDigits: 4, decDigits: 2 }}
           ariaLabel={`Peso da série ${setNumber}`}
+          highlight={changed("weight")}
           value={set.weight ?? ""}
           placeholder="kg"
           onCommit={(v) => onUpdate({ weight: v === "" ? undefined : v })}
@@ -197,6 +214,7 @@ export function SetRow({
           kind="decimal"
           bounds={{ intDigits: 3, decDigits: 2 }}
           ariaLabel={`%1RM da série ${setNumber}`}
+          highlight={changed("loadPercentage")}
           value={set.loadPercentage ?? ""}
           placeholder="%"
           onCommit={(v) => onUpdate({ loadPercentage: v === "" ? undefined : v })}
@@ -205,6 +223,7 @@ export function SetRow({
           kind="integer"
           bounds={{ max: REST_SECONDS_MAX }}
           ariaLabel={`Descanso da série ${setNumber}`}
+          highlight={changed("rest")}
           value={set.restSeconds !== undefined ? String(set.restSeconds) : ""}
           placeholder="s"
           onCommit={(v) => onUpdate({ restSeconds: v === "" ? undefined : Number(v) })}
@@ -243,6 +262,17 @@ export function SetRow({
           >
             <X width={15} height={15} />
           </button>
+          {diff && !refused && (
+            <span
+              className={`ml-[10px] rounded-[var(--radius-full)] px-[10px] py-[3px] text-[11px] font-semibold whitespace-nowrap ${
+                diff.marker === "new"
+                  ? "bg-[#7c4dff26] text-[color:var(--color-secondary-hover)]"
+                  : "bg-[#ffb02026] text-[color:var(--color-warning)]"
+              }`}
+            >
+              {diff.marker === "new" ? "Novo" : "Alterado"}
+            </span>
+          )}
           {refused && (
             <span className="ml-[10px] flex items-center gap-[6px] rounded-[var(--radius-full)] bg-[#ff5c5c26] px-[10px] py-[3px] text-[11px] font-semibold whitespace-nowrap text-[color:var(--color-danger)]">
               <Lock width={11} height={11} />

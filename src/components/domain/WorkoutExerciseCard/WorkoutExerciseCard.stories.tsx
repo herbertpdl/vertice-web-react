@@ -186,3 +186,32 @@ export const CollapsedDragging: Story = {
     await expect(canvas.getByRole("button", { name: "Arrastar exercício 1" })).toBeVisible();
   },
 };
+
+/** An exercise the AI proposal adds (ai-workout-assistant R33): "Novo" on the card. */
+export const ProposalNew: Story = {
+  args: { exercise: agachamentoCard, diff: { marker: "new", fields: [], sets: {}, removedSets: 0 } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Novo")).toBeVisible();
+  },
+};
+
+/** An exercise the AI proposal changes: "Alterado", the changed cells highlighted, a new set, a dropped one. */
+export const ProposalChanged: Story = {
+  args: {
+    exercise: supinoCard,
+    diff: {
+      marker: "changed",
+      fields: ["rest"],
+      sets: {
+        [supinoCard.sets[1].key]: { marker: "changed", fields: ["reps", "weight"] },
+        [supinoCard.sets[3].key]: { marker: "new", fields: [] },
+      },
+      removedSets: 1,
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByText("Alterado")).toHaveLength(2);
+    await expect(canvas.getByText("Novo")).toBeVisible();
+    await expect(canvas.getByText("1 série removida")).toBeVisible();
+  },
+};

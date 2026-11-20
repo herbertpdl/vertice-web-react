@@ -73,6 +73,11 @@ export interface AutosaveState {
   refusal: Refusal | null;
   /** Message behind the footer's "Erro ao salvar" state, when one is known. */
   errorMessage: string | null;
+  /**
+   * An assistant proposal is in review (AI assistant R34, R43): nothing is saved until
+   * `applyProposal`. `base` is the last saved tree, the markers' and "Descartar"'s reference.
+   */
+  review: { base: EditorExercise[] } | null;
 }
 
 export interface AutosaveOptions {
@@ -99,6 +104,16 @@ export interface AutosaveEngine {
   fail(message: string): void;
   /** Replaces the `onSaved` callback (React re-renders hand in a fresh closure). */
   setOnSaved(callback: AutosaveOptions["onSaved"]): void;
+  /**
+   * Shows an assistant proposal (AI assistant spec, "Review mode"): replaces the draft's exercises
+   * and holds the engine. The first call remembers the current draft — just flushed, so saved —
+   * as what "Descartar" restores; later calls (chained proposals, E15) keep it.
+   */
+  propose(exercises: EditorExercise[]): void;
+  /** "Aplicar" (R38): releases and saves the draft as it stands now. */
+  applyProposal(): Promise<void>;
+  /** "Descartar" (R39): back to the draft as it was before the first proposal; nothing is sent. */
+  discardProposal(): void;
   /**
    * The workout was deleted: drop the armed debounce and ignore every later edit, flush and retry,
    * so nothing PATCHes (or re-creates under) a workout that is gone. A run already in flight
@@ -237,7 +252,11 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
     mode: "replace",
     refusal: null,
     errorMessage: null,
+    review: null,
   };
+  // The draft before the first proposal of a review (what "Descartar" restores).
+  let beforeReview: EditorWorkout | null = null;
+  let offersCloneBeforeReview = false;
   // Last server-confirmed state (null until a new workout is created).
   let snapshot: EditorWorkout | null = options.workoutId === null ? null : initial;
   let hasSaved = false;
@@ -283,6 +302,8 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
 
   function schedule() {
     clearTimer();
+    // Held for review: edits stay on screen, nothing is armed (R34, R43).
+    if (state.review) return;
     if (!isDirty(state.draft)) {
       // Edited back to what the server has: nothing to send. A run in progress
       // settles the status itself when it ends.
@@ -298,7 +319,7 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
 
   function flush(): Promise<void> {
     clearTimer();
-    if (disposed) return queue;
+    if (disposed || state.review) return queue;
     if (queuedFlush) return queue;
     queuedFlush = true;
     queue = queue.then(async () => {
@@ -621,6 +642,39 @@ export function createAutosaveEngine(options: AutosaveOptions): AutosaveEngine {
         await flush();
       } while (queuedFlush || timer !== null);
       return state.status !== "error";
+    },
+    propose(exercises) {
+      if (disposed) return;
+      clearTimer();
+      if (!state.review) {
+        beforeReview = state.draft;
+        offersCloneBeforeReview = state.offersClone;
+      }
+      setState({
+        draft: { ...state.draft, exercises },
+        review: { base: beforeReview!.exercises },
+        offersClone: false,
+        refusal: null,
+      });
+    },
+    async applyProposal() {
+      if (!state.review) return;
+      beforeReview = null;
+      setState({ review: null });
+      await flush();
+    },
+    discardProposal() {
+      if (!state.review) return;
+      // A save that was still in flight when the review began may have assigned ids since.
+      const restored = snapshot ? mergeIds(beforeReview!, snapshot) : beforeReview!;
+      beforeReview = null;
+      setState({
+        draft: restored,
+        review: null,
+        offersClone: offersCloneBeforeReview,
+        refusal: null,
+      });
+      schedule();
     },
     dismissRefusal() {
       if (state.refusal) setState({ refusal: null });

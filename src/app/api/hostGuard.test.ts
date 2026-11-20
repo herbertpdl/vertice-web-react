@@ -11,6 +11,7 @@ const EXPECTED: Record<string, "trainer" | "admin" | "any"> = {
   "auth/password/setup": "trainer",
   "auth/logout": "trainer",
   "bff/[...path]": "any",
+  "assistant/workout-chat": "trainer",
   "admin/auth/login": "admin",
   "admin/auth/enroll": "admin",
   "admin/auth/verify": "admin",

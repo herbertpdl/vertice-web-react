@@ -70,7 +70,7 @@ function bffFetch(
  * serves, the admin cookies are cleared and the admin lands on `/painel/entrar?motivo=expirou`;
  * anywhere else, today's `/api/auth/logout` → `/login`.
  */
-function failure(res: Response, data: unknown): ApiError {
+export function failure(res: Response, data: unknown): ApiError {
   const error = apiErrorFrom(res, data);
   if (res.status === 401 && typeof window !== "undefined" && !loggingOut) {
     loggingOut = true;
@@ -92,7 +92,7 @@ function failure(res: Response, data: unknown): ApiError {
   return error;
 }
 
-function parseJson(text: string): unknown {
+export function parseJson(text: string): unknown {
   try {
     return text ? JSON.parse(text) : undefined;
   } catch {

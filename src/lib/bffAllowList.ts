@@ -27,6 +27,9 @@ export function bffPathAllowed(workspace: Workspace, method: string, upstreamPat
   // Lower-cased for the prefix checks, so `/Admin/auth/...` can't slip past them either way.
   const path = upstreamPath.toLowerCase();
   if (isUnder(path, "/admin/auth")) return false;
+  // The assistant's answer is a stream; this proxy buffers it. Only the dedicated
+  // `/api/assistant/workout-chat` handler forwards it (ai-workout-assistant spec, "Transport").
+  if (isUnder(path, "/assistant/workout-chat")) return false;
   if (workspace === "trainer") return !isUnder(path, "/admin");
   return isUnder(path, "/admin") || ADMIN_EXTRA.has(`${method.toUpperCase()} ${upstreamPath}`);
 }

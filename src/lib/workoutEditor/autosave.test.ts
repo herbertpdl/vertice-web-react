@@ -3,7 +3,7 @@ import { ApiError } from "@/lib/api/client";
 import { errorMessages } from "@/lib/api/errorMessages";
 import type { Exercise, FullWorkout, FullWorkoutExercise } from "@/lib/api/types";
 import { createAutosaveEngine, type AutosaveTransport } from "./autosave";
-import { emptyWorkout, fromFullWorkout } from "./model";
+import { emptyWorkout, fromFullWorkout, newExercise } from "./model";
 
 const supino: Exercise = { id: 1, name: "Supino Reto", description: "", videoUrl: "", muscleGroups: [{ id: 1, name: "Peito" }], isStarter: true };
 const puxada: Exercise = { id: 2, name: "Puxada Alta", description: "", videoUrl: "", muscleGroups: [{ id: 2, name: "Costas" }], isStarter: true };
@@ -780,5 +780,95 @@ describe("existing workout", () => {
     const { transport, engine } = setup();
     expect(await engine.finish()).toBe(true);
     expect(transport.calls).toEqual([]);
+  });
+});
+
+describe("assistant review mode (ai-workout-assistant spec, F4)", () => {
+  function savedEngine(transport = makeTransport()) {
+    const initial = fromFullWorkout(
+      fullFromEntries(5, "Treino A", [{ exerciseId: 1, sets: [{ reps: 10 }] }]),
+    );
+    const engine = createAutosaveEngine({ planId: 7, workoutId: 5, initial, transport, delayMs: 100 });
+    return { engine, transport, initial };
+  }
+
+  it("saves nothing while a proposal is in review, edits included (R34, R43, E15b)", async () => {
+    const { engine, transport, initial } = savedEngine();
+    const proposed = [...initial.exercises, newExercise(puxada)];
+    engine.propose(proposed);
+    expect(engine.getState().review).toEqual({ base: initial.exercises });
+    engine.dispatch({ type: "addSet", exerciseKey: proposed[1].key });
+    await vi.advanceTimersByTimeAsync(1_000);
+    await engine.flush();
+    expect(transport.replace).not.toHaveBeenCalled();
+    expect(engine.getState().draft.exercises[1].sets).toHaveLength(1);
+  });
+
+  it("Aplicar saves the screen's version at once and resumes autosave (R38)", async () => {
+    const { engine, transport, initial } = savedEngine();
+    engine.propose([...initial.exercises, newExercise(puxada)]);
+    await engine.applyProposal();
+    await settle();
+    expect(transport.replace).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(transport.replace).mock.calls[0][1].map((e) => e.exerciseId)).toEqual([1, 2]);
+    expect(engine.getState().review).toBeNull();
+    expect(engine.getState().status).toBe("saved");
+  });
+
+  it("Descartar restores the last saved workout after chained proposals and manual edits (R39, E15a)", async () => {
+    const { engine, transport, initial } = savedEngine();
+    engine.propose([newExercise(puxada)]);
+    engine.dispatch({ type: "addSet", exerciseKey: engine.getState().draft.exercises[0].key });
+    engine.propose([newExercise(supino), newExercise(puxada)]);
+    // The base stays the saved workout, never the earlier proposal (E15).
+    expect(engine.getState().review?.base).toBe(initial.exercises);
+    engine.discardProposal();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(engine.getState().draft).toEqual(initial);
+    expect(engine.getState().review).toBeNull();
+    expect(transport.replace).not.toHaveBeenCalled();
+  });
+
+  it("applying on a new workout creates it as 'Novo treino'; discarding creates nothing (R40, E20, E21)", async () => {
+    const transport = makeTransport();
+    const engine = createAutosaveEngine({ planId: 7, workoutId: null, initial: emptyWorkout("MONDAY"), transport, delayMs: 100 });
+    expect(engine.getState().offersClone).toBe(true);
+    engine.propose([newExercise(supino)]);
+    expect(engine.getState().offersClone).toBe(false); // R52, E30
+    engine.discardProposal();
+    expect(engine.getState().offersClone).toBe(true);
+    expect(await engine.finish()).toBe(true);
+    expect(transport.create).not.toHaveBeenCalled();
+
+    engine.propose([newExercise(supino)]);
+    await engine.applyProposal();
+    await settle();
+    expect(transport.create).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(transport.create).mock.calls[0][1].name).toBe("Novo treino");
+  });
+
+  it("a refused removal on apply keeps every protected item and names them together (R41, E16a)", async () => {
+    const transport = makeTransport();
+    const initial = fromFullWorkout(
+      fullFromEntries(5, "Treino A", [
+        { exerciseId: 1, sets: [{ reps: 10 }] },
+        { exerciseId: 2, sets: [{ reps: 8 }, { reps: 6 }] },
+      ]),
+    );
+    vi.mocked(transport.replace).mockRejectedValue(apiError("PRECONDITION_FAILED", 409));
+    vi.mocked(transport.deleteExercise).mockRejectedValue(apiError("PRECONDITION_FAILED", 409));
+    vi.mocked(transport.deleteSet).mockRejectedValue(apiError("PRECONDITION_FAILED", 409));
+    const engine = createAutosaveEngine({ planId: 7, workoutId: 5, initial, transport, delayMs: 100 });
+    // The proposal drops the first exercise and the second one's last set.
+    const second = initial.exercises[1];
+    engine.propose([{ ...second, sets: [second.sets[0]] }]);
+    await engine.applyProposal();
+    await settle();
+    const { draft, refusal } = engine.getState();
+    expect(draft.exercises.map((we) => we.exercise.id)).toEqual([1, 2]);
+    expect(draft.exercises[1].sets).toHaveLength(2);
+    expect(refusal?.kind).toBe("removal");
+    expect(refusal?.body).toContain("Supino Reto");
+    expect(refusal?.body).toContain("Puxada Alta · Série 2");
   });
 });
