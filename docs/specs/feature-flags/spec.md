@@ -327,6 +327,26 @@ if (!assistantAvailable && assistantEnabled && !assistantInUse) setAssistantEnab
 answers 503 `AI_UNAVAILABLE`, which the panel already shows as its "unavailable" state. Closing
 the panel (with the chat idle and no review) then hides the button.
 
+Focus when that close hides the button: `AiChatPanel`'s `onClose` (:775-778) focuses
+`aiButtonRef`, but the button unmounts in the same render, which would drop focus to `<body>`.
+`onClose` therefore decides before the render, from the same inputs as the latch:
+
+```tsx
+onClose={() => {
+  setPanelOpen(false);
+  const buttonGoes = !assistantAvailable && !isBusy(chatState) && state.review === null;
+  if (!buttonGoes) aiButtonRef.current?.focus();
+  else if (!atCap) addExerciseRef.current?.focus(); // "+ Adicionar exercício", always rendered
+  else nameFieldRef.current?.focus();               // at the cap that button is disabled
+}}
+```
+
+`addExerciseRef` goes on the "+ Adicionar exercício" `Button` in `headerActions` (:468) and
+`nameFieldRef` on the workout name `TextField`; both components already forward refs. The editor
+has no header heading, so the first always-present header control is the target. The
+`AssistantTurnedOffWhileBuilding` story ends by closing the panel and asserting focus is on
+"+ Adicionar exercício".
+
 ## 9. Tests
 
 **Unit (`unit` project):**
@@ -368,7 +388,8 @@ the panel (with the chat idle and no review) then hides the button.
 - `WorkoutEditorSession.stories.tsx` gains `AssistantTurnedOffWhileBuilding`: `assistantAvailable`
   starts `true`, the trainer sends, and while the stub stream is in `building` the story re-renders
   with `assistantAvailable={false}`. The editor stays locked (`inert`), the panel stays open, the
-  proposal reaches review; after discarding it and closing the panel, the AI button is gone. The
+  proposal reaches review; after discarding it and closing the panel, the AI button is gone and focus is on
+  "+ Adicionar exercício". The
   existing stories pass the renamed prop. The query options themselves (interval, retry) are not
   story-tested.
 
