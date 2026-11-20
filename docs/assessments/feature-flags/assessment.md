@@ -63,7 +63,7 @@ engine.
 | R17 | new: number-only input, no lookup, no profile link | W6 |
 | R18 | new: per-user list unpaginated | Fine at today's volume (W5) |
 | R19, R20 | not applicable to the web | Evaluation is server-side |
-| R21 | not applicable to this page; W11 for consumers | The page shows saved state at once; the subtitle can say "em até 1 minuto" |
+| R21 | existing must change: `WorkoutEditor.tsx:100-105` (W11) | The page shows saved state at once. The editor's status query moves to 30 s / refetch on mount / retry once, so API 30 s + web 30 s ≈ 1 minute |
 | R22 | not applicable to the web | |
 | R23 | withdrawn (2026-11-20) | Not recorded in the history in this version; `actions.ts` and `HistoryContent.tsx` stay as they are (W3 withdrawn) |
 | R24 | nothing to build | No reason field (unlike suspend, `adminReasonSchema`) |
@@ -78,7 +78,8 @@ engine.
 | E7 | new: `DataTableMessage` "Nenhuma flag encontrada" | Owner copy |
 | E8 | not applicable to the web | |
 | E9 | new: NOT_FOUND on a removed flag | The flag leaves the list on the next read (W8) |
-| E10, E11 | not applicable to this page | W11 |
+| E10 | existing must change: the editor's status query (W11) | About 60 s worst case |
+| E11 | not applicable to this page | A failed status call keeps the AI button hidden (W11) |
 | E12 | new: last save wins | W4 |
 | E13 | existing `ConfirmDialog` Cancelar | |
 | E14 | nothing to build | |
@@ -363,22 +364,36 @@ later (PRD §6 deferred).
 
 ### AI assistant consumption (cross-reference)
 
-**W11 (Info). R21's minute applies to the web's own copy of the AI flag.**
-- **What:** When the AI assistant web feature ships, it hides its button while the flag is off for
-  the trainer. Per the vertice-bff assessment, the web learns this from `GET /api/assistant/status`,
-  a per-trainer `{ enabled }` answered from the API's evaluation, which the API caches for up to a
-  minute (API F2). It is not a field of `/auth/me`. The web then caches that answer itself (30 s
-  `staleTime`, refetch on focus and mount).
-- **Where:** [vertice-bff `docs/assessments/feature-flags/assessment.md`](https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/feature-flags/assessment.md)
-  (`/assistant/status`, 503 `AI_UNAVAILABLE`); `docs/assessments/ai-workout-assistant/assessment.md`
-  §8 Q3, whose `/auth/me` assumption is now answered by the BFF assessment; `src/app/providers.tsx`;
-  PRD R7, R21, E10.
-- **Why it matters:** The two caches add up to about 90 s in the worst case: slightly over "about a
-  minute", not a defect. There is nothing to build on this page.
-- **Recommendation:** The ai-workout-assistant web spec reads `/assistant/status` and states the
-  ~90 s sum. A chat sent after the flag turned off is refused by the BFF with 503
-  `AI_UNAVAILABLE`, and the web shows its "unavailable" state for it rather than trusting the
-  cached `enabled`.
+**W11 (Medium). The editor's assistant-status query would hold the AI flag for 5 minutes.**
+- **What:** The AI assistant's web button already exists on `main`.
+  `src/components/domain/WorkoutEditor/WorkoutEditor.tsx:100-105` reads `GET /api/assistant/status`
+  (a per-trainer `{ enabled }`, not a field of `/auth/me`) with `staleTime: 5 * 60_000` and
+  `retry: false`. With that, a flag change can take about 5 minutes to show in an open editor,
+  against R21's "about one minute". The agreed budget across the three repos is:
+  - the API caches flags for at most 30 s;
+  - the BFF caches nothing, and gives the evaluation a 20 s deadline, so the first call after an
+    Aurora pause doesn't read as "off";
+  - the web status query uses `staleTime: 30_000`, refetches on editor mount, and retries once.
+
+  End to end, that is about 60 s (30 + 30) in the worst case.
+- **Where:** `src/components/domain/WorkoutEditor/WorkoutEditor.tsx:100-105` (the query) and its
+  comment at `:98-99`; `src/lib/api/assistant.ts:8` (the `fetchAssistantStatus` comment). Both
+  comments name the env switch `AI_ASSISTANT_ENABLED`, which R27 removes.
+  [vertice-bff `docs/assessments/feature-flags/assessment.md`](https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/feature-flags/assessment.md)
+  defines `/assistant/status` and 503 `AI_UNAVAILABLE`. It also answers the `/auth/me` assumption
+  in `docs/assessments/ai-workout-assistant/assessment.md` §8 Q3. PRD R7, R21, E10, E11.
+- **Why it matters:** At 5 minutes, R21 and E10 don't hold for the one flag the web consumes.
+  `retry: false` turns one slow or failed call (an Aurora resume) into a hidden button until the
+  next mount.
+- **Recommendation:** This is part of this feature's web work:
+  - change the query to `staleTime: 30_000`, `refetchOnMount: "always"` (or the equivalent "on
+    editor mount"), and `retry: 1`;
+  - keep "any failure hides the button";
+  - rewrite the two comments to say the status is the per-trainer flag `AI_ASSISTANT_ENABLED` set
+    on the admin "Feature flags" page, not a BFF env switch.
+
+  A chat sent after the flag turned off is refused by the BFF with 503 `AI_UNAVAILABLE`, and the
+  web shows its "unavailable" state for it rather than trusting the cached `enabled`.
 
 ### 12. Effort, risk, and dependencies
 
@@ -432,7 +447,8 @@ The approved frames chose A. Both options would read the same list query, since 
 - two client pages, or one plus a dialog;
 - one wrapper module and type aliases;
 - one validation schema, a small pure module;
-- stories.
+- stories;
+- the editor's assistant-status query settings and two comments (W11).
 
 There is no state engine or new kit component.
 
@@ -488,5 +504,6 @@ Stories can be built against the documented contract before step 2 merges.
 - W6: the number schema (a positive safe integer), and no profile links anywhere for flag users.
 - W7: one key `adminKeys.featureFlags()`; writes invalidate only that key (not the history); a
   client-side, accent-insensitive filter, with `?q=` in the URL.
+- W11: the editor's status query becomes `staleTime` 30 s, refetch on mount, `retry: 1` (about 60 s end to end with the API's 30 s), and the `AI_ASSISTANT_ENABLED` comments at `WorkoutEditor.tsx:98-99` and `assistant.ts:8` are updated.
 - W8: per-row pending and disabled controls, error toasts, and NOT_FOUND refetch or a "Flag não
   encontrada" state.
