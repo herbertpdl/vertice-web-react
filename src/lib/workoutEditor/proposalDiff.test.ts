@@ -42,6 +42,8 @@ const saved: EditorExercise[] = [
 ];
 
 const entry = (p: Partial<ProposalExercise> & { exercise: Exercise }): ProposalExercise => ({
+  key: null,
+  exerciseId: p.exercise.id,
   restSecondsBetweenSets: 60,
   notes: "",
   sets: [],

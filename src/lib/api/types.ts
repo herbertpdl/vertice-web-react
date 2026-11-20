@@ -212,3 +212,21 @@ export type AdminExerciseRequest = Schemas["ExerciseRequest"];
 
 /** The body of a muscle-group create or rename. */
 export type MuscleGroupNameRequest = Schemas["MuscleGroupNameRequest"];
+
+/** `GET /assistant/status`: whether the editor shows the AI assistant (the BFF's flag). */
+export type AssistantStatus = Schemas["AssistantStatus"];
+
+/** `POST /assistant/workout-chat`'s body; each on-screen exercise carries the editor's `key`. */
+export type WorkoutChatRequest = Schemas["WorkoutChatRequest"];
+export type KeyedWorkoutExerciseEntry = Schemas["AssistantWorkoutExerciseEntry"];
+export type AssistantHistoryTurn = Schemas["AssistantHistoryTurn"];
+
+/** A `stage` event's key; the web labels it (`src/lib/assistant/copy.ts`). */
+export type AssistantStage = Schemas["AssistantStage"];
+
+/** One exercise of a `proposal` event: `key` is the on-screen exercise it changes, `null` when new. */
+export type AssistantProposalEntry = Schemas["AssistantProposalEntry"];
+
+/** The assistant's error codes, before the stream (`AI_CATALOG_TOO_LARGE`, ...) or as `error` events. */
+export type AssistantErrorCode = Extract<ApiErrorCode, `AI_${string}`>;
+

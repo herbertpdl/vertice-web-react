@@ -392,15 +392,16 @@ const proposingStream: StreamWorkoutChat = async (body, { signal, onEvent }) => 
   onEvent({
     type: "proposal",
     exercises: [
-      { ...first, key: first.key, exercise: supinoCard.exercise, restSecondsBetweenSets: 45, notes: first.notes ?? "", sets: first.sets ?? [] },
+      { ...first, key: first.key, exercise: supinoCard.exercise, restSecondsBetweenSets: 45, sets: first.sets ?? [] },
       ...rest.map((entry) => ({
         key: entry.key,
+        exerciseId: entry.exerciseId,
         exercise: puxadaCard.exercise,
         restSecondsBetweenSets: entry.restSecondsBetweenSets ?? 60,
         notes: entry.notes ?? "",
         sets: entry.sets ?? [],
       })),
-      { exercise: agachamentoCard.exercise, restSecondsBetweenSets: 60, notes: "", sets: [{ reps: 12, strategy: "STRAIGHT" }] },
+      { key: null, exerciseId: agachamentoCard.exercise.id, exercise: agachamentoCard.exercise, restSecondsBetweenSets: 60, notes: "", sets: [{ reps: 12, strategy: "STRAIGHT" }] },
     ],
   });
   onEvent({ type: "done" });

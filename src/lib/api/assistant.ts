@@ -1,14 +1,11 @@
 import { apiClient, failure, parseJson } from "./client";
 import { parseAssistantEvent, type AssistantEvent, type WorkoutChatRequest } from "@/lib/assistant/contract";
 import { readSse } from "@/lib/assistant/sse";
-
-/** `GET /assistant/status`: the BFF's `AI_ASSISTANT_ENABLED`, the one switch for the AI button. */
-export interface AssistantStatus {
-  enabled: boolean;
-}
+import type { AssistantStatus } from "./types";
 
 export const assistantStatusQueryKey = ["assistantStatus"] as const;
 
+/** `GET /assistant/status`: the BFF's `AI_ASSISTANT_ENABLED`, the one switch for the AI button. */
 export function fetchAssistantStatus(): Promise<AssistantStatus> {
   return apiClient.get<AssistantStatus>("/assistant/status");
 }

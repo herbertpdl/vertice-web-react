@@ -1,4 +1,1 @@
-# vertice-bff commit that src/lib/api/schema.ts is generated from. Bump, then run: npm run api:types
-# (merge the BFF change first, which regenerates its docs/openapi.json; use the full 40-char SHA
-# of the merge commit on main). Mirrors vertice-bff's own protos/.api-ref.
-efcf2521e16acb37611c95f9ffb3533807787024
+d863bc7a5d55433b269e09194d9d293ba159bfbd

@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@efcf2521e16acb37611c95f9ffb3533807787024:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@d863bc7a5d55433b269e09194d9d293ba159bfbd:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -905,6 +905,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the AI workout assistant is switched on
+         * @description Roles: TRAINER. No upstream call. The web hides the AI icon while `enabled` is false.
+         */
+        get: operations["getAssistantStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/workout-chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a message to the AI workout assistant (server-sent events)
+         * @description Roles: TRAINER. Answers `text/event-stream` (see `AssistantStreamEvent` and docs/api-contract.md, "AI workout assistant"). Before the stream: 400 (body, a workout of another plan, an exercise outside the trainer’s catalog), 403 (another trainer’s plan or workout), 413 `AI_CATALOG_TOO_LARGE`, 503 `AI_UNAVAILABLE` (switched off). Once streaming, failures are an `error` event (`AI_UNAVAILABLE`, `AI_TIMEOUT`, `AI_INVALID_PROPOSAL`, `AI_ERROR`, `AI_SUPERSEDED`) and the stream ends. A new message from the same trainer supersedes a running one.
+         */
+        post: operations["workoutChat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/auth/login": {
         parameters: {
             query?: never;
@@ -1542,6 +1582,85 @@ export interface components {
             challenge: string;
             code: string;
         };
+        AssistantDoneEvent: Record<string, never>;
+        AssistantErrorEvent: {
+            /** @enum {string} */
+            code: "AI_UNAVAILABLE" | "AI_TIMEOUT" | "AI_INVALID_PROPOSAL" | "AI_ERROR" | "AI_SUPERSEDED";
+            /** @description English, for logs; show the web’s own copy for `code`. */
+            message: string;
+        };
+        AssistantHistoryTurn: {
+            /** @enum {string} */
+            role: "user" | "assistant";
+            text: string;
+        };
+        AssistantProposalEntry: {
+            /** @description The `key` of the on-screen exercise this entry modifies (one the request sent), or `null` when it is new. */
+            key: string | null;
+            exerciseId: number;
+            restSecondsBetweenSets?: number;
+            notes?: string;
+            /** @description In order; at most 10. Each is an `ExerciseSetEntry`. */
+            sets: components["schemas"]["AssistantProposalSet"][];
+            /** @description The catalog exercise, to render the card. */
+            exercise: components["schemas"]["Exercise"];
+        };
+        AssistantProposalEvent: {
+            /** @description The whole proposed exercise list, in order, at most 20. Without `key` and `exercise` each entry is a `WorkoutExerciseEntry` for `PUT /workouts/{workoutId}/exercises` or the nested create. Never a name or weekday. */
+            exercises: components["schemas"]["AssistantProposalEntry"][];
+        };
+        AssistantProposalSet: {
+            reps?: number;
+            durationSeconds?: number;
+            weight?: string | "";
+            loadPercentage?: string | "";
+            strategy?: components["schemas"]["SetStrategy"];
+            restSeconds?: number;
+            notes?: string;
+        };
+        /** @enum {string} */
+        AssistantStage: "analyzing" | "choosing_exercises" | "building_sets" | "checking";
+        AssistantStageEvent: {
+            /** @description A stage key; the web shows its own pt-BR label for it. */
+            stage: components["schemas"]["AssistantStage"];
+        };
+        AssistantStatus: {
+            /** @description Whether the web shows the AI icon in the workout editor. */
+            enabled: boolean;
+        };
+        AssistantStreamEvent: {
+            /** @constant */
+            event: "stage";
+            data: components["schemas"]["AssistantStageEvent"];
+        } | {
+            /** @constant */
+            event: "text";
+            data: components["schemas"]["AssistantTextEvent"];
+        } | {
+            /** @constant */
+            event: "proposal";
+            data: components["schemas"]["AssistantProposalEvent"];
+        } | {
+            /** @constant */
+            event: "done";
+            data: components["schemas"]["AssistantDoneEvent"];
+        } | {
+            /** @constant */
+            event: "error";
+            data: components["schemas"]["AssistantErrorEvent"];
+        };
+        AssistantTextEvent: {
+            /** @description The next piece of the answer; append it to what came before. */
+            delta: string;
+        };
+        AssistantWorkoutExerciseEntry: {
+            exerciseId: number;
+            restSecondsBetweenSets?: number;
+            notes?: string;
+            /** @default [] */
+            sets?: components["schemas"]["ExerciseSetEntry"][];
+            key: string;
+        };
         AuthSession: {
             token: string;
             /** @description When `token` expires, an ISO-8601 instant: 8 hours out for a web session, 90 days for a mobile one (`X-Vertice-Client: mobile`). A mobile app renews before this with `POST /api/auth/session/renew`. */
@@ -1728,7 +1847,7 @@ export interface components {
             trainingPlanName: string;
         };
         /** @enum {string} */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHORIZED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "PRECONDITION_FAILED" | "TOO_LARGE" | "RATE_LIMITED" | "UPSTREAM_ERROR" | "UPSTREAM_UNAVAILABLE" | "INTERNAL_ERROR" | "INVALID_CURRENT_PASSWORD" | "INVALID_SETUP_TOKEN" | "ACTIVE_CLIENTS" | "SESSION_NOT_RENEWABLE" | "CHALLENGE_INVALID" | "INVALID_SECOND_FACTOR_CODE" | "ADMIN_LOGIN_ELSEWHERE" | "ACCOUNT_SUSPENDED" | "NAME_TAKEN" | "EXERCISE_IN_USE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHORIZED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "PRECONDITION_FAILED" | "TOO_LARGE" | "RATE_LIMITED" | "UPSTREAM_ERROR" | "UPSTREAM_UNAVAILABLE" | "INTERNAL_ERROR" | "INVALID_CURRENT_PASSWORD" | "INVALID_SETUP_TOKEN" | "ACTIVE_CLIENTS" | "SESSION_NOT_RENEWABLE" | "CHALLENGE_INVALID" | "INVALID_SECOND_FACTOR_CODE" | "ADMIN_LOGIN_ELSEWHERE" | "ACCOUNT_SUSPENDED" | "NAME_TAKEN" | "EXERCISE_IN_USE" | "AI_UNAVAILABLE" | "AI_CATALOG_TOO_LARGE" | "AI_TIMEOUT" | "AI_INVALID_PROPOSAL" | "AI_ERROR" | "AI_SUPERSEDED";
         ErrorResponse: {
             error: {
                 /** @description Machine-readable. Key on this, never on `message`. */
@@ -2015,6 +2134,16 @@ export interface components {
             name: string;
             trainingPlanId: number;
             dayOfWeek: components["schemas"]["DayOfWeek"];
+        };
+        WorkoutChatRequest: {
+            trainingPlanId: number;
+            workoutId?: number;
+            workout: {
+                exercises: components["schemas"]["AssistantWorkoutExerciseEntry"][];
+            };
+            /** @default [] */
+            history?: components["schemas"]["AssistantHistoryTurn"][];
+            message: string;
         };
         WorkoutExercise: {
             id: number;
@@ -2528,7 +2657,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The requested data is too large to return (`TOO_LARGE`). */
+            /** @description The requested data is too large to return (`TOO_LARGE`, or `AI_CATALOG_TOO_LARGE` on the routes that say so). */
             413: {
                 headers: {
                     [name: string]: unknown;
@@ -5483,6 +5612,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LegalVersions"];
+                };
+            };
+        };
+    };
+    getAssistantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The switch’s state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantStatus"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    workoutChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkoutChatRequest"];
+            };
+        };
+        responses: {
+            /** @description The event stream: `stage`, `text`, `proposal`, then `done` or `error`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["AssistantStreamEvent"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code (`ACCOUNT_SUSPENDED`, `ADMIN_LOGIN_ELSEWHERE`, `SESSION_NOT_RENEWABLE` on the routes that say so). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found (`NOT_FOUND`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The requested data is too large to return (`TOO_LARGE`, or `AI_CATALOG_TOO_LARGE` on the routes that say so). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A dependency is unavailable or switched off (`UPSTREAM_UNAVAILABLE`, or `AI_UNAVAILABLE` on the routes that say so). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

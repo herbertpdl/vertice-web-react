@@ -1,4 +1,9 @@
-import { newKey, type EditorExercise, type EditorSet } from "@/lib/workoutEditor/model";
+import {
+  DEFAULT_REST_BETWEEN_SETS,
+  newKey,
+  type EditorExercise,
+  type EditorSet,
+} from "@/lib/workoutEditor/model";
 import type { ProposalExercise } from "./contract";
 
 /**
@@ -41,8 +46,10 @@ export function proposalToExercises(
       id: match?.id ?? null,
       order: match?.order,
       exercise: entry.exercise,
-      restSecondsBetweenSets: entry.restSecondsBetweenSets,
-      notes: entry.notes,
+      // Optional on the wire: an omitted field keeps the on-screen value (or the editor's default).
+      restSecondsBetweenSets:
+        entry.restSecondsBetweenSets ?? match?.restSecondsBetweenSets ?? DEFAULT_REST_BETWEEN_SETS,
+      notes: entry.notes ?? match?.notes ?? "",
       sets,
     };
   });

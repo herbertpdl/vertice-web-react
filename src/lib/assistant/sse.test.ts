@@ -89,6 +89,7 @@ describe("parseAssistantEvent", () => {
       exercises: [
         {
           key: "e1",
+          exerciseId: 1,
           exercise: supino,
           restSecondsBetweenSets: 60,
           notes: "",

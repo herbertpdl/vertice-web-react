@@ -1,11 +1,24 @@
-import type { Exercise, ExerciseSetEntry, SetStrategy, WorkoutExerciseEntry } from "@/lib/api/types";
+import type {
+  AssistantErrorCode,
+  AssistantHistoryTurn,
+  AssistantProposalEntry,
+  AssistantStage,
+  Exercise,
+  ExerciseSetEntry,
+  KeyedWorkoutExerciseEntry,
+  SetStrategy,
+  WorkoutChatRequest,
+} from "@/lib/api/types";
+
 import { setStrategyLabels } from "@/lib/validation/exerciseSets";
 
+export type { AssistantErrorCode, AssistantStage, KeyedWorkoutExerciseEntry, WorkoutChatRequest };
+
 /**
- * Wire shapes of `POST /assistant/workout-chat` (vertice-bff `docs/api-contract.md`, "Assistant").
- * The stream's events are not a JSON response `openapi-typescript` can type, so their payloads are
- * parsed and shape-checked here (`parseAssistantEvent`), and nothing past that function trusts the
- * wire.
+ * `POST /assistant/workout-chat` (vertice-bff `docs/api-contract.md`, "AI workout assistant"). The
+ * wire types are the generated ones (`types.ts`); the stream's events arrive as SSE text, so their
+ * payloads are parsed and shape-checked here (`parseAssistantEvent`), and nothing past that
+ * function trusts the wire.
  */
 
 export const ASSISTANT_MESSAGE_MAX = 2000;
@@ -14,41 +27,10 @@ export const HISTORY_MAX_CHARS = 40_000;
 /** R21: no new stage or text for this long ends the message. */
 export const NO_PROGRESS_TIMEOUT_MS = 60_000;
 
-export type AssistantStage = "analyzing" | "choosing_exercises" | "building_sets" | "checking";
+export type HistoryTurn = AssistantHistoryTurn;
 
-export type AssistantErrorCode =
-  | "AI_UNAVAILABLE"
-  | "AI_TIMEOUT"
-  | "AI_INVALID_PROPOSAL"
-  | "AI_ERROR"
-  | "AI_SUPERSEDED"
-  /** Before the stream only: the trainer's catalog is over the BFF's 1,000-exercise cap. */
-  | "AI_CATALOG_TOO_LARGE";
-
-export interface HistoryTurn {
-  role: "user" | "assistant";
-  text: string;
-}
-
-/** An on-screen exercise as sent: the nested entry plus the editor's opaque key (F5). */
-export type KeyedWorkoutExerciseEntry = WorkoutExerciseEntry & { key: string };
-
-export interface WorkoutChatRequest {
-  trainingPlanId: number;
-  workoutId?: number;
-  workout: { exercises: KeyedWorkoutExerciseEntry[] };
-  history: HistoryTurn[];
-  message: string;
-}
-
-/** One exercise of a proposal: `key` echoes the on-screen exercise it changes, absent when new. */
-export interface ProposalExercise {
-  key?: string | null;
-  exercise: Exercise;
-  restSecondsBetweenSets: number;
-  notes: string;
-  sets: ExerciseSetEntry[];
-}
+/** One exercise of a proposal, as parsed: the generated entry with `exercise` checked. */
+export type ProposalExercise = AssistantProposalEntry;
 
 export type AssistantEvent =
   | { type: "stage"; stage: string }
@@ -103,9 +85,10 @@ function parseProposalExercise(value: unknown): ProposalExercise | null {
   if (sets.some((s) => s === null)) return null;
   return {
     key: typeof value.key === "string" && value.key !== "" ? value.key : null,
+    exerciseId: exercise.id,
     exercise,
-    restSecondsBetweenSets: optionalNumber(value.restSecondsBetweenSets) ?? 0,
-    notes: typeof value.notes === "string" ? value.notes : "",
+    restSecondsBetweenSets: optionalNumber(value.restSecondsBetweenSets),
+    notes: typeof value.notes === "string" ? value.notes : undefined,
     sets: sets as ExerciseSetEntry[],
   };
 }
