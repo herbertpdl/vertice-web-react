@@ -196,8 +196,11 @@ exist (R26).
 - "Usuários com configuração própria" with the count, then a `DataTable` of the user settings:
   "Usuário #N", the row `Switch` (`aria-label="Configuração de usuário #N"`) with its state label,
   and the remove button (`trash-2`). Empty: "Nenhum usuário com configuração própria" (`oONTU`).
-- Loading (`MzesP`): the key from the URL, a skeleton description, the switch disabled showing
-  "—", skeleton rows.
+- Loading (`MzesP`): the key from the URL, a skeleton description, skeleton rows, and in the
+  "Para todos" card the frame's dimmed switch track with "—". That placeholder is not a switch: it
+  is `aria-hidden`, and the card carries `aria-busy="true"` with a visually hidden "Carregando
+  configuração para todos", so no assistive technology announces an "off" state that isn't known
+  yet. The real `Switch` replaces it once the flag is loaded.
 - The list query failing: the header's key from the URL, then the list error message with
   "Tentar novamente" in place of the body (no frame; it reuses `Xp9eO`'s copy).
 - The key not in the loaded list: the `vJYcq` state only (no form, no table), with the back link.
