@@ -232,7 +232,9 @@ export async function settleAfterWrite(queryClient: QueryClient) {
   const queryKey = adminKeys.featureFlags();
   const issuedAt = Date.now(); // after the write's response: the server has committed
   const deadline = issuedAt + PAUSED_DEADLINE_MS;
-  await queryClient.invalidateQueries({ queryKey, exact: true });
+  const listHash = queryClient.getQueryCache().find({ queryKey, exact: true })?.queryHash;
+  const invalidated = queryClient.invalidateQueries({ queryKey, exact: true });
+  await (listHash ? untilPausedOrDone(queryClient, listHash, invalidated) : invalidated);
   for (let refetches = 0; ; ) {
     // Gone (the page unmounted and it was collected, or sign-out's `queryClient.clear()`).
     const query = queryClient.getQueryCache().find({ queryKey, exact: true });
@@ -252,11 +254,31 @@ export async function settleAfterWrite(queryClient: QueryClient) {
     }
     if (refetches === MAX_REFETCHES) return;
     refetches += 1;
-    await queryClient.refetchQueries({ queryKey, exact: true }, { cancelRefetch: false });
+    await untilPausedOrDone(
+      queryClient,
+      query.queryHash,
+      queryClient.refetchQueries({ queryKey, exact: true }, { cancelRefetch: false }),
+    );
     const after = query.state;
     const moved = after.dataUpdatedAt !== before.dataUpdatedAt || after.errorUpdatedAt !== before.errorUpdatedAt;
     if (!moved && after.fetchStatus === "idle") return; // nothing ran and nothing will
   }
+}
+
+/** Resolves when `promise` settles or this query's fetch pauses (a retry waiting offline). */
+function untilPausedOrDone(queryClient: QueryClient, queryHash: string, promise: Promise<unknown>): Promise<void> {
+  return new Promise((resolve) => {
+    let unsubscribe = () => {};
+    const finish = () => {
+      unsubscribe();
+      resolve();
+    };
+    unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.query.queryHash === queryHash && event.query.state.fetchStatus === "paused") finish();
+    });
+    if (queryClient.getQueryCache().get(queryHash)?.state.fetchStatus === "paused") finish();
+    promise.then(finish, finish);
+  });
 }
 
 /** Resolves after `ms` (a plain `setTimeout`, so fake timers drive it in tests). */
@@ -293,8 +315,13 @@ moved and nothing is fetching; three refetches; the paused deadline. A paused (o
 waits on the cache subscription and doesn't count toward the cap; back online, TanStack resumes
 the fetch, whose `updated` event wakes the loop. That wait is the only one without its own end,
 so it races `PAUSED_DEADLINE_MS` (10 s from `issuedAt`): past it, the function returns like the
-other give-ups, since the write itself already succeeded. Only the paused wait can hit the
-deadline; refetches are bounded by the cap. The race's losing `nextUpdate` subscription stays
+other give-ups, since the write itself already succeeded. A fetch can also pause in the middle:
+with `retry: 1`, a failed first attempt followed by going offline (or losing focus) pauses the
+retryer inside the very promise `invalidateQueries`/`refetchQueries` returned, which then stays
+pending until the fetch resumes. So both awaits go through `untilPausedOrDone`, which also resolves
+as soon as this query's `fetchStatus` becomes `"paused"`; the next pass then takes the paused
+branch and its deadline. The deadline therefore bounds every pause, at the start or mid-retry;
+refetches that run are bounded by the cap. The race's losing `nextUpdate` subscription stays
 until the query's next update or removal, which is harmless. A row that exits without fresh data re-enables on the data it has;
 the next focus or reconnect refetch corrects it.
 
@@ -382,7 +409,9 @@ has no header heading, so the first always-present header control is the target.
   before it runs: it doesn't spin (the `queryFn` is called at most once, the promise stays pending
   across fake-timer advances shorter than `PAUSED_DEADLINE_MS`), and resolves after
   `setOnline(true)` lets the fetch land; (2b) offline, fake timers advanced past
-  `PAUSED_DEADLINE_MS`: it resolves without going back online, and the `queryFn` was not called again; (3) the
+  `PAUSED_DEADLINE_MS`: it resolves without going back online, and the `queryFn` was not called again; (2c) `retry: 1`,
+  the `queryFn` rejects once and `onlineManager.setOnline(false)` lands during the retry delay: it
+  resolves once fake timers pass `PAUSED_DEADLINE_MS`, with no further `queryFn` call; (3) the
   query removed (`queryClient.removeQueries`) or never created: it resolves at once. Plus: with the
   fake clock frozen at `issuedAt`, so no landing is strictly newer, it stops after three refetches, and a failing `queryFn`
   resolves on the error.

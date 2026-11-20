@@ -23,8 +23,8 @@ let client: QueryClient;
 let unsubscribe: () => void = () => {};
 
 /** The list query as the page has it: mounted (an observer), with data from before the write. */
-async function mountList(queryFn: () => Promise<unknown>) {
-  const observer = new QueryObserver(client, { queryKey, queryFn, retry: false });
+async function mountList(queryFn: () => Promise<unknown>, retry: false | number = false) {
+  const observer = new QueryObserver(client, { queryKey, queryFn, retry });
   unsubscribe = observer.subscribe(() => {});
   await vi.waitFor(() => expect(client.getQueryState(queryKey)?.status).toBe("success"));
 }
@@ -126,6 +126,31 @@ describe("settleAfterWrite", () => {
     await vi.advanceTimersByTimeAsync(PAUSED_DEADLINE_MS + 1);
     expect(settle.settled).toBe(true);
     expect(queryFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("a retry that pauses (offline during the retry delay) still ends at the deadline", async () => {
+    let calls = 0;
+    const queryFn = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) return later({ flags: [] });
+      if (calls === 2) return Promise.reject(new Error("blip"));
+      return later({ flags: [] });
+    });
+    // The production default: one retry, after TanStack's retry delay (1 s for the first).
+    await mountList(queryFn, 1);
+
+    vi.setSystemTime(Date.now() + 10);
+    const settle = track(settleAfterWrite(client));
+    await flush();
+    expect(queryFn).toHaveBeenCalledTimes(2); // the first attempt failed; the retry is waiting
+    onlineManager.setOnline(false);
+    await vi.advanceTimersByTimeAsync(1_500); // the retry delay ends offline: the retryer pauses
+    expect(client.getQueryState(queryKey)?.fetchStatus).toBe("paused");
+    expect(settle.settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(PAUSED_DEADLINE_MS);
+    expect(settle.settled).toBe(true);
+    expect(queryFn).toHaveBeenCalledTimes(2);
   });
 
   it("the query removed, or never created: resolves at once", async () => {

@@ -46,13 +46,16 @@ export const PAUSED_DEADLINE_MS = 10_000;
  * fetch that started after the write has landed, so a switch never re-enables showing its old
  * state (D4, §7). Every pass either waits for a real event or returns, so it can't spin. Exits:
  * fresh data or an error after the write; the query gone; a refetch after which nothing moved and
- * nothing is fetching; `MAX_REFETCHES` refetches; offline past `PAUSED_DEADLINE_MS`.
+ * nothing is fetching; `MAX_REFETCHES` refetches; paused (offline, or a retry waiting for focus or
+ * the network) past `PAUSED_DEADLINE_MS`.
  */
 export async function settleAfterWrite(queryClient: QueryClient) {
   const queryKey = adminKeys.featureFlags();
   const issuedAt = Date.now(); // after the write's response: the server has committed
   const deadline = issuedAt + PAUSED_DEADLINE_MS;
-  await queryClient.invalidateQueries({ queryKey, exact: true });
+  const listHash = queryClient.getQueryCache().find({ queryKey, exact: true })?.queryHash;
+  const invalidated = queryClient.invalidateQueries({ queryKey, exact: true });
+  await (listHash ? untilPausedOrDone(queryClient, listHash, invalidated) : invalidated);
   for (let refetches = 0; ; ) {
     // Gone (the page unmounted and it was collected, or sign-out's `queryClient.clear()`).
     const query = queryClient.getQueryCache().find({ queryKey, exact: true });
@@ -72,11 +75,37 @@ export async function settleAfterWrite(queryClient: QueryClient) {
     }
     if (refetches === MAX_REFETCHES) return;
     refetches += 1;
-    await queryClient.refetchQueries({ queryKey, exact: true }, { cancelRefetch: false });
+    await untilPausedOrDone(
+      queryClient,
+      query.queryHash,
+      queryClient.refetchQueries({ queryKey, exact: true }, { cancelRefetch: false }),
+    );
     const after = query.state;
     const moved = after.dataUpdatedAt !== before.dataUpdatedAt || after.errorUpdatedAt !== before.errorUpdatedAt;
     if (!moved && after.fetchStatus === "idle") return; // nothing ran and nothing will
   }
+}
+
+/**
+ * Resolves when `promise` settles or this query's fetch pauses, whichever comes first. A fetch that
+ * pauses inside its retry (`retry: 1`: the first attempt failed, then the browser went offline or
+ * lost focus) keeps the very promise `invalidateQueries`/`refetchQueries` returned pending until it
+ * resumes, so awaiting it alone could hang; the loop's next pass then reaches the paused branch
+ * and its deadline instead.
+ */
+function untilPausedOrDone(queryClient: QueryClient, queryHash: string, promise: Promise<unknown>): Promise<void> {
+  return new Promise((resolve) => {
+    let unsubscribe = () => {};
+    const finish = () => {
+      unsubscribe();
+      resolve();
+    };
+    unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.query.queryHash === queryHash && event.query.state.fetchStatus === "paused") finish();
+    });
+    if (queryClient.getQueryCache().get(queryHash)?.state.fetchStatus === "paused") finish();
+    promise.then(finish, finish);
+  });
 }
 
 /** Resolves after `ms` (a plain `setTimeout`, so fake timers drive it in tests). */
