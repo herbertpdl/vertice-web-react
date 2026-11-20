@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { loginSchema } from "./auth";
 import { MUSCLE_GROUP_NAME_MAX, REASON_MAX, tooLong } from "./bounds";
+import { parsePositiveId } from "./ids";
 
 // The admin workspace's form rules (admin-panel spec W15). VRT-26/29/32 add the reason, muscle
 // group and search bounds here.
@@ -37,3 +38,22 @@ export const muscleGroupNameSchema = z
   .trim()
   .min(1, "Informe o nome do grupo")
   .refine((name) => name.length <= MUSCLE_GROUP_NAME_MAX, tooLong(MUSCLE_GROUP_NAME_MAX));
+
+export const INVALID_USER_NUMBER = "Digite um número de usuário válido";
+
+/**
+ * The user number on a flag's add form (feature-flags spec D7): after trimming, digits only with no
+ * leading zero, forming a positive safe integer, the BFF's own `:userId` rule (FF8), so the form
+ * never sends one the BFF would refuse. Parses to the number. Nothing identifies or looks it up.
+ */
+export const featureFlagUserIdSchema = z
+  .string()
+  .trim()
+  .transform((text, ctx) => {
+    const id = parsePositiveId(text);
+    if (id === undefined) {
+      ctx.addIssue({ code: "custom", message: INVALID_USER_NUMBER });
+      return z.NEVER;
+    }
+    return id;
+  });

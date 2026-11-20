@@ -1,5 +1,6 @@
 import type { AdminActionFilters } from "@/lib/api/admin";
 import type { AdminAction } from "@/lib/api/types";
+import { parsePositiveId } from "@/lib/validation/ids";
 import { actionLabels } from "./actions";
 
 /**
@@ -13,20 +14,14 @@ function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function positiveId(value: string | undefined): number | undefined {
-  if (!value || !/^[1-9]\d{0,15}$/.test(value)) return undefined;
-  const id = Number(value);
-  return Number.isSafeInteger(id) ? id : undefined;
-}
-
 function isAction(value: string | undefined): value is AdminAction {
   return value !== undefined && Object.hasOwn(actionLabels, value);
 }
 
 export function historyFiltersFromParams(params: SearchParams): AdminActionFilters {
-  const adminId = positiveId(first(params.admin));
+  const adminId = parsePositiveId(first(params.admin));
   const action = first(params.acao);
-  const targetUserId = positiveId(first(params.usuario));
+  const targetUserId = parsePositiveId(first(params.usuario));
   return {
     ...(adminId && { adminId }),
     ...(isAction(action) && { action }),

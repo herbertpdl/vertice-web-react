@@ -230,3 +230,18 @@ export type AssistantProposalEntry = Schemas["AssistantProposalEntry"];
 /** The assistant's error codes, before the stream (`AI_CATALOG_TOO_LARGE`, ...) or as `error` events. */
 export type AssistantErrorCode = Extract<ApiErrorCode, `AI_${string}`>;
 
+
+// --- Feature flags (`/admin/feature-flags`, ADMIN only; feature-flags spec §3, BFF FF7) ----------
+
+/** One flag: `key`, `description` (shown as sent), `enabled` for everyone, `users` by `userId`. */
+export type FeatureFlag = Schemas["AdminFeatureFlag"];
+
+/** `GET /admin/feature-flags`: every flag, ordered by key, unpaginated. */
+export type FeatureFlagList = Schemas["AdminFeatureFlagList"];
+
+/** One user's own setting on a flag (`userId` a positive number, never identified). */
+export type FeatureFlagUser = FeatureFlag["users"][number];
+
+/** The body of both flag `PUT`s: the absolute state to save, `{ enabled }` and nothing else (FF8). */
+export type FeatureFlagStateRequest =
+  operations["setAdminFeatureFlagEveryone"]["requestBody"]["content"]["application/json"];

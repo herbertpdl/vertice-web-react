@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useRouter } from "@storybook/nextjs-vite/navigation.mock";
 import { expect, fn, waitFor, within } from "storybook/test";
@@ -419,7 +420,7 @@ export const AssistantProposalReview: Story = {
     workoutId: 42,
     initial: { ...treinoA, exercises: [supinoCard, puxadaCard] },
     transport: assistantTransport,
-    assistantEnabled: true,
+    assistantAvailable: true,
     streamChat: proposingStream,
   },
   play: async ({ canvas, userEvent }) => {
@@ -441,9 +442,105 @@ export const AssistantProposalReview: Story = {
   },
 };
 
+/** Lets the story flip the server's answer while the editor is mounted (the 30 s status poll). */
+let setAssistantAvailable: ((available: boolean) => void) | null = null;
+/** Holds the proposal back until the story releases it, so the flip lands while building. */
+let releaseProposal: (() => void) | null = null;
+
+function FlippableSession(props: WorkoutEditorSessionProps) {
+  const [available, setAvailable] = useState(true);
+  useEffect(() => {
+    setAssistantAvailable = setAvailable;
+  }, []);
+  return <WorkoutEditorSession {...props} assistantAvailable={available} />;
+}
+
+const heldProposalStream: StreamWorkoutChat = async (body, options) => {
+  options.onEvent({ type: "stage", stage: "building_sets" });
+  await new Promise<void>((resolve) => {
+    releaseProposal = resolve;
+  });
+  await proposingStream(body, options);
+};
+
+/**
+ * Feature-flags spec §8.1: `AI_ASSISTANT_ENABLED` turns off while a proposal is being built. The
+ * editor stays locked and the panel open, the proposal still reaches review, and only once the
+ * trainer discards it and closes the panel does the AI button go, focus landing on
+ * "+ Adicionar exercício" rather than on `<body>`.
+ */
+export const AssistantTurnedOffWhileBuilding: Story = {
+  args: {
+    workoutId: 42,
+    initial: { ...treinoA, exercises: [supinoCard, puxadaCard] },
+    transport: fakeTransport(),
+    streamChat: heldProposalStream,
+  },
+  beforeEach: () => {
+    releaseProposal = null;
+    setAssistantAvailable = null;
+  },
+  render: (args) => <FlippableSession {...args} />,
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Abrir assistente IA" }));
+    await userEvent.type(canvas.getByLabelText("Mensagem para o assistente"), "Adicione agachamento");
+    await userEvent.click(canvas.getByRole("button", { name: "Enviar" }));
+    await waitFor(() => expect(releaseProposal).not.toBeNull());
+    await waitFor(() => expect(canvas.getByLabelText("Nome do treino").closest("[inert]")).not.toBeNull());
+
+    setAssistantAvailable!(false);
+    // Still locked, panel still open.
+    await expect(canvas.getByLabelText("Nome do treino").closest("[inert]")).not.toBeNull();
+    await expect(canvas.getByRole("button", { name: "Fechar assistente" })).toBeVisible();
+
+    releaseProposal!();
+    await expect(await canvas.findByText("Proposta em revisão — ainda não salva")).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /assistente IA/ })).toBeInTheDocument();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Descartar" }));
+    await waitFor(() =>
+      expect(canvas.queryByText("Proposta em revisão — ainda não salva")).not.toBeInTheDocument(),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Fechar assistente" }));
+    await waitFor(() =>
+      expect(canvas.queryByRole("button", { name: /assistente IA/ })).not.toBeInTheDocument(),
+    );
+    await expect(canvas.getByRole("button", { name: "+ Adicionar exercício" })).toHaveFocus();
+  },
+};
+
+/**
+ * The same flip with the panel open and idle, closed from the AI button itself (not the panel's
+ * "Fechar assistente"): the button goes, and focus lands on "+ Adicionar exercício".
+ */
+export const AssistantTurnedOffClosedFromButton: Story = {
+  args: {
+    workoutId: 42,
+    initial: { ...treinoA, exercises: [supinoCard, puxadaCard] },
+    transport: fakeTransport(),
+    streamChat: proposingStream,
+  },
+  beforeEach: () => {
+    setAssistantAvailable = null;
+  },
+  render: (args) => <FlippableSession {...args} />,
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Abrir assistente IA" }));
+    await waitFor(() => expect(setAssistantAvailable).not.toBeNull());
+    setAssistantAvailable!(false);
+    // The panel is open, so the latch keeps the button.
+    const aiButton = await canvas.findByRole("button", { name: "Fechar assistente IA" });
+    await userEvent.click(aiButton);
+    await waitFor(() =>
+      expect(canvas.queryByRole("button", { name: /assistente IA/ })).not.toBeInTheDocument(),
+    );
+    await expect(canvas.getByRole("button", { name: "+ Adicionar exercício" })).toHaveFocus();
+  },
+};
+
 /** The flag off (production default): no AI button at all. */
 export const AssistantDisabled: Story = {
-  args: { workoutId: 42, initial: treinoA, assistantEnabled: false },
+  args: { workoutId: 42, initial: treinoA, assistantAvailable: false },
   play: async ({ canvas }) => {
     await expect(canvas.queryByRole("button", { name: /assistente IA/ })).not.toBeInTheDocument();
   },

@@ -43,7 +43,7 @@ Coverage: assessment §2, unchanged except the D-rows above.
 | D8 | **The list's search is client-side, over key and description.** `filterFeatureFlags(flags, q)`: trimmed, case- and accent-insensitive (`normalize("NFD")`, combining marks removed, `toLocaleLowerCase("pt-BR")`), a substring of the key or the description. No debounce and no request. The query lives in the URL as `?q=` (`router.replace`, as `ExercisesContent` does), bounded by `ADMIN_SEARCH_MAX`. | R4, E7, W7 |
 | D9 | **Per-row pending state, and every save single-flight.** "Adicionar" is disabled while its mutation is pending (plus a submitting ref, as `ConfirmDialog` does), so a double click sends one request. A user row's switch and remove button are **pending** while any mutation for that user number is pending (the add included). Pending means `aria-disabled="true"`, still focusable, and activation (click, Space, Enter) ignored; never the `disabled` attribute on a control that may hold focus, which would drop focus to `<body>`. The kit `Switch` only dims on `disabled`, so it gets the same dimmed, non-pointer style for `aria-disabled="true"` (one selector change in `Switch.tsx`, its story extended). A pending remove shows "Removendo…" with the `Spinner` in place of the row's actions (frame `gJQrD`). A pending switch stays at its old state. Different rows may save at the same time. Focus rules are in §10. | W8, R14 |
 | D10 | **Errors: one generic save failure, one "flag gone" path.** A failed write shows "Não foi possível salvar. Tente de novo." (in the dialog for the everyone switch, frame `vBk8U`; as an error toast otherwise). A `NOT_FOUND` on any write means developers removed the flag (E9): the dialog closes, the toast says "Esta flag não existe mais. A lista foi atualizada.", and the list key is invalidated. On the detail page the refetched list no longer has the key, so the page shows "Flag não encontrada" (frame `vJYcq`). A detail URL whose key isn't in the list shows the same state. A 401 follows `apiClient`'s existing admin sign-out. The copy is keyed on `error.code` (`flagSaveErrorMessage` in `src/lib/admin/featureFlags.ts`), never on `error.message`; it is generic for every other code because the approved frames are. | W8, E9 |
-| D11 | **The editor's assistant-status query follows the R21 budget.** `WorkoutEditor.tsx:101-106` (on `main` at c935896) changes from `staleTime: 5 * 60_000, retry: false` to `staleTime: 30_000, refetchInterval: 30_000, retry: 1` (`refetchIntervalInBackground` stays at its default `false`, so a hidden tab doesn't poll). Worst case about 60 s (API cache 30 s + interval 30 s); cost one status call per 30 s per open, visible editor. A failure before the first success hides the AI button; a later failed poll keeps the last data. **A flip to off never interrupts the assistant (§8.1):** `WorkoutEditorSession` latches the last `true` while the chat is busy, a proposal is in review or the panel is open, and applies `false` only once all three are idle; a flip to on applies at once. The two comments that name `AI_ASSISTANT_ENABLED` as a BFF env switch (`WorkoutEditor.tsx:99-100`, `assistant.ts:8`) are rewritten (§8). | W11, R7, R21, R22, R27, E10, E11 |
+| D11 | **The editor's assistant-status query follows the R21 budget.** `WorkoutEditor.tsx:101-106` (on `main` at c935896) changes from `staleTime: 5 * 60_000, retry: false` to `staleTime: 30_000, refetchInterval: 30_000, retry: 1` (`refetchIntervalInBackground` stays at its default `false`, so a hidden tab doesn't poll). Worst case about 60 s (API cache 30 s + interval 30 s); cost one status call per 30 s per open, visible editor. A failed request before the first success hides the AI button; a later failed request keeps the last data. A failure to *evaluate* the flag is not a failed request: the BFF answers 200 `{ enabled: false }` (its contract, unchanged), so such a blip hides the button for one poll (about 30 s) on an editor that isn't using the assistant; an active session is protected by the latch below. **A flip to off never interrupts the assistant (§8.1):** `WorkoutEditorSession` latches the last `true` while the chat is busy, a proposal is in review or the panel is open, and applies `false` only once all three are idle; a flip to on applies at once. The two comments that name `AI_ASSISTANT_ENABLED` as a BFF env switch (`WorkoutEditor.tsx:99-100`, `assistant.ts:8`) are rewritten (§8). | W11, R7, R21, R22, R27, E10, E11 |
 | D12 | **Built against the documented contract, merged after the BFF.** The wrappers and screens are written against §3 and developed with stories over a fetch stub. Types come only from the generated `schema.ts`: during development, `.bff-ref` points at the BFF implementation branch's commit and `npm run api:types -- --local` reads it; before merging, `.bff-ref` holds the BFF merge commit. No wire type is hand-written. | **W2 (Blocker)** |
 | D13 | **No history, no reason, no create or delete.** `src/lib/admin/actions.ts`, `HistoryContent.tsx` and `contract.test.ts` don't change. No write takes a reason. The page has no control to create or delete a flag. | R9, R23 (withdrawn), R24 |
 
@@ -232,7 +232,9 @@ export async function settleAfterWrite(queryClient: QueryClient) {
   const queryKey = adminKeys.featureFlags();
   const issuedAt = Date.now(); // after the write's response: the server has committed
   const deadline = issuedAt + PAUSED_DEADLINE_MS;
-  await queryClient.invalidateQueries({ queryKey, exact: true });
+  const listHash = queryClient.getQueryCache().find({ queryKey, exact: true })?.queryHash;
+  const invalidated = queryClient.invalidateQueries({ queryKey, exact: true });
+  await (listHash ? untilPausedOrDone(queryClient, listHash, invalidated) : invalidated);
   for (let refetches = 0; ; ) {
     // Gone (the page unmounted and it was collected, or sign-out's `queryClient.clear()`).
     const query = queryClient.getQueryCache().find({ queryKey, exact: true });
@@ -252,11 +254,31 @@ export async function settleAfterWrite(queryClient: QueryClient) {
     }
     if (refetches === MAX_REFETCHES) return;
     refetches += 1;
-    await queryClient.refetchQueries({ queryKey, exact: true }, { cancelRefetch: false });
+    await untilPausedOrDone(
+      queryClient,
+      query.queryHash,
+      queryClient.refetchQueries({ queryKey, exact: true }, { cancelRefetch: false }),
+    );
     const after = query.state;
     const moved = after.dataUpdatedAt !== before.dataUpdatedAt || after.errorUpdatedAt !== before.errorUpdatedAt;
     if (!moved && after.fetchStatus === "idle") return; // nothing ran and nothing will
   }
+}
+
+/** Resolves when `promise` settles or this query's fetch pauses (a retry waiting offline). */
+function untilPausedOrDone(queryClient: QueryClient, queryHash: string, promise: Promise<unknown>): Promise<void> {
+  return new Promise((resolve) => {
+    let unsubscribe = () => {};
+    const finish = () => {
+      unsubscribe();
+      resolve();
+    };
+    unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.query.queryHash === queryHash && event.query.state.fetchStatus === "paused") finish();
+    });
+    if (queryClient.getQueryCache().get(queryHash)?.state.fetchStatus === "paused") finish();
+    promise.then(finish, finish);
+  });
 }
 
 /** Resolves after `ms` (a plain `setTimeout`, so fake timers drive it in tests). */
@@ -293,8 +315,13 @@ moved and nothing is fetching; three refetches; the paused deadline. A paused (o
 waits on the cache subscription and doesn't count toward the cap; back online, TanStack resumes
 the fetch, whose `updated` event wakes the loop. That wait is the only one without its own end,
 so it races `PAUSED_DEADLINE_MS` (10 s from `issuedAt`): past it, the function returns like the
-other give-ups, since the write itself already succeeded. Only the paused wait can hit the
-deadline; refetches are bounded by the cap. The race's losing `nextUpdate` subscription stays
+other give-ups, since the write itself already succeeded. A fetch can also pause in the middle:
+with `retry: 1`, a failed first attempt followed by going offline (or losing focus) pauses the
+retryer inside the very promise `invalidateQueries`/`refetchQueries` returned, which then stays
+pending until the fetch resumes. So both awaits go through `untilPausedOrDone`, which also resolves
+as soon as this query's `fetchStatus` becomes `"paused"`; the next pass then takes the paused
+branch and its deadline. The deadline therefore bounds every pause, at the start or mid-retry;
+refetches that run are bounded by the cap. The race's losing `nextUpdate` subscription stays
 until the query's next update or removal, which is harmless. A row that exits without fresh data re-enables on the data it has;
 the next focus or reconnect refetch corrects it.
 
@@ -308,8 +335,10 @@ mutation already does.
 ```tsx
   // Whether the assistant is on for this trainer: the `AI_ASSISTANT_ENABLED` flag, set on the admin
   // "Feature flags" page. Polled every 30 s while the tab is visible, so a change reaches an open
-  // editor within about a minute. A failure before the first answer keeps the AI button hidden; a
-  // later failed poll keeps the last answer. WorkoutEditorSession never turns it off mid-use.
+  // editor within about a minute. A failed request before the first answer keeps the AI button
+  // hidden; a later failed request keeps the last answer. A failure to evaluate the flag is not a
+  // failed request: the BFF answers 200 `{ enabled: false }`, so a blip hides the button until the
+  // next poll. WorkoutEditorSession never turns it off mid-use (the latch).
   const { data: assistantStatus } = useQuery({
     queryKey: assistantStatusQueryKey,
     queryFn: fetchAssistantStatus,
@@ -382,7 +411,9 @@ has no header heading, so the first always-present header control is the target.
   before it runs: it doesn't spin (the `queryFn` is called at most once, the promise stays pending
   across fake-timer advances shorter than `PAUSED_DEADLINE_MS`), and resolves after
   `setOnline(true)` lets the fetch land; (2b) offline, fake timers advanced past
-  `PAUSED_DEADLINE_MS`: it resolves without going back online, and the `queryFn` was not called again; (3) the
+  `PAUSED_DEADLINE_MS`: it resolves without going back online, and the `queryFn` was not called again; (2c) `retry: 1`,
+  the `queryFn` rejects once and `onlineManager.setOnline(false)` lands during the retry delay: it
+  resolves once fake timers pass `PAUSED_DEADLINE_MS`, with no further `queryFn` call; (3) the
   query removed (`queryClient.removeQueries`) or never created: it resolves at once. Plus: with the
   fake clock frozen at `issuedAt`, so no landing is strictly newer, it stops after three refetches, and a failing `queryFn`
   resolves on the error.

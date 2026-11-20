@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect } from "storybook/test";
 import { Switch } from "./Switch";
 
 const meta = {
@@ -14,3 +15,15 @@ export const On: Story = { args: { checked: true } };
 export const NoLabel: Story = { args: { label: undefined, checked: true } };
 export const Disabled: Story = { args: { checked: false, disabled: true } };
 export const DisabledOn: Story = { args: { checked: true, disabled: true } };
+
+/** Pending (a save in flight): dimmed like `disabled`, but still focusable. */
+export const AriaDisabled: Story = {
+  args: { checked: true, "aria-disabled": true },
+  play: async ({ canvas, userEvent }) => {
+    const control = canvas.getByRole("switch");
+    await expect(control).not.toBeDisabled();
+    await expect(control.closest("label")).toHaveClass("opacity-35");
+    await userEvent.tab();
+    await expect(control).toHaveFocus();
+  },
+};
