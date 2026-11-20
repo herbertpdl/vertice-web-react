@@ -10,8 +10,9 @@ Related: [vertice-api PRD](https://github.com/herbertpdl/vertice-api/blob/main/d
 [vertice-api spec](https://github.com/herbertpdl/vertice-api/blob/main/docs/specs/feature-flags/spec.md)
 (D1–D19),
 [vertice-bff assessment](https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/feature-flags/assessment.md)
-(F5: the four admin routes) and the vertice-bff spec `docs/specs/feature-flags/spec.md` (being
-written in parallel; it wins over this document on any route, field or code), this repo's
+(F5: the four admin routes) and the [vertice-bff spec](https://github.com/herbertpdl/vertice-bff/blob/main/docs/specs/feature-flags/spec.md)
+(FF1–FF10, the REST contract this app consumes; it wins over this document on any route, field
+or code), this repo's
 [assessment](../../assessments/feature-flags/assessment.md) (W1–W11, resolved in §0),
 [`docs/specs/admin-panel/spec.md`](../admin-panel/spec.md) (the panel this page joins).
 Ticket: [VRT-54](https://app.notion.com/p/41e61ad559a5818089b6d51021fe2b9f).
@@ -97,11 +98,13 @@ the toast reads "Usuário #N agora segue a configuração para todos." and the r
 
 Every user-setting failure is an error toast (D10), with the row back to its saved state.
 
-## 3. The BFF contract (assumed)
+## 3. The BFF contract
 
-The BFF spec was not yet published when this was written. The routes below are the BFF
-assessment's F5, which the API spec's D11–D13 match. If the BFF spec differs, it wins: only
+From the BFF spec's FF7, FF8 and §2 (draft, written in parallel with this one; it matches the BFF
+assessment's F5 and the API spec's D11–D13). If the merged BFF spec differs, it wins: only
 `adminFeatureFlags.ts` and the aliases in `types.ts` change, since the screens use the aliases.
+The aliases are `FeatureFlag = Schemas["AdminFeatureFlag"]`, `FeatureFlagList =
+Schemas["AdminFeatureFlagList"]` and `FeatureFlagUser = FeatureFlag["users"][number]`.
 
 | Wrapper | Route | Body | 200 |
 |---|---|---|---|
@@ -116,8 +119,10 @@ assessment's F5, which the API spec's D11–D13 match. If the BFF spec differs, 
 - `enabled` is a JSON boolean. No body carries a `reason`.
 - `:key` is `encodeURIComponent(key)` (keys are `^[A-Z][A-Z0-9_]*$`, at most 64, API D4); `apiClient`
   and `bffProxyPath` already encode and check each segment.
-- Errors: unknown key → 404 `NOT_FOUND`; a malformed key or a `userId` that isn't a positive safe
-  integer → 400 `VALIDATION_ERROR` (the form never sends one, D7); no ADMIN session → 401/403 as
+- Errors: unknown key → 404 `NOT_FOUND`; a malformed key, a body that isn't exactly
+  `{ enabled: boolean }`, or a `userId` that isn't digits with no leading zero forming a positive
+  safe integer → 400 `VALIDATION_ERROR` (BFF FF8, the same rule as D7, so the form never sends
+  one); no ADMIN session → 401/403 as
   for every admin route. Removing a number with no setting succeeds (API D13).
 
 ## 4. Pure helpers (`src/lib/admin/featureFlags.ts`)
