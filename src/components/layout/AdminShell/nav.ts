@@ -1,4 +1,4 @@
-import { Dumbbell, History, LayoutDashboard, Users } from "lucide-react";
+import { Dumbbell, History, LayoutDashboard, ToggleRight, Users } from "lucide-react";
 import type { SideNavItem } from "@/components/ui/SideNav";
 
 /**
@@ -9,6 +9,7 @@ export const ADMIN_NAV: SideNavItem[] = [
   { href: "/painel", label: "Dashboard", icon: LayoutDashboard },
   { href: "/painel/usuarios", label: "Usuários", icon: Users },
   { href: "/painel/exercicios", label: "Exercícios", icon: Dumbbell },
+  { href: "/painel/flags", label: "Feature flags", icon: ToggleRight },
   { href: "/painel/historico", label: "Histórico", icon: History },
 ];
 

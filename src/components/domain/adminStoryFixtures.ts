@@ -7,6 +7,7 @@ import type {
   AdminDirectoryUser,
   AdminTrainerProfile,
   AdminWeeklySignups,
+  FeatureFlag,
 } from "@/lib/api/types";
 
 /** The 12 weeks of frame `izEoo` (25/08 to 10/11), oldest first. */
@@ -269,3 +270,30 @@ export const adminMostUsed: AdminMostUsedExercise[] = [
   { exercise: adminStarterExercises[7], workoutCount: 205 },
   { exercise: adminPrivateExercises[1], workoutCount: 188 },
 ];
+
+/**
+ * The two seeded flags (feature-flags spec §5; frames `ufeI3`, `gJQrD`), with user settings for the
+ * detail stories. Fresh copies each call: the flag stories' fetch stub mutates them.
+ */
+export function adminFeatureFlags(): FeatureFlag[] {
+  return [
+    {
+      key: "AI_ASSISTANT_ENABLED",
+      description:
+        "Assistente de IA no editor de treino. A configuração por usuário vale para o treinador (o número é o do treinador).",
+      enabled: true,
+      users: [
+        { userId: 1, enabled: true },
+        { userId: 57, enabled: false },
+        { userId: 1234, enabled: true },
+      ],
+    },
+    {
+      key: "FIRST_ACCESS_EMAIL_ENABLED",
+      description:
+        "Envio do e-mail de primeiro acesso ao aluno, no lugar do link entregue pelo treinador. A configuração por usuário vale para o treinador.",
+      enabled: false,
+      users: [],
+    },
+  ];
+}
