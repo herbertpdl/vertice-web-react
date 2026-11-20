@@ -36,7 +36,7 @@ Coverage: assessment §2, unchanged except the D-rows above.
 | D1 | **A generic switch, with no per-flag code.** The page knows no flag by name. Dialogs, toasts, helper text and empty states use the same copy for every flag (§5). The only per-flag text is the description, shown as sent. There is no per-flag copy map, guard, label or prerequisite check anywhere in the web. | Owner decision; API D1; R9, R10, R29, E14 |
 | D2 | **The section is "Feature flags", between "Exercícios" and "Histórico" in `ADMIN_NAV`**, `href: "/painel/flags"`, icon `ToggleRight` from `lucide-react` (frame `ufeI3`'s `toggle-right`). Everything else on the page is pt-BR; "flag" is feminine ("a flag", "Nenhuma flag encontrada", "Flag não encontrada"). The key is shown as sent, in the monospace style of the frames, never translated. | R1, W10, Q2, Q3 |
 | D3 | **The detail is a route, `/painel/flags/[key]`, reading from the list query (Option A).** `GET /admin/feature-flags` carries each flag's user settings inline, so the detail page finds its flag in the same query's data. There is no per-flag read. `activeAdminSection` already matches by prefix, so the nav item stays active. | W5, R13–R18 |
-| D4 | **One query key, `adminKeys.featureFlags()` = `["admin", "feature-flags"]`.** Every flag write, on success, invalidates that key only, never `["admin"]` and never `adminKeys.actions()` (no history, R23 withdrawn), and ends its pending state only once **a fetch that started after its success has landed** (`settleAfterWrite`, §7): the dialog keeps its loading button, and a user row stays pending, until the list shows the saved state. Awaiting `invalidateQueries` alone is not enough: it defaults to `cancelRefetch: true`, so row B's save can cancel row A's refetch, and A would re-enable showing its old state, where a quick click would send the inverse of what A just saved. So a switch never shows a stale state after a success toast, and the cache is never edited by hand (the repo's invalidate-by-key rule). The returned flag is used only for the toast. Default `staleTime` (30 s) and focus refetch; no interval. | W7, R25 |
+| D4 | **One query key, `adminKeys.featureFlags()` = `["admin", "feature-flags"]`.** Every flag write, on success, invalidates that key only, never `["admin"]` and never `adminKeys.actions()` (no history, R23 withdrawn), and ends its pending state only once **a fetch that started after its success has landed**, or one of §7's exits applies (`settleAfterWrite`): the dialog keeps its loading button, and a user row stays pending, until the list shows the saved state. Awaiting `invalidateQueries` alone is not enough: it defaults to `cancelRefetch: true`, so row B's save can cancel row A's refetch, and A would re-enable showing its old state, where a quick click would send the inverse of what A just saved. So a switch never shows a stale state after a success toast, and the cache is never edited by hand (the repo's invalidate-by-key rule). The returned flag is used only for the toast. Default `staleTime` (30 s) and focus refetch; no interval. | W7, R25 |
 | D5 | **Every write sends an absolute state, and no switch flips before its save succeeds.** A `Switch` is always rendered from query data (`checked={flag.enabled}`), and its `onChange` never changes it. On a click, the handler captures the target state as the opposite of what the switch shows at that moment, and that captured value is both the dialog's copy and the request body (`{ enabled: target }`). A refetch while the dialog is open doesn't change the captured value: the admin confirmed "Ligar", so "Ligar" is sent. Last save wins (R25, E12). The same rule applies to a user row's switch, which has no dialog. | **W4 (High)**, R11, R12, R14, R25, E12, E13 |
 | D6 | **The everyone switch asks first; user settings save at once.** The everyone switch, on the list rows and in the detail header, opens `FeatureFlagEveryoneDialog` (over `ConfirmDialog`, `cancelVariant="ghost"`). Cancel and Escape send nothing. Add, change and remove a user setting have no dialog. | R12, R14, E13 |
 | D7 | **A user is added by a positive whole number, with no lookup and no identification.** `featureFlagUserIdSchema` accepts only digits forming a positive safe integer (`^[1-9]\d{0,15}$` and `Number.isSafeInteger`), after trimming. Anything else ("0", "-3", "1.5", "12a", "", leading zeros, past `Number.MAX_SAFE_INTEGER`) shows "Digite um número de usuário válido" and sends nothing. The add form has a "Configuração" `Dropdown` with "Ligado" (default) and "Desligado". A user is rendered as plain text "Usuário #N" (`String(n)`, no thousands separator) everywhere on these pages, never a link to `/painel/usuarios/:id`, whose read would identify the person and write a history entry. The same number again replaces the setting (the helper text says so). | W6, R13, R15, R17, E3, E4, E5, E15 |
@@ -219,29 +219,65 @@ shows whatever the list returns, so nothing here depends on them.
 | `setFeatureFlagEveryone` | | On success and on `NOT_FOUND`: `await settleAfterWrite(queryClient)` before the pending state ends (D4). |
 | `setFeatureFlagUser`, `removeFeatureFlagUser` | | Same. |
 
-`settleAfterWrite` (in `src/lib/api/adminFeatureFlags.ts`):
+`settleAfterWrite` (in `src/lib/api/adminFeatureFlags.ts`). Every pass of its loop either
+waits for a real event (a fetch settling, a cache update) or returns, so it can't spin:
 
 ```ts
+const MAX_REFETCHES = 3;
+
 export async function settleAfterWrite(queryClient: QueryClient) {
   const queryKey = adminKeys.featureFlags();
   const issuedAt = Date.now(); // after the write's response: the server has committed
   await queryClient.invalidateQueries({ queryKey, exact: true });
-  // Another write's invalidation may have cancelled our refetch: wait for data fetched after ours.
-  for (;;) {
-    const state = queryClient.getQueryState(queryKey);
-    if ((state?.dataUpdatedAt ?? 0) >= issuedAt) return;
-    if ((state?.errorUpdatedAt ?? 0) >= issuedAt) return; // the list shows its error
+  for (let refetches = 0; ; ) {
+    // Gone (the page unmounted and it was collected, or sign-out's `queryClient.clear()`).
+    const query = queryClient.getQueryCache().find({ queryKey, exact: true });
+    if (!query) return;
+    const before = query.state;
+    if (before.dataUpdatedAt > issuedAt || before.errorUpdatedAt > issuedAt) return;
+    if (before.fetchStatus === "paused") {
+      // Offline: refetchQueries would resolve at once without fetching. Wait for the query to move.
+      await nextUpdate(queryClient, query.queryHash);
+      continue;
+    }
+    if (refetches === MAX_REFETCHES) return;
+    refetches += 1;
     await queryClient.refetchQueries({ queryKey, exact: true }, { cancelRefetch: false });
+    const after = query.state;
+    const moved = after.dataUpdatedAt !== before.dataUpdatedAt || after.errorUpdatedAt !== before.errorUpdatedAt;
+    if (!moved && after.fetchStatus === "idle") return; // nothing ran and nothing will
   }
+}
+
+/** Resolves on this query's next `updated` (or `removed`) cache event. */
+function nextUpdate(queryClient: QueryClient, queryHash: string): Promise<void> {
+  return new Promise((resolve) => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.query.queryHash !== queryHash) return;
+      if (event.type === "updated" || event.type === "removed") {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
 }
 ```
 
-Why `dataUpdatedAt >= issuedAt` proves freshness: `invalidateQueries` (default `cancelRefetch:
+Why `dataUpdatedAt > issuedAt` proves freshness: `invalidateQueries` (default `cancelRefetch:
 true`) cancels any fetch in flight at `issuedAt` and starts a new one, and a cancelled fetch never
-writes data. So any data that lands after `issuedAt` comes from a fetch started after the write
-committed. Inside the loop, `cancelRefetch: false` joins a fetch already in flight, which by the
-same argument started after `issuedAt`. A failed refetch ends the wait: the row re-enables and the
-list shows its error state.
+writes data. So data that lands strictly after `issuedAt` comes from a fetch started after the
+write committed; the comparison is strict so a fetch landing in the same millisecond is not
+trusted (it costs at most one more refetch). Inside the loop, `cancelRefetch: false` joins a fetch
+already in flight, which by the same argument started after `issuedAt`. When another write's
+invalidation cancels ours, `refetchQueries` resolves while the new fetch runs (`fetchStatus`
+`"fetching"`), so the next pass joins it.
+
+Exits, each without a busy loop: fresh data or an error after `issuedAt` (a failed refetch: the
+row re-enables and the list shows its error state); the query gone; a refetch after which nothing
+moved and nothing is fetching; three refetches. A paused (offline) query waits on the cache
+subscription and doesn't count toward the cap; back online, TanStack resumes the fetch, whose
+`updated` event wakes the loop. A row that exits without fresh data re-enables on the data it has;
+the next focus or reconnect refetch corrects it.
 
 Starting a mutation counts as an interaction for `useAdminSession`'s renewal, as every admin
 mutation already does.
@@ -301,6 +337,14 @@ the panel (with the chat idle and no review) then hides the button.
 - `src/lib/validation/admin.test.ts`: `featureFlagUserIdSchema` accepts "1", " 57 ", "9007199254740991";
   refuses "", "0", "-3", "1.5", "12a", "1e3", "007", "9007199254740992".
 - `src/lib/validation/ids.test.ts`: `parsePositiveId`; the history filters keep their behaviour.
+- `src/lib/api/adminFeatureFlags.test.ts`: `settleAfterWrite` with a real `QueryClient` and a
+  stubbed `queryFn` (no React): (1) the first refetch is cancelled by a second invalidation, then
+  data arrives: it resolves once that data lands, not before; (2) `onlineManager.setOnline(false)`
+  before it runs: it doesn't spin (the `queryFn` is called at most once, the promise stays pending
+  across fake-timer advances), and resolves after `setOnline(true)` lets the fetch land; (3) the
+  query removed (`queryClient.removeQueries`) or never created: it resolves at once. Plus: with the
+  fake clock frozen at `issuedAt`, so no landing is strictly newer, it stops after three refetches, and a failing `queryFn`
+  resolves on the error.
 - `contract.test.ts`: unchanged (D13).
 
 **Stories (`storybook` project, fetch stub as in `HistoryContent.stories.tsx`):**
