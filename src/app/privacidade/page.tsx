@@ -113,9 +113,11 @@ export default function PrivacyPage() {
           assistente.
         </p>
         <p>
-          Não enviamos dados que identifiquem o aluno (como nome, e-mail ou CPF), nem os registros
-          de treino e o feedback dele. As mensagens do treinador vão como ele as escreveu; por
-          isso, evite incluir nelas o nome ou outros dados pessoais do aluno.
+          Não enviamos o cadastro do aluno (como nome, e-mail ou CPF), nem as cargas que ele
+          registrou, os registros de treino ou o feedback dele. Os textos escritos pelo treinador
+          (o nome e a descrição do plano, as observações dos exercícios e as mensagens ao
+          assistente) são enviados como ele os escreveu; por isso, o treinador deve evitar incluir
+          neles o nome ou outros dados pessoais do aluno.
         </p>
       </LegalSection>
 
@@ -143,15 +145,16 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Anthropic:</strong> fornece o modelo de inteligência artificial do assistente
-            de treino. Recebe apenas os dados descritos na seção 4, quando o treinador usa o
-            assistente, e os processa para gerar as respostas dele, como suboperadora: a Vertice a
-            contrata para prestar o serviço ao treinador, que continua sendo o controlador dos
-            dados dos alunos.
+            de treino. A Vertice envia a ela, apenas quando o treinador usa o assistente, os dados
+            descritos na seção 4, para gerar as respostas do assistente. A Anthropic atua como
+            suboperadora: a Vertice a contrata para prestar o serviço ao treinador, que continua
+            sendo o controlador dos dados dos alunos.
           </li>
         </ul>
         <p>
           O monitoramento técnico do assistente recebe só dados de funcionamento (como tempo de
-          resposta, volume de uso e erros), sem o conteúdo dos treinos nem das mensagens.
+          resposta, quantidade de tokens processados, erros e a versão das instruções do
+          assistente), sem o conteúdo dos treinos nem das mensagens.
         </p>
         <p>Se a lista de fornecedores mudar, esta política será atualizada antes.</p>
       </LegalSection>
