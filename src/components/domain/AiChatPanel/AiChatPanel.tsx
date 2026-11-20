@@ -110,6 +110,11 @@ export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }
   const inputId = useId();
   const counterId = useId();
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Opening moves focus into the panel: below 1280 px it covers the editor.
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
   const busy = isBusy(state);
   const length = messageLength(state.input);
   const over = length > ASSISTANT_MESSAGE_MAX;
@@ -126,6 +131,13 @@ export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }
   return (
     <aside
       aria-label="Assistente IA"
+      onKeyDown={(event) => {
+        // `preventDefault` so an open Dialog's own Escape handler leaves it alone (CLAUDE.md).
+        if (event.key === "Escape" && !event.defaultPrevented) {
+          event.preventDefault();
+          onClose();
+        }
+      }}
       className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[440px] flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_0_48px_#00000080] xl:sticky xl:top-0 xl:z-auto xl:h-screen xl:shrink-0 xl:shadow-none"
     >
       <div className="flex items-center justify-between gap-[var(--space-3)] border-b border-[var(--color-border)] px-[var(--space-5)] py-[var(--space-4)]">
@@ -207,6 +219,7 @@ export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }
           }`}
         >
           <textarea
+            ref={inputRef}
             id={inputId}
             value={state.input}
             rows={2}

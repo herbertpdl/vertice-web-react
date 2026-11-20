@@ -45,8 +45,11 @@ export const Empty: Story = {
     await expect(canvas.getByText("Como posso ajudar com este treino?")).toBeVisible();
     await expect(canvas.getByText("A IA pode cometer erros. Revise antes de aplicar.")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Enviar" })).toBeDisabled();
+    await expect(canvas.getByLabelText("Mensagem para o assistente")).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await expect(args.onClose).toHaveBeenCalledTimes(1);
     await userEvent.click(canvas.getByRole("button", { name: "Fechar assistente" }));
-    await expect(args.onClose).toHaveBeenCalled();
+    await expect(args.onClose).toHaveBeenCalledTimes(2);
   },
 };
 

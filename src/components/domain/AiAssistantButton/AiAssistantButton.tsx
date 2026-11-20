@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { Sparkles } from "lucide-react";
 import { Spinner } from "@/components/ui";
 
@@ -8,15 +9,18 @@ interface AiAssistantButtonProps {
   /** A message is being processed (R47–R49): the label says so while the panel is closed. */
   busy: boolean;
   onClick: () => void;
+  /** The editor returns focus here when the panel closes. */
+  ref?: Ref<HTMLButtonElement>;
 }
 
 /**
  * Opens and closes the assistant's panel (R3). It sits outside the editor's lock, so the trainer
  * can always reopen the panel and stop a change being built (R49).
  */
-export function AiAssistantButton({ open, busy, onClick }: AiAssistantButtonProps) {
+export function AiAssistantButton({ open, busy, onClick, ref }: AiAssistantButtonProps) {
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
       aria-expanded={open}
