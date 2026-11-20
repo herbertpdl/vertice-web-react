@@ -3,6 +3,7 @@ import {
   adminLoginSchema,
   adminReasonSchema,
   adminVerifyRequestSchema,
+  featureFlagUserIdSchema,
   muscleGroupNameSchema,
   secondFactorCodeSchema,
 } from "./admin";
@@ -59,5 +60,21 @@ describe("muscleGroupNameSchema", () => {
     expect(muscleGroupNameSchema.safeParse("a".repeat(51)).success).toBe(false);
     expect(muscleGroupNameSchema.safeParse("\u{1F4AA}".repeat(25)).success).toBe(true);
     expect(muscleGroupNameSchema.safeParse("\u{1F4AA}".repeat(26)).success).toBe(false);
+  });
+});
+
+describe("featureFlagUserIdSchema", () => {
+  it.each([
+    ["1", 1],
+    [" 57 ", 57],
+    ["9007199254740991", 9007199254740991],
+  ])("accepts %j", (text, id) => {
+    expect(featureFlagUserIdSchema.parse(text)).toBe(id);
+  });
+
+  it.each(["", "0", "-3", "1.5", "12a", "1e3", "007", "9007199254740992"])("refuses %j", (text) => {
+    const result = featureFlagUserIdSchema.safeParse(text);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].message).toBe("Digite um número de usuário válido");
   });
 });
