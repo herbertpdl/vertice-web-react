@@ -365,16 +365,20 @@ later (PRD §6 deferred).
 
 **W11 (Info). R21's minute applies to the web's own copy of the AI flag.**
 - **What:** When the AI assistant web feature ships, it hides its button while the flag is off for
-  the trainer (ai-workout-assistant assessment F2, Q3: via a field the web already loads, such as
-  `GET /auth/me`). That data is cached by the web (30 s `staleTime`, refetch on focus and mount)
-  on top of the API's up-to-a-minute cache (API F2).
-- **Where:** `docs/assessments/ai-workout-assistant/assessment.md` §8 Q3; `src/app/providers.tsx`;
+  the trainer. Per the vertice-bff assessment, the web learns this from `GET /api/assistant/status`,
+  a per-trainer `{ enabled }` answered from the API's evaluation, which the API caches for up to a
+  minute (API F2). It is not a field of `/auth/me`. The web then caches that answer itself (30 s
+  `staleTime`, refetch on focus and mount).
+- **Where:** [vertice-bff `docs/assessments/feature-flags/assessment.md`](https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/feature-flags/assessment.md)
+  (`/assistant/status`, 503 `AI_UNAVAILABLE`); `docs/assessments/ai-workout-assistant/assessment.md`
+  §8 Q3, whose `/auth/me` assumption is now answered by the BFF assessment; `src/app/providers.tsx`;
   PRD R7, R21, E10.
-- **Why it matters:** The windows add up to about 90 s in the worst case: slightly over "about a
+- **Why it matters:** The two caches add up to about 90 s in the worst case: slightly over "about a
   minute", not a defect. There is nothing to build on this page.
-- **Recommendation:** The ai-workout-assistant web spec states the sum. The BFF is the place to
-  return 403/404 if the flag turns off mid-session, so the web shows its "unavailable" state
-  rather than trusting the cached field.
+- **Recommendation:** The ai-workout-assistant web spec reads `/assistant/status` and states the
+  ~90 s sum. A chat sent after the flag turned off is refused by the BFF with 503
+  `AI_UNAVAILABLE`, and the web shows its "unavailable" state for it rather than trusting the
+  cached `enabled`.
 
 ### 12. Effort, risk, and dependencies
 
