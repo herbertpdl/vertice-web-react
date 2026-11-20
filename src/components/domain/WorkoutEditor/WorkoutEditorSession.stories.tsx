@@ -478,6 +478,7 @@ export const AssistantTurnedOffWhileBuilding: Story = {
   },
   beforeEach: () => {
     releaseProposal = null;
+    setAssistantAvailable = null;
   },
   render: (args) => <FlippableSession {...args} />,
   play: async ({ canvas, userEvent }) => {
@@ -501,6 +502,35 @@ export const AssistantTurnedOffWhileBuilding: Story = {
       expect(canvas.queryByText("Proposta em revisão — ainda não salva")).not.toBeInTheDocument(),
     );
     await userEvent.click(canvas.getByRole("button", { name: "Fechar assistente" }));
+    await waitFor(() =>
+      expect(canvas.queryByRole("button", { name: /assistente IA/ })).not.toBeInTheDocument(),
+    );
+    await expect(canvas.getByRole("button", { name: "+ Adicionar exercício" })).toHaveFocus();
+  },
+};
+
+/**
+ * The same flip with the panel open and idle, closed from the AI button itself (not the panel's
+ * "Fechar assistente"): the button goes, and focus lands on "+ Adicionar exercício".
+ */
+export const AssistantTurnedOffClosedFromButton: Story = {
+  args: {
+    workoutId: 42,
+    initial: { ...treinoA, exercises: [supinoCard, puxadaCard] },
+    transport: fakeTransport(),
+    streamChat: proposingStream,
+  },
+  beforeEach: () => {
+    setAssistantAvailable = null;
+  },
+  render: (args) => <FlippableSession {...args} />,
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "Abrir assistente IA" }));
+    await waitFor(() => expect(setAssistantAvailable).not.toBeNull());
+    setAssistantAvailable!(false);
+    // The panel is open, so the latch keeps the button.
+    const aiButton = await canvas.findByRole("button", { name: "Fechar assistente IA" });
+    await userEvent.click(aiButton);
     await waitFor(() =>
       expect(canvas.queryByRole("button", { name: /assistente IA/ })).not.toBeInTheDocument(),
     );

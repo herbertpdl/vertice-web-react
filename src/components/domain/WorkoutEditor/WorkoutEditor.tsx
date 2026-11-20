@@ -382,6 +382,16 @@ export function WorkoutEditorSession({
   }, []);
 
   const atCap = draft.exercises.length >= MAX_EXERCISES;
+  // Closes the assistant panel, from its own close or from the AI button. Closing may be what lets
+  // a flip to off hide the AI button (§8.1): where focus goes is decided here, from the latch's
+  // inputs, since the button unmounts in this same render and focus would fall to <body>.
+  function closePanel() {
+    setPanelOpen(false);
+    const buttonGoes = !assistantAvailable && !isBusy(chatState) && state.review === null;
+    if (!buttonGoes) aiButtonRef.current?.focus();
+    else if (!atCap) addExerciseRef.current?.focus(); // "+ Adicionar exercício", always rendered
+    else nameFieldRef.current?.focus(); // at the cap that button is disabled
+  }
   const offerClone = state.offersClone;
   const crumbName = draft.name.trim() || DEFAULT_WORKOUT_NAME;
 
@@ -561,7 +571,7 @@ export function WorkoutEditorSession({
                   ref={aiButtonRef}
                   open={panelOpen}
                   busy={chatBusy}
-                  onClick={() => setPanelOpen((open) => !open)}
+                  onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
                 />
               )}
               <div inert={locked}>{headerActions}</div>
@@ -788,15 +798,7 @@ export function WorkoutEditorSession({
         onSend={() => void chat.send()}
         onStop={chat.stop}
         onRetry={() => void chat.retry()}
-        onClose={() => {
-          setPanelOpen(false);
-          // Closing may be what lets a flip to off hide the AI button (§8.1): decided here, from the
-          // latch's inputs, since the button unmounts in this same render.
-          const buttonGoes = !assistantAvailable && !isBusy(chatState) && state.review === null;
-          if (!buttonGoes) aiButtonRef.current?.focus();
-          else if (!atCap) addExerciseRef.current?.focus(); // "+ Adicionar exercício", always rendered
-          else nameFieldRef.current?.focus(); // at the cap that button is disabled
-        }}
+        onClose={closePanel}
       />
     )}
     </div>
