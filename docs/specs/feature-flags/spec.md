@@ -29,6 +29,8 @@ outside the admin workspace, which the existing `(admin)` layout and proxy alrea
 Each row resolves an assessment finding (the Blocker W2, the High W4, and every Medium) or fixes
 an owner decision.
 
+Coverage: assessment §2, unchanged except the D-rows above.
+
 | # | Decision | Resolves |
 |---|---|---|
 | D1 | **A generic switch, with no per-flag code.** The page knows no flag by name. Dialogs, toasts, helper text and empty states use the same copy for every flag (§5). The only per-flag text is the description, shown as sent. There is no per-flag copy map, guard, label or prerequisite check anywhere in the web. | Owner decision; API D1; R9, R10, R29, E14 |
@@ -167,7 +169,9 @@ All from the approved frames. `KEY` is the flag's key in the monospace style; `N
 
 A list with no flags at all (and no search) shows "Nenhuma flag encontrada" with no
 second line and no button. That state has no frame and can't happen while the two seeded flags
-exist (R26).
+exist (R26). Their seed states are R28 as corrected by vertice-api#104: `AI_ASSISTANT_ENABLED`
+on for everyone, `FIRST_ACCESS_EMAIL_ENABLED` off, no user settings (BFF spec FF14). The page
+shows whatever the list returns, so nothing here depends on them.
 
 ## 6. Screens
 
