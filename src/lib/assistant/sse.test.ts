@@ -70,6 +70,11 @@ describe("parseAssistantEvent", () => {
 
   it("parses each event type", () => {
     expect(parseAssistantEvent("stage", '{"stage":"analyzing"}')).toEqual({ type: "stage", stage: "analyzing" });
+    expect(parseAssistantEvent("stage", '{"stage":"building_sets","exercise":3}')).toEqual({
+      type: "stage",
+      stage: "building_sets",
+      exercise: 3,
+    });
     expect(parseAssistantEvent("text", '{"delta":"Oi"}')).toEqual({ type: "text", text: "Oi" });
     expect(parseAssistantEvent("done", "")).toEqual({ type: "done" });
     expect(parseAssistantEvent("error", '{"code":"AI_TIMEOUT","message":"x"}')).toEqual({

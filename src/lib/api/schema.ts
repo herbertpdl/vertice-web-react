@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@d863bc7a5d55433b269e09194d9d293ba159bfbd:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@f465c01646230ee6aace373d6d5c52965924fbfc:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -1623,6 +1623,8 @@ export interface components {
         AssistantStageEvent: {
             /** @description A stage key; the web shows its own pt-BR label for it. */
             stage: components["schemas"]["AssistantStage"];
+            /** @description Only on `building_sets`, which repeats per exercise being written: its 1-based position. */
+            exercise?: number;
         };
         AssistantStatus: {
             /** @description Whether the web shows the AI icon in the workout editor. */

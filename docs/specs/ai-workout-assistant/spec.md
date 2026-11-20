@@ -58,6 +58,8 @@ The events are:
 
 - `stage { stage }`, where `stage` is one of `analyzing`, `choosing_exercises`, `building_sets`
   or `checking`. The web shows its own label for each, and a generic one for an unknown key.
+  `building_sets` repeats once per exercise, with `exercise: n`. It updates the one current row
+  ("Montando séries do nº exercício") and adds none.
 - `text { delta }`
 - `proposal { exercises }`
 - `done {}`

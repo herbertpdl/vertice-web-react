@@ -11,8 +11,9 @@ export const stageLabels: Record<AssistantStage, string> = {
 /** A stage key this build does not know yet (a BFF deployed ahead): still a visible step. */
 export const UNKNOWN_STAGE_LABEL = "Trabalhando no treino";
 
-export function stageLabel(stage: string): string {
-  return Object.hasOwn(stageLabels, stage) ? stageLabels[stage as AssistantStage] : UNKNOWN_STAGE_LABEL;
+export function stageLabel(stage: string, exercise?: number): string {
+  const label = Object.hasOwn(stageLabels, stage) ? stageLabels[stage as AssistantStage] : UNKNOWN_STAGE_LABEL;
+  return exercise ? `${label} do ${exercise}º exercício` : label;
 }
 
 export const STOPPED_MESSAGE = "Interrompido. O treino não foi alterado.";

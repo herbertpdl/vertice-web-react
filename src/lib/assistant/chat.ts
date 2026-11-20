@@ -247,7 +247,11 @@ export function createChatStore(deps: ChatDeps): ChatStore {
       }
       case "stage": {
         armTimer(handle);
-        const item: StageItem = { key: event.stage, label: stageLabel(event.stage), done: false };
+        const item: StageItem = {
+          key: event.stage,
+          label: stageLabel(event.stage, event.exercise),
+          done: false,
+        };
         if (handle.stagesId === null) {
           handle.stagesId = nextId("m");
           push({ id: handle.stagesId, turn: handle.turn, role: "assistant", kind: "stages", stages: [item] });
@@ -255,7 +259,11 @@ export function createChatStore(deps: ChatDeps): ChatStore {
           update(handle.stagesId, (m) => {
             if (m.kind !== "stages") return m;
             const last = m.stages[m.stages.length - 1];
-            if (last && last.key === item.key && !last.done) return m;
+            // `building_sets` repeats once per exercise: one row, its label updated in place.
+            if (last && last.key === item.key && !last.done) {
+              if (last.label === item.label) return m;
+              return { ...m, stages: [...m.stages.slice(0, -1), item] };
+            }
             return { ...m, stages: [...m.stages.map((s) => ({ ...s, done: true })), item] };
           });
         }

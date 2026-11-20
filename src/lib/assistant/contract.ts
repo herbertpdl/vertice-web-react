@@ -33,7 +33,8 @@ export type HistoryTurn = AssistantHistoryTurn;
 export type ProposalExercise = AssistantProposalEntry;
 
 export type AssistantEvent =
-  | { type: "stage"; stage: string }
+  /** `exercise`: on `building_sets`, the 1-based position of the exercise being written. */
+  | { type: "stage"; stage: string; exercise?: number }
   | { type: "text"; text: string }
   | { type: "proposal"; exercises: ProposalExercise[] }
   | { type: "done" }
@@ -110,7 +111,13 @@ export function parseAssistantEvent(name: string, data: string): AssistantEvent 
   switch (name) {
     case "stage":
       return isObject(payload) && typeof payload.stage === "string"
-        ? { type: "stage", stage: payload.stage }
+        ? {
+            type: "stage",
+            stage: payload.stage,
+            ...(typeof payload.exercise === "number" && payload.exercise > 0
+              ? { exercise: payload.exercise }
+              : {}),
+          }
         : null;
     case "text":
       return isObject(payload) && typeof payload.delta === "string"

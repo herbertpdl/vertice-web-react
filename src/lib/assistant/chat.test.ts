@@ -90,11 +90,15 @@ describe("chat store", () => {
     fake.emit({ type: "stage", stage: "analyzing" });
     expect(store.getState().phase).toBe("building");
     expect(locksEditor(store.getState())).toBe(true);
-    fake.emit({ type: "stage", stage: "analyzing" }, { type: "stage", stage: "building_sets" });
+    fake.emit(
+      { type: "stage", stage: "analyzing" },
+      { type: "stage", stage: "building_sets", exercise: 1 },
+      { type: "stage", stage: "building_sets", exercise: 2 },
+    );
     const stages = store.getState().messages.find((m) => m.kind === "stages");
     expect(stages && "stages" in stages && stages.stages).toEqual([
       { key: "analyzing", label: "Analisando o treino", done: true },
-      { key: "building_sets", label: "Montando séries", done: false },
+      { key: "building_sets", label: "Montando séries do 2º exercício", done: false },
     ]);
 
     fake.emit({ type: "proposal", exercises: [] });
