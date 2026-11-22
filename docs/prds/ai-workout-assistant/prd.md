@@ -86,8 +86,9 @@ cannot send another message until the current one is finished.
 - R8: When the trainer asks about something unrelated to training, the assistant politely says
   it only helps with training and invites a related question.
 - R9: The assistant replies in the language the trainer writes in; Portuguese is the default.
-- R10: A trainer's message has at most 2,000 characters; a counter appears near the limit and
-  sending is blocked above it.
+- R10: A trainer's message has at most 2,000 characters; a counter is always shown under the
+  input, turns to a warning near the limit, and sending is blocked above it (always-on counter
+  asked by the owner on 2026-11-22).
 - R11: A permanent note under the chat input reads "A IA pode cometer erros. Revise antes de
   aplicar."
 - R12: The assistant knows the workout on screen, its training plan's name, description, level

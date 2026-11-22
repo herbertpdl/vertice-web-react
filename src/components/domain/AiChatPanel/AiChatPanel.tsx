@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import { Check, CircleAlert, CircleStop, Info, Send, Sparkles, X } from "lucide-react";
 import { Button, Spinner } from "@/components/ui";
 import { ASSISTANT_MESSAGE_MAX } from "@/lib/assistant/contract";
 import { DISCLAIMER } from "@/lib/assistant/copy";
 import { canSend, isBusy, messageLength, type ChatMessage, type ChatState } from "@/lib/assistant/chat";
 
-/** The counter shows from here on (R10, frame `Cz6l0`). */
-const COUNTER_FROM = 1800;
+/** The counter is always shown; from here on it turns to the warning color (R10, frame `Cz6l0`). */
+const COUNTER_WARN_FROM = 1800;
+/** The column layout (R55): beside the editor from 1280 px up, over it below. */
+const COLUMN_QUERY = "(min-width: 1280px)";
 
 export interface AiChatPanelProps {
   state: ChatState;
@@ -104,13 +106,50 @@ function Bubble({ message, isLast, onRetry }: { message: ChatMessage; isLast: bo
  * loses nothing (R4) and a message keeps running behind a closed panel (R47).
  *
  * From 1280 px up it is a 440 px column beside the editor; below that it opens over the editor
- * on the right, full height (R55).
+ * on the right, full height (R55). As a column it is sized to the part of the page row that is on
+ * screen, so the input stays in view however the page above and below it (header, legal footer)
+ * is scrolled.
  */
 export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }: AiChatPanelProps) {
   const inputId = useId();
   const counterId = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const aside = asideRef.current;
+    const row = aside?.parentElement;
+    if (!aside || !row) return;
+    const media = window.matchMedia(COLUMN_QUERY);
+    let frame = 0;
+    const fit = () => {
+      frame = 0;
+      if (!media.matches) {
+        aside.style.height = "";
+        return;
+      }
+      const rect = row.getBoundingClientRect();
+      const visible = Math.min(window.innerHeight, rect.bottom) - Math.max(0, rect.top);
+      aside.style.height = `${Math.max(0, visible)}px`;
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(fit);
+    };
+    fit();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(row);
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    media.addEventListener("change", schedule);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      media.removeEventListener("change", schedule);
+      aside.style.height = "";
+    };
+  }, []);
   // Opening moves focus into the panel: below 1280 px it covers the editor.
   useEffect(() => {
     inputRef.current?.focus();
@@ -130,7 +169,9 @@ export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }
 
   return (
     <aside
+      ref={asideRef}
       aria-label="Assistente IA"
+      data-scroll-padding-exempt
       onKeyDown={(event) => {
         // `preventDefault` so an open Dialog's own Escape handler leaves it alone (CLAUDE.md).
         if (event.key === "Escape" && !event.defaultPrevented) {
@@ -138,7 +179,7 @@ export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }
           onClose();
         }
       }}
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[440px] flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_0_48px_#00000080] xl:sticky xl:top-0 xl:z-auto xl:h-screen xl:shrink-0 xl:shadow-none"
+      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[440px] flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_0_48px_#00000080] xl:sticky xl:top-0 xl:z-auto xl:h-screen xl:shrink-0 xl:self-start xl:shadow-none"
     >
       <div className="flex items-center justify-between gap-[var(--space-3)] border-b border-[var(--color-border)] px-[var(--space-5)] py-[var(--space-4)]">
         <div className="flex items-center gap-[10px]">
@@ -225,7 +266,7 @@ export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }
             rows={2}
             disabled={busy}
             aria-invalid={over}
-            aria-describedby={length >= COUNTER_FROM ? counterId : undefined}
+            aria-describedby={counterId}
             placeholder={busy ? "Aguarde a resposta terminar…" : "Pergunte ou peça uma alteração no treino…"}
             onChange={(event) => onInput(event.target.value)}
             onKeyDown={(event) => {
@@ -234,7 +275,7 @@ export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }
                 if (sendable) onSend();
               }
             }}
-            className="max-h-[160px] min-h-[40px] flex-1 resize-none bg-transparent text-[length:var(--text-sm)] text-[color:var(--color-text-primary)] outline-none placeholder:text-[color:var(--color-text-tertiary)] disabled:opacity-60"
+            className="field-sizing-content max-h-[50vh] min-h-[44px] flex-1 resize-y bg-transparent text-[length:var(--text-sm)] text-[color:var(--color-text-primary)] outline-none placeholder:text-[color:var(--color-text-tertiary)] disabled:opacity-60"
           />
           {busy ? (
             <Button type="button" variant="outline" size="sm" onClick={onStop}>
@@ -250,16 +291,18 @@ export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }
         </div>
         <div className="flex items-start justify-between gap-[var(--space-3)]">
           <p className="text-[11px] text-[color:var(--color-text-tertiary)]">{DISCLAIMER}</p>
-          {length >= COUNTER_FROM && (
-            <span
-              id={counterId}
-              className={`shrink-0 text-[11px] font-semibold ${
-                over ? "text-[color:var(--color-danger)]" : "text-[color:var(--color-warning)]"
-              }`}
-            >
-              {numberFormat.format(length)} / {numberFormat.format(ASSISTANT_MESSAGE_MAX)}
-            </span>
-          )}
+          <span
+            id={counterId}
+            className={`shrink-0 text-[11px] tabular-nums ${
+              over
+                ? "font-semibold text-[color:var(--color-danger)]"
+                : length >= COUNTER_WARN_FROM
+                  ? "font-semibold text-[color:var(--color-warning)]"
+                  : "text-[color:var(--color-text-tertiary)]"
+            }`}
+          >
+            {numberFormat.format(length)} / {numberFormat.format(ASSISTANT_MESSAGE_MAX)}
+          </span>
         </div>
         {over && (
           <p role="alert" className="text-[12px] text-[color:var(--color-danger)]">
