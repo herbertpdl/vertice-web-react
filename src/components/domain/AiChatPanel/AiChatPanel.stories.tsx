@@ -39,10 +39,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** An empty conversation (frame `t1PsT`): disclaimer always under the input (R11). */
+/** An empty conversation (frame `t1PsT`): disclaimer and character counter always under the input (R10, R11). */
 export const Empty: Story = {
   play: async ({ canvas, args, userEvent }) => {
     await expect(canvas.getByText("Como posso ajudar com este treino?")).toBeVisible();
+    await expect(canvas.getByText("0 / 2.000")).toBeVisible();
+    await expect(canvas.getByLabelText("Mensagem para o assistente")).toHaveAccessibleDescription("0 / 2.000");
+    await expect(getComputedStyle(canvas.getByLabelText("Mensagem para o assistente")).resize).toBe("vertical");
     await expect(canvas.getByText("A IA pode cometer erros. Revise antes de aplicar.")).toBeVisible();
     await expect(canvas.getByRole("button", { name: "Enviar" })).toBeDisabled();
     await expect(canvas.getByLabelText("Mensagem para o assistente")).toHaveFocus();

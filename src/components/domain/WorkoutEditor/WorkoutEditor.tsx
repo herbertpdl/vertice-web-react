@@ -352,7 +352,14 @@ export function WorkoutEditorSession({
   useEffect(() => {
     const root = document.documentElement;
     const gap = 16;
+    // The assistant panel is outside both bars: while focus is in it, the padding would make the
+    // browser scroll the page on every keystroke to clear the caret of a footer it never sits behind.
     const measure = () => {
+      if (document.activeElement?.closest("[data-scroll-padding-exempt]")) {
+        root.style.scrollPaddingTop = "";
+        root.style.scrollPaddingBottom = "";
+        return;
+      }
       const top = toolbarRef.current?.offsetHeight ?? 0;
       const bottom = footerRef.current?.offsetHeight ?? 0;
       root.style.scrollPaddingTop = `${top + gap}px`;
@@ -362,8 +369,10 @@ export function WorkoutEditorSession({
     const observer = new ResizeObserver(measure);
     if (toolbarRef.current) observer.observe(toolbarRef.current);
     if (footerRef.current) observer.observe(footerRef.current);
+    document.addEventListener("focusin", measure);
     return () => {
       observer.disconnect();
+      document.removeEventListener("focusin", measure);
       root.style.scrollPaddingTop = "";
       root.style.scrollPaddingBottom = "";
     };
@@ -499,9 +508,9 @@ export function WorkoutEditorSession({
   );
 
   return (
-    <div className="flex w-full items-start">
+    <div className="flex w-full flex-1">
     <div className="relative flex min-w-0 flex-1 flex-col">
-      <div className="flex w-full flex-col gap-[var(--space-6)] px-[var(--space-8)] py-[var(--space-8)]">
+      <div className="flex w-full flex-1 flex-col gap-[var(--space-6)] px-[var(--space-8)] py-[var(--space-8)]">
         <div className="flex w-full items-center justify-between gap-[var(--space-4)]">
           <nav aria-label="Navegação" className="flex items-center gap-2">
             <Link
