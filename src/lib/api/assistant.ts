@@ -1,13 +1,27 @@
 import { apiClient, failure, parseJson } from "./client";
 import { parseAssistantEvent, type AssistantEvent, type WorkoutChatRequest } from "@/lib/assistant/contract";
 import { readSse } from "@/lib/assistant/sse";
-import type { AssistantStatus } from "./types";
+import type { AnamneseNotice, AssistantStatus } from "./types";
 
 export const assistantStatusQueryKey = ["assistantStatus"] as const;
 
 /** `GET /assistant/status`: whether the `AI_ASSISTANT_ENABLED` flag is on for this trainer (the AI button's switch). */
 export function fetchAssistantStatus(): Promise<AssistantStatus> {
   return apiClient.get<AssistantStatus>("/assistant/status");
+}
+
+/** Prefix of every plan's notice key: a save invalidates them all (client-anamnese D4). */
+export const anamneseNoticeKeyPrefix = ["assistant", "anamnese-notice"] as const;
+
+export const anamneseNoticeQueryKey = (trainingPlanId: number) =>
+  [...anamneseNoticeKeyPrefix, trainingPlanId] as const;
+
+/**
+ * `GET /assistant/anamnese-notice`: whether the AI uses the anamnese of this plan's client
+ * (`present`/`missing`) or the client is no longer the trainer's (`unavailable`). Never the text.
+ */
+export function fetchAnamneseNotice(trainingPlanId: number): Promise<AnamneseNotice> {
+  return apiClient.get<AnamneseNotice>("/assistant/anamnese-notice", { trainingPlanId: String(trainingPlanId) });
 }
 
 export interface StreamOptions {

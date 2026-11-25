@@ -53,6 +53,9 @@ export type CreatedStudent = Schemas["CreatedClient"];
 /** One roster row (`GET /clients`). No CPF, CREF, role or email (P1-03). */
 export type ClientSummary = Schemas["ClientSummary"];
 
+/** `GET`/`PUT /clients/:id/anamnese`: the text as stored and when it was last saved (null when empty). */
+export type ClientAnamnese = Schemas["ClientAnamnese"];
+
 /** The roster row's date-active plan. */
 export type CurrentPlanInfo = NonNullable<ClientSummary["currentPlan"]>;
 
@@ -221,11 +224,17 @@ export type WorkoutChatRequest = Schemas["WorkoutChatRequest"];
 export type KeyedWorkoutExerciseEntry = Schemas["AssistantWorkoutExerciseEntry"];
 export type AssistantHistoryTurn = Schemas["AssistantHistoryTurn"];
 
+/** A `text` event: `delta`, plus `line` for a line of its own (left out, anamnese conflict). */
+export type AssistantTextEvent = Schemas["AssistantTextEvent"];
+
 /** A `stage` event's key; the web labels it (`src/lib/assistant/copy.ts`). */
 export type AssistantStage = Schemas["AssistantStage"];
 
 /** One exercise of a `proposal` event: `key` is the on-screen exercise it changes, `null` when new. */
 export type AssistantProposalEntry = Schemas["AssistantProposalEntry"];
+
+/** `GET /assistant/anamnese-notice`: whether the AI uses the plan's client's anamnese (client-anamnese D10). */
+export type AnamneseNotice = Schemas["AnamneseNotice"];
 
 /** The assistant's error codes, before the stream (`AI_CATALOG_TOO_LARGE`, ...) or as `error` events. */
 export type AssistantErrorCode = Extract<ApiErrorCode, `AI_${string}`>;

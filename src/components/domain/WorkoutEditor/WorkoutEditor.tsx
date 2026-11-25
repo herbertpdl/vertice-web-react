@@ -44,7 +44,9 @@ import {
 import { useWorkoutAutosave } from "@/lib/workoutEditor/useWorkoutAutosave";
 import { proposalDiff } from "@/lib/workoutEditor/proposalDiff";
 import {
+  anamneseNoticeQueryKey,
   assistantStatusQueryKey,
+  fetchAnamneseNotice,
   fetchAssistantStatus,
   streamWorkoutChat,
   type StreamWorkoutChat,
@@ -159,6 +161,8 @@ export interface WorkoutEditorSessionProps {
   assistantAvailable?: boolean;
   /** Test/story hook: replaces the assistant's stream. */
   streamChat?: StreamWorkoutChat;
+  /** Test/story hook: replaces `GET /assistant/anamnese-notice`. */
+  fetchNotice?: typeof fetchAnamneseNotice;
 }
 
 export function WorkoutEditorSession({
@@ -173,6 +177,7 @@ export function WorkoutEditorSession({
   delayMs,
   assistantAvailable = false,
   streamChat = streamWorkoutChat,
+  fetchNotice = fetchAnamneseNotice,
 }: WorkoutEditorSessionProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -259,6 +264,18 @@ export function WorkoutEditorSession({
   const assistantInUse = isBusy(chatState) || state.review !== null || panelOpen;
   if (assistantAvailable && !assistantEnabled) setAssistantEnabled(true);
   if (!assistantAvailable && assistantEnabled && !assistantInUse) setAssistantEnabled(false);
+  // The panel's anamnese strip (client-anamnese D10): read only while the panel is open, and never
+  // cached as fresh, so each open and each return to this browser tab re-reads it (a save made in
+  // the tab "Ver anamnese" opened shows up, E13). Pending or failed shows no strip; the chat works
+  // either way (R27).
+  const { data: anamneseNotice } = useQuery({
+    queryKey: anamneseNoticeQueryKey(planId),
+    queryFn: () => fetchNotice(planId),
+    enabled: assistantEnabled && panelOpen,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
   const chatBusy = assistantEnabled && isBusy(chatState);
   const locked = assistantEnabled && locksEditor(chatState);
   const review = state.review;
@@ -810,6 +827,7 @@ export function WorkoutEditorSession({
         onStop={chat.stop}
         onRetry={() => void chat.retry()}
         onClose={closePanel}
+        anamneseNotice={anamneseNotice}
       />
     )}
     </div>

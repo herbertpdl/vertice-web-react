@@ -55,3 +55,13 @@ export const SuspendedClient: Story = {
     await expect(canvas.getByRole("link", { name: /Marina Costa/ })).not.toHaveTextContent("Suspenso");
   },
 };
+
+/** R21, E5 (frame `iDTb7`): a client without an anamnese gets "Sem anamnese", after "Suspenso" when both apply. */
+export const WithoutAnamnese: Story = {
+  play: async ({ canvas }) => {
+    const both = canvas.getByRole("link", { name: /Rafael Souza/ });
+    await expect(both).toHaveTextContent("Sem anamnese");
+    await expect(both.textContent!.indexOf("Suspenso")).toBeLessThan(both.textContent!.indexOf("Sem anamnese"));
+    await expect(canvas.getByRole("link", { name: /Marina Costa/ })).not.toHaveTextContent("Sem anamnese");
+  },
+};

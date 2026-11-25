@@ -318,6 +318,7 @@ export const roster: (ClientSummary & { email: string })[] = [
     lastWorkoutAt: null,
     weekActivity: [],
     suspended: false,
+    hasAnamnese: true,
   },
   {
     id: 43,
@@ -328,5 +329,6 @@ export const roster: (ClientSummary & { email: string })[] = [
     lastWorkoutAt: null,
     weekActivity: [],
     suspended: true,
+    hasAnamnese: false,
   },
 ];

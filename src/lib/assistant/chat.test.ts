@@ -111,6 +111,51 @@ describe("chat store", () => {
     expect(store.getState().phase).toBe("idle");
   });
 
+  it("shows the left-out and conflict lines as two separate messages after the proposal (E25, R31)", async () => {
+    const { store, fake } = setup();
+    store.setInput("Adicione box jump e burpee com salto");
+    void store.send();
+    await flushAll();
+    fake.emit(
+      { type: "stage", stage: "analyzing" },
+      { type: "proposal", exercises: [] },
+      { type: "text", text: "Não encontrei “Burpee com salto”.", line: "left_out" },
+      { type: "text", text: "A anamnese diz “evitar impacto”.", line: "anamnese_conflict" },
+      { type: "done" },
+    );
+    const tail = store.getState().messages.slice(-3).map((m) => m.kind + ":" + ("text" in m ? m.text : ""));
+    expect(tail).toEqual([
+      `ready:${READY_MESSAGE}`,
+      "left_out:Não encontrei “Burpee com salto”.",
+      "conflict:A anamnese diz “evitar impacto”.",
+    ]);
+    // Both lines are assistant turns in the next message's history.
+    expect(historyOf(store.getState()).slice(-3).map((t) => t.text)).toEqual([
+      READY_MESSAGE,
+      "Não encontrei “Burpee com salto”.",
+      "A anamnese diz “evitar impacto”.",
+    ]);
+  });
+
+  it("puts a conflict after a text answer on its own line, never appended to the answer (R31, Q6)", async () => {
+    const { store, fake } = setup();
+    store.setInput("Um bom aquecimento?");
+    void store.send();
+    await flushAll();
+    fake.emit(
+      { type: "text", text: "Comece com " },
+      { type: "text", text: "mobilidade." },
+      { type: "text", text: "Conflita com a anamnese.", line: "anamnese_conflict" },
+      { type: "text", text: "Mais texto." },
+      { type: "done" },
+    );
+    const kinds = store
+      .getState()
+      .messages.filter((m) => m.role === "assistant")
+      .map((m) => m.kind + ":" + ("text" in m ? m.text : ""));
+    expect(kinds).toEqual(["text:Comece com mobilidade.", "conflict:Conflita com a anamnese.", "text:Mais texto."]);
+  });
+
   it("shows the editor's notice under the ready line", async () => {
     const { store, fake } = setup({ onProposal: () => "edições substituídas" });
     store.setInput("mude");

@@ -46,3 +46,12 @@ export const LEAVE_WHILE_BUSY_MESSAGE =
   "A IA ainda está trabalhando. Sair mesmo assim? O progresso do assistente será perdido.";
 export const LEAVE_WITH_PROPOSAL_MESSAGE =
   "A proposta da IA ainda não foi aplicada. Sair mesmo assim? Ela será descartada.";
+
+/** The anamnese strip at the top of the panel (client-anamnese R25, R26; frames `iIb3w`, `k1OeP5`). */
+export const anamnesePresentLine = (name: string) =>
+  `A IA usa a anamnese de ${name} como referência para montar o treino.`;
+export const ANAMNESE_PRESENT_LINK = "Ver anamnese";
+export const anamneseMissingTitle = (name: string) => `${name} ainda não tem anamnese.`;
+export const ANAMNESE_MISSING_TEXT =
+  "Com a anamnese preenchida, a IA conhece a saúde e o histórico de treino do aluno e monta treinos melhores. Você pode usar o assistente mesmo sem ela.";
+export const ANAMNESE_MISSING_LINK = "Preencher anamnese";

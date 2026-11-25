@@ -3,6 +3,7 @@ import type {
   AssistantHistoryTurn,
   AssistantProposalEntry,
   AssistantStage,
+  AssistantTextEvent,
   Exercise,
   ExerciseSetEntry,
   KeyedWorkoutExerciseEntry,
@@ -29,13 +30,21 @@ export const NO_PROGRESS_TIMEOUT_MS = 60_000;
 
 export type HistoryTurn = AssistantHistoryTurn;
 
+/** The `line` values this build knows; any other is dropped and its text treated as answer text. */
+export type AssistantTextLine = NonNullable<AssistantTextEvent["line"]>;
+const TEXT_LINES: readonly AssistantTextLine[] = ["left_out", "anamnese_conflict"];
+
 /** One exercise of a proposal, as parsed: the generated entry with `exercise` checked. */
 export type ProposalExercise = AssistantProposalEntry;
 
 export type AssistantEvent =
   /** `exercise`: on `building_sets`, the 1-based position of the exercise being written. */
   | { type: "stage"; stage: string; exercise?: number }
-  | { type: "text"; text: string }
+  /**
+   * `line` (client-anamnese D11): one whole line of its own, `left_out` (AI-R51) or
+   * `anamnese_conflict` (R30). Absent on answer text, which is appended to what came before.
+   */
+  | { type: "text"; text: string; line?: AssistantTextLine }
   | { type: "proposal"; exercises: ProposalExercise[] }
   | { type: "done" }
   | { type: "error"; code: string; message: string };
@@ -120,9 +129,10 @@ export function parseAssistantEvent(name: string, data: string): AssistantEvent 
           }
         : null;
     case "text":
-      return isObject(payload) && typeof payload.delta === "string"
-        ? { type: "text", text: payload.delta }
-        : null;
+      if (!isObject(payload) || typeof payload.delta !== "string") return null;
+      return TEXT_LINES.includes(payload.line as AssistantTextLine)
+        ? { type: "text", text: payload.delta, line: payload.line as AssistantTextLine }
+        : { type: "text", text: payload.delta };
     case "proposal": {
       if (!isObject(payload) || !Array.isArray(payload.exercises)) return null;
       const exercises = payload.exercises.map(parseProposalExercise);
