@@ -8,7 +8,9 @@ export const metadata: Metadata = { title: "Termos de Uso — Vertice" };
 const linkClass = "font-semibold text-[color:var(--color-primary)]";
 
 // DRAFT (P1-04), written from vertice-api's docs/data-inventory.md decisions D1–D6, all pending
-// legal review. Not final legal text: change it only together with LEGAL_VERSIONS.terms.
+// legal review. Not final legal text: change it only together with LEGAL_VERSIONS.terms. One
+// exception: the client anamnese (sections 4 and 5, VRT-57) changed only LEGAL_TEXT_DATE, as the
+// privacy policy's AI text did (see src/app/privacidade/page.tsx).
 export default function TermsPage() {
   return (
     <LegalDocument title="Termos de Uso" version={LEGAL_VERSIONS.terms} date={LEGAL_TEXT_DATE}>
@@ -48,7 +50,8 @@ export default function TermsPage() {
       <LegalSection title="4. Papéis no tratamento de dados">
         <p>
           Para os dados da própria conta do treinador, a Vertice é a <strong>controladora</strong>.
-          Para os dados dos alunos (cadastro, planos, registros de treino e feedback), o{" "}
+          Para os dados dos alunos (cadastro, planos, anamnese, registros de treino e feedback),
+          o{" "}
           <strong>treinador é o controlador</strong> e a Vertice atua como{" "}
           <strong>operadora</strong>, tratando esses dados em nome do treinador e conforme as
           instruções dele.
@@ -65,7 +68,8 @@ export default function TermsPage() {
             Usar os dados dos alunos somente para prestar o serviço de acompanhamento de treino.
           </li>
           <li>
-            Responder pelo conteúdo dos planos e orientações que prescreve. A Vertice é uma
+            Responder pelo conteúdo dos planos e orientações que prescreve e da anamnese que
+            escreve sobre cada aluno. A Vertice é uma
             ferramenta de organização e não presta serviço de saúde nem avalia as prescrições.
           </li>
         </ul>
