@@ -1,11 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useRouter } from "@storybook/nextjs-vite/navigation.mock";
+import type { QueryClient } from "@tanstack/react-query";
 import { expect, fn, waitFor, within } from "storybook/test";
 import { StudentDetailContent } from "./StudentDetailContent";
 import { SAVED_AT, installAnamneseServer, savedText } from "./anamneseStoryServer";
 import { newStudent } from "@/components/domain/storyFixtures";
 import { withSeededQueries } from "@/components/domain/storyQuery";
 import type { StudentDetailOverview } from "@/lib/api/types";
+import { ApiError } from "@/lib/api/client";
+
+let client: QueryClient;
 
 const overview: StudentDetailOverview = {
   student: newStudent,
@@ -28,7 +32,7 @@ const meta = {
       '["trainingPlans",{"clientId":42}]': [],
       '["student",42,"anamnese"]': { text: savedText, updatedAt: SAVED_AT },
       '["assistantStatus"]': { enabled: true },
-    }),
+    }, { onClient: (seeded) => (client = seeded) }),
   ],
   parameters: { layout: "fullscreen" },
   // Pages-router decorator plus a stubbed `useRouter`: see WorkoutEditorSession.stories.tsx.
@@ -119,5 +123,26 @@ export const EndRelationshipWithUnsavedChanges: Story = {
     await userEvent.click(within(await body.findByRole("dialog")).getByRole("button", { name: "Sair sem salvar" }));
     await waitFor(() => expect(body.queryByText("Sair sem salvar a anamnese?")).toBeNull());
     await expect(await body.findByRole("dialog")).toBeVisible();
+  },
+};
+
+/** Spec D5, R7: a background refetch answering 403 while the draft is dirty keeps the page and the text. */
+export const ForbiddenRefetchKeepsDraft: Story = {
+  play: async ({ canvas, userEvent }) => {
+    const box = canvas.getByLabelText("Anamnese de Marina Costa");
+    await userEvent.type(box, " mais");
+    client
+      .getQueryCache()
+      .find({ queryKey: ["student", 42, "overview"] })!
+      .setState({
+        status: "error",
+        fetchStatus: "idle",
+        error: new ApiError({ code: "FORBIDDEN", message: "x" }, 403),
+        errorUpdatedAt: Date.now(),
+        errorUpdateCount: 1,
+      });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await expect(replace).not.toHaveBeenCalled();
+    await expect(canvas.getByLabelText("Anamnese de Marina Costa")).toHaveValue(`${savedText} mais`);
   },
 };

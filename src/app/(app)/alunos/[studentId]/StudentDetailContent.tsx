@@ -53,7 +53,10 @@ export function StudentDetailContent({
     queryKey: ["student", studentId, "overview"],
     queryFn: () => fetchStudentOverview(studentId),
   });
-  useRedirectOnError(error, "/alunos");
+  // Not while the anamnese has unsaved changes: a background refetch that fails with 403 (the
+  // relationship ended, R7) would otherwise navigate away past the leave guard and drop the text the
+  // save error promises to keep (spec D5). The redirect runs once the draft is saved or dropped.
+  useRedirectOnError(anamneseDirty ? null : error, "/alunos");
 
   const { data: feedback } = useQuery({
     queryKey: ["feedback"],
