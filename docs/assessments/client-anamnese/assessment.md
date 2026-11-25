@@ -5,8 +5,9 @@ Owner: hebertpdl@gmail.com
 Related: source PRD [vertice-api `docs/prds/client-anamnese/prd.md`](https://github.com/herbertpdl/vertice-api/blob/main/docs/prds/client-anamnese/prd.md)
 (`R1`–`R42`, `E1`–`E25`; there is no web PRD for this slug),
 [vertice-api assessment](https://github.com/herbertpdl/vertice-api/blob/main/docs/assessments/client-anamnese/assessment.md)
-(its findings are cited as `API-F#`), vertice-bff assessment (being written in parallel, will be
-`https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/client-anamnese/assessment.md`),
+(its findings are cited as `API-F#`),
+[vertice-bff assessment](https://github.com/herbertpdl/vertice-bff/blob/main/docs/assessments/client-anamnese/assessment.md)
+(vertice-bff#79; its findings are cited as `BFF-F#`, its questions as `BFF Q#`),
 [AI assistant PRD](../../prds/ai-workout-assistant/prd.md) and
 [spec](../../specs/ai-workout-assistant/spec.md) (the panel and chat this changes; rules cited as
 `AI-R#`)
@@ -22,9 +23,10 @@ says `Design: pending — pen.dev frames in Vertice Web.pen, section "Web — An
 so this repo's design gate (CLAUDE.md, "Design gate") applies: no implementation until the owner
 approves the frames. The frames already exist in section `c1tY9` (10 frames, listed in §9). This
 assessment did not draft or change any frame: the run was read-only on the design file. The
-frames cover the main states but not loading, load error, saving, save error, E25 (two lines
-after a proposal) or the former-trainer panel (F10). They need the owner's approval, and those
-states need adding first.
+frames cover the main states but not loading, load error, saving, save error or E25 (two lines
+after a proposal) (F10). Those states are being drawn in `c1tY9` now. The owner decided that the
+former-trainer panel shows no strip, so it needs no frame. Everything needs the owner's approval
+before implementation.
 
 **What it touches:**
 - a new "Anamnese" tab on `/alunos/[studentId]` (`StudentDetailContent.tsx`), with an
@@ -41,11 +43,12 @@ states need adding first.
 - A background refetch must never overwrite the trainer's draft. The query defaults
   (`staleTime` 30 s, refetch on window focus) make this happen by default with a naive form
   (F5).
-- The conflict line (R30, R31) needs a signal in the stream that the web can tell apart from
-  AI-R51's line. The chat store also merges every `text` delta after a proposal into one bubble
-  today (F6).
-- The privacy text has to merge before the BFF or the web expose the feature, and four of its
-  sentences are contradicted by the anamnese (F7).
+- The conflict line (R30, R31) arrives as a `text` event marked
+  `line: "anamnese_conflict"` (BFF-F6). The chat store merges every `text` delta after a
+  proposal into one bubble today, and it doesn't know about `line` (F6).
+- The privacy text has to merge before the BFF or the web expose the feature. Sections 1 to 5
+  and 7 have statements the anamnese contradicts or leaves out; §3's legal basis contradicts
+  R41 (F7).
 
 **Recommended approach:**
 - The tab is a colocated `AnamneseTab.tsx` with plain local draft state, a single save
@@ -53,16 +56,19 @@ states need adding first.
   can open it.
 - A shared `useLeaveGuard` hook covers tab switches, in-app links (capture-phase interception
   opening the designed dialog), and `beforeunload`.
-- A `conflict` line kind in the chat store, rendered with the warning icon.
+- The panel strip reads the BFF's `GET /api/assistant/anamnese-notice?trainingPlanId=`
+  (BFF-F5), never the anamnese text.
+- Each `text` event carrying a `line` becomes its own chat message. `anamnese_conflict` is
+  rendered with the warning icon.
 
 | Id | Severity | One line |
 |---|---|---|
 | F1 | Blocker | Design gate: the source PRD says `Design: pending`; the 10 frames in `c1tY9` exist but aren't approved, and some states are missing (F10) |
-| F2 | Blocker | No BFF route exists yet: `GET`/`PUT /api/clients/:clientId/anamnese`, `ClientSummary.hasAnamnese` and the stream's conflict line (pinned BFF `2044475` has none) |
+| F2 | Blocker | No BFF route exists yet: `GET`/`PUT /api/clients/:clientId/anamnese`, `ClientSummary.hasAnamnese`, `GET /api/assistant/anamnese-notice` and the `text` event's `line` (pinned BFF `2044475` has none) |
 | F4 | High | R15 needs a leave guard for tab switches, in-app links and unload, with the designed dialog; the editor's precedent is `window.confirm`, and back/forward can't be vetoed |
 | F5 | High | The draft must survive background refetches (window focus, 30 s `staleTime`) and must rebase only on its own save |
-| F6 | High | The conflict line needs its own stream signal and chat-store kind; today every `text` after a `proposal` is appended to one bubble, which breaks R31/E25 |
-| F7 | High | `/privacidade` must say the anamnese is stored and sent to Anthropic before BFF/web deploy (R33); sections 4, 5 and 7 have sentences the feature contradicts |
+| F6 | High | Each `text` event with a `line` (`left_out`, `anamnese_conflict`) must be its own chat message; today every `text` after a `proposal` is appended to one bubble, which breaks R31/E25 |
+| F7 | High | `/privacidade` must cover the anamnese before BFF/web deploy (R33); §1–§5 and §7 have statements it contradicts or leaves out, and §3's basis contradicts R41 (wording for the R34 legal review) |
 
 ## 2. PRD coverage map
 
@@ -88,14 +94,14 @@ states need adding first.
 | R22 | not applicable to the web | The BFF reads the anamnese per message from `trainingPlanId`; the web's `WorkoutChatRequest` doesn't change and must never carry the text |
 | R23, R24 | not applicable to the web | Model behaviour, BFF whitelist |
 | R40 | not applicable to the web | AI contract and docs |
-| R25 | existing, must change: `AiChatPanel.tsx:184-206` (new strip under the header) | Fed by `WorkoutEditor.tsx` (`clientId`, `studentName` already loaded, `:86-90`); frame `iIb3w` (F8) |
-| R26 | same | "Preencher anamnese" variant; frame `k1OeP5` |
+| R25 | existing, must change: `AiChatPanel.tsx:184-206` (new strip under the header) | `state: "present"` from `GET /api/assistant/anamnese-notice?trainingPlanId=` (BFF-F5), queried in `WorkoutEditor.tsx`. The client's name and the link's id come from the response's `client`, not from the editor's student query; frame `iIb3w` (F8) |
+| R26 | same | `state: "missing"`: "Preencher anamnese" variant, name and link from `client`; frame `k1OeP5`. `unavailable` (former trainer) shows no strip and no link (owner decision, Q2) |
 | R27 | existing | The chat is unchanged; the notice doesn't gate "Enviar" |
 | R28 | `AiChatPanel` link with `target="_blank" rel="noopener noreferrer"` to `/alunos/:id?aba=anamnese` | Needs F3. The editor's link interceptor already ignores `target="_blank"` (`WorkoutEditor.tsx:325`), so the chat and a review are never disturbed |
 | R29 | not applicable to the web (BFF reads per message) | The panel strip has to refresh too, or it contradicts E5/E13 (F8) |
 | R30, R31 | existing, must change: `src/lib/assistant/contract.ts:35-40, 105-143`, `chat.ts:237-246, 286-290`, `AiChatPanel.tsx:26-101` | F6; frame `x9k4ZI` |
 | R32, R41, R42 | not applicable to the web, except through the privacy text | F7 |
-| R33 | existing, must change: `src/app/privacidade/page.tsx:98-180`, `LEGAL_TEXT_DATE` in `src/lib/legal/versions.ts` | F7, launch-gating |
+| R33 | existing, must change: `src/app/privacidade/page.tsx:30-180` (§1–§5, §7), `LEGAL_TEXT_DATE` in `src/lib/legal/versions.ts` | F7, launch-gating |
 | R34 | not applicable to the web | Legal review |
 | R35, R36 | existing, no change: `GET /auth/me/export` download | The file is the API's; the web already saves it (`apiClient.download`) |
 | R37, R38 | not applicable to the web | API deletion |
@@ -107,10 +113,11 @@ states need adding first.
 | E6 | server | The web must not "fix" it client-side |
 | E7, E8 | not applicable to the web | — |
 | E9, E10 | not applicable to the web | — |
-| E11, E12 | `AiChatPanel` strip | F8 |
+| E11 | `AiChatPanel` strip, `state: "present"` | F8; name from the notice's `client` |
+| E12 | `AiChatPanel` strip, `state: "missing"` | F8; "Preencher anamnese" links to `client.id`; the chat stays enabled (R27) |
 | E13 | new browser tab + panel refresh | F3, F8 |
 | E14 | not applicable to the web | The other tab's draft is never sent (BFF reads the saved text) |
-| E15, E25 | chat store + panel | F6; E25 has no frame (F10) |
+| E15, E25 | chat store + panel | F6; E25's frame is being drawn (F10) |
 | E16, E17 | not applicable to the web | Model / BFF |
 | E18–E20, E22, E23 | not applicable to the web | API |
 | E21 | `AnamneseTab` with the assistant off | Frame `tIQlg` |
@@ -135,8 +142,9 @@ nothing about the client. `WorkoutEditor.tsx` already loads the plan and the stu
 (`:82-90`). It polls `GET /assistant/status` every 30 s (`:105-111`). `AssistantStatus` is
 `{ enabled: boolean }` only (`schema.ts:1712-1715`). The chat store appends every `text` event
 to the open text bubble. That bubble is reset only by a `stage` or a `proposal` (`chat.ts:237-246,
-270, 288`), so two lines after a proposal would merge. `parseAssistantEvent` drops unknown event
-names (`contract.ts:140-142`).
+270, 288`), so two lines after a proposal would merge. `parseAssistantEvent` reads only `delta`
+from a `text` event (`contract.ts:124-127`), so a `line` field would be ignored today. It drops
+unknown event names (`contract.ts:140-142`).
 
 **Leave warnings.** Only the workout editor has them (`WorkoutEditor.tsx:296-340`):
 - `beforeunload` for reload and close;
@@ -148,7 +156,7 @@ Nothing intercepts `router.push` (e.g. `useSignOut`, `src/lib/auth/useSignOut.ts
 back/forward.
 
 **Forms and bounds.**
-- `TextArea` (`src/components/ui/TextArea/TextArea.tsx:43`) is a fixed `h-[104px] resize-none`
+- `TextArea` (`src/components/ui/TextArea/TextArea.tsx:44`) is a fixed `h-[104px] resize-none`
   box with no counter.
 - The only counter in the app is the chat composer's (`AiChatPanel.tsx:292-312`, UTF-16 via
   `messageLength`).
@@ -162,9 +170,12 @@ checkout is at that commit. Neither mentions an anamnese (`grep -ri anamnese` in
 `docs` finds nothing). `ClientSummary` has `suspended` but no `hasAnamnese`.
 
 **Privacy text.** `src/app/privacidade/page.tsx` (a draft pending legal review):
+- §1 (`:36-38`): the list of client data the trainer controls.
+- §2 (`:43-82`): what is collected, and why.
+- §3 (`:85-96`): the legal bases. Health-related data rests on the client's consent.
 - §4 (`:98-121`): health-data consent "antes de qualquer registro"; what goes to Anthropic; "Não
   enviamos o cadastro do aluno…".
-- §5 (`:124-137`): who sees the data.
+- §5 (`:124-137`): who sees the data, including admins (`:127-130`).
 - §7 (`:162-180`): retention.
 
 The AI precedent changed only `LEGAL_TEXT_DATE` (`versions.ts`, comment at `page.tsx:10-14`).
@@ -184,9 +195,9 @@ The AI precedent changed only `LEGAL_TEXT_DATE` (`versions.ts`, comment at `page
 - **Where:** source PRD header; `Vertice Web.pen` section `c1tY9`; CLAUDE.md "Design gate".
 - **Why it matters:** this repo starts no code while the design is pending. The frames also
   leave out states the build will have (F10).
-- **Recommendation:** add the missing states (F10). The owner approves the section and sets
-  `Design: design-ok` on the source PRD (or on a web PRD, if one is written). Only then is the
-  spec implementable. Q1.
+- **Recommendation:** finish the missing states (F10, being drawn now). The owner approves the
+  section and sets `Design: design-ok` on the source PRD (or on a web PRD, if one is written).
+  The side-card copy is replaced as F9 says. Only then is the spec implementable. Q1.
 
 **F3 (Medium): the tab must be addressable by URL (R28)**
 - **What:** R28's link opens "the client's Anamnese tab" in a new browser tab. The tab is
@@ -210,9 +221,9 @@ The AI precedent changed only `LEGAL_TEXT_DATE` (`versions.ts`, comment at `page
 - **Why it matters:** the copy is a privacy statement to the trainer. A wrong one is the kind of
   promise the pending legal review (R34) would strike, and it sets up a "my client read my
   notes" surprise.
-- **Recommendation:** reword it to "in the app" scope, e.g. "Seu aluno não vê este texto no
-  aplicativo. Ele faz parte dos dados que o aluno pode pedir à Vertice." Final copy from the
-  owner or lawyer. Q3.
+- **Recommendation (owner decision, Q3):** the side card reads "Só você vê no app. <nome> não vê
+  este texto no aplicativo, mas pode recebê-lo se pedir uma cópia dos seus dados." Update the
+  three frames to match, then cover the copy in the tab's stories.
 
 **Not every rule needs UI.** R22–R24, R29 and R40 are satisfied by the BFF reading the anamnese
 itself. The web's chat request (`WorkoutChatRequest`) stays as it is and must not start carrying
@@ -225,17 +236,30 @@ whitelist on the client.
 - **What:** at the pinned BFF commit (`2044475`) there is:
   - no anamnese route;
   - no `hasAnamnese` on `ClientSummary`;
-  - no conflict signal in `AssistantStreamEvent`.
+  - no anamnese notice route;
+  - no `line` on the stream's `text` event.
 
-  Assumed contract (the BFF assessment is being written in parallel; the spec must re-check it):
-  - `GET /api/clients/:clientId/anamnese` → `{ text: string, updatedAt: string | null }`, with
-    the empty state as 200 `text: ""`, `updatedAt: null`. Never 404 (API §4.3).
-  - `PUT /api/clients/:clientId/anamnese` with `{ text }` → the same shape. A blank text clears.
-  - Both are roster-gated: another trainer's or a former client's id gives 403 `FORBIDDEN`. An
-    over-limit text gives 400 `VALIDATION_ERROR`.
-  - `ClientSummary.hasAnamnese: boolean` on `GET /api/clients`.
-  - A conflict line in the stream that the web can tell apart from AI-R51's line (F6).
-  - `GET /api/assistant/status` unchanged (`{ enabled }`) for R39.
+  The contract, as proposed by the BFF assessment (vertice-bff#79):
+  - **BFF-F7:** `GET /api/clients/:clientId/anamnese` → `ClientAnamnese` `{ text: string,
+    updatedAt: string | null }`. The empty state is 200 `{ text: "", updatedAt: null }`, never
+    a 404.
+  - **BFF-F7, BFF Q5:** `PUT /api/clients/:clientId/anamnese` with `{ text }` (strict) → 200 with
+    the saved state, the same shape. A blank text clears. The schema doesn't trim (BFF-F8).
+  - **BFF-F7:** both routes are TRAINER-only and roster-gated: another trainer's or a former
+    client's id is 403 `FORBIDDEN`. A 400 is a validation failure, such as an over-limit text.
+    Neither route is added to `GET /clients/:id` or to the overview.
+  - **BFF-F9:** `ClientSummary.hasAnamnese: boolean` on `GET /api/clients`.
+  - **BFF-F5, Option C:** `GET /api/assistant/anamnese-notice?trainingPlanId=:id` (TRAINER) →
+    `{ state: "present" | "missing" | "unavailable", client: { id, name } | null }`.
+    - `unavailable`, with `client: null`, means the plan's client isn't on the trainer's roster
+      (a former trainer).
+    - The route never reads the anamnese text.
+    - It isn't flag-gated (BFF Q3).
+  - **BFF-F6, BFF Q4:** the `text` event gains an optional
+    `line?: "left_out" | "anamnese_conflict"`. Each such line is one complete event, R51's line
+    first. Plain answer text has no `line`. The BFF drops an unknown `line` value but keeps the
+    `delta`. vertice-ai's spec owns the final shape.
+  - `GET /api/assistant/status` is unchanged (`{ enabled }`) for R39.
 - **Where:** `src/lib/api/schema.ts` (generated), `.bff-ref`; vertice-api and vertice-ai order
   in API-F17 and API-F21.
 - **Why it matters:** CLAUDE.md requires the contract to come from the generated `schema.ts`
@@ -243,7 +267,7 @@ whitelist on the client.
   before the BFF's.
 - **Recommendation:**
   - The spec can be written now against the assumed shape.
-  - Implementation can start against a BFF branch with `npm run api:types -- --local`.
+  - Implementation can start against the BFF branch with `npm run api:types -- --local`.
   - Merging waits for the BFF merge commit in `.bff-ref`.
   - Two web slices are possible: the tab and badge first, the panel and conflict line second
     (§7).
@@ -268,22 +292,24 @@ Nothing beyond F3. Checked:
   - the tab when the read fails;
   - "Salvar" while saving;
   - a failed save (network, 403 after the relationship ended, 400);
-  - E25: AI-R51's line and the conflict line together;
-  - the panel strip while its read is pending, or after it failed;
-  - the panel for a former trainer (API-F2: the editor is still reachable, the anamnese isn't).
-- **Where:** section `c1tY9`; R12, R14, R25–R28, R31, E25.
+  - E25: AI-R51's line and the conflict line together.
+
+  The panel needs no new frame. While the notice is pending, after it failed, or when it answers
+  `unavailable` (a former trainer), the panel shows no strip. That last case is the owner's
+  decision (Q2).
+- **Where:** section `c1tY9`; R12, R14, R31, E25.
 - **Why it matters:** each state will be built anyway. Without a frame it is invented in code and
   reviewed after the fact.
-- **Recommendation:** add them before approval. Assumptions meanwhile (Q7):
+- **Recommendation:** these states are being drawn in `c1tY9` now. They are part of the
+  approval (Q1). Assumptions until they land (Q7):
   - loading uses the page's existing `skeleton-shimmer` blocks;
   - a load error shows the message plus "Tentar novamente";
   - saving shows `Button`'s loading state;
-  - a save error is an inline danger line above "Salvar" that keeps the text;
-  - the panel shows no strip until its read settles, and none on a failure or a 403 (Q2).
+  - a save error is an inline danger line above "Salvar" that keeps the text.
 
 **F15 (Medium): `TextArea` has no tall or counted variant**
 - **What:** the kit `TextArea` is fixed at `h-[104px] resize-none` with a help or error line
-  (`TextArea.tsx:43`). The anamnese box is page-height, with a right-aligned "N / 5.000" counter
+  (`TextArea.tsx:44`). The anamnese box is page-height, with a right-aligned "N / 5.000" counter
   and an over-limit line (frames `dqvZj`, `h49po`). That is closer to the chat composer
   (`AiChatPanel.tsx:292-312`), which isn't a kit component.
 - **Where:** `src/components/ui/TextArea/TextArea.tsx`; frames above.
@@ -337,7 +363,9 @@ After implementation, run `pencil-design-audit` only if the kit `TextArea` chang
 - **What:** new key `["student", clientId, "anamnese"]`, under the existing `["student", id, …]`
   family. A successful save must:
   - set this key's data from the response;
-  - invalidate `["students"]`, so the badge updates (E5).
+  - invalidate `["students"]`, so the badge updates (E5);
+  - invalidate `["assistant", "anamnese-notice"]`, so an editor open in the same browser tab's
+    cache shows the new state. Across browser tabs, F8's refetch on focus covers it.
 - **Where:** new `src/lib/api/anamnese.ts` (or additions to `students.ts`); `AlunosContent.tsx:38`.
 - **Why it matters:** without the roster invalidation, E5's badge comes back only after 30 s or
   a reload.
@@ -349,19 +377,28 @@ After implementation, run `pencil-design-audit` only if the kit `TextArea` chang
   the editor. R29 makes the next message use the new text, but the strip at the top of the panel
   still says what it read before. With a 30 s `staleTime`, a return inside 30 s doesn't refetch
   on focus.
-- **Where:** `WorkoutEditor.tsx` (new query beside `:86-90`), `AiChatPanel.tsx` (new prop); R25,
-  R26, R29, E5, E13.
+- **Where:** `WorkoutEditor.tsx` (new query beside `:86-90`), `AiChatPanel.tsx` (new prop), new
+  `fetchAnamneseNotice` in `src/lib/api/assistant.ts`; R25, R26, R28, R29, E5, E11–E13; BFF-F5,
+  BFF-F10.
 - **Why it matters:** the strip is the trainer's only signal of what the assistant uses. Saying
-  "ainda não tem anamnese" right after they filled it in undermines R25/R26's purpose.
+  "ainda não tem anamnese" right after they filled it in undermines R25/R26's purpose. BFF-F10
+  accepts that the notice can lag the per-message read, so keeping the gap short is the web's
+  job.
 - **Recommendation:**
-  - The editor reads the anamnese status with `staleTime: 0` and `refetchOnWindowFocus: true`,
-    enabled only while the assistant is enabled for the trainer. Without the assistant, no
-    health text is fetched into the editor.
-  - It also refetches when the panel opens.
-  - The panel gets a three-state prop (`present` / `absent` / `unknown`), with `unknown` for
-    pending, failed or 403 (F10, Q2).
-  - If the BFF offers a boolean (e.g. on `ClientDetail`), prefer it over pulling the full text
-    into the editor's cache. Q8.
+  - The editor reads `GET /api/assistant/anamnese-notice?trainingPlanId=:planId` (BFF-F5) under
+    the key `["assistant", "anamnese-notice", planId]`.
+    - It never reads the anamnese text: no health text enters the editor's cache.
+    - `staleTime: 0` and `refetchOnWindowFocus: true`, plus a refetch when the panel opens.
+    - Enabled only while the assistant is enabled for the trainer (`assistantEnabled`).
+  - The panel gets a prop shaped like the answer:
+    `{ state: "present" | "missing" | "unavailable"; client: { id; name } | null }`, or
+    nothing while the query is pending or after it failed.
+    - `present` → R25's line with "Ver anamnese".
+    - `missing` → R26's notice with "Preencher anamnese".
+    - The name and the link's `/alunos/${client.id}?aba=anamnese` come from `client`, never from
+      the editor's student query.
+    - `unavailable`, pending and failed all render no strip and no link.
+  - A failed notice read is not an error the trainer sees. The chat is unaffected (R27).
 
 ### 6. API client and validation
 
@@ -408,7 +445,9 @@ F5 rule explicit (CLAUDE.md's `useWatch` note applies only if RHF is used).
   - Mutation errors are inline, never a redirect, with copy from `apiErrorMessage(error.code)`.
   - A save 403 shows a message ("Você não acompanha mais este aluno…") and keeps the text
     selectable, so it can be copied.
-  - The panel's read treats 403 as `unknown` (no strip), not as an error (API-F2, Q2).
+
+The panel needs no 403 handling. The notice route answers `unavailable` for a former trainer
+(BFF-F5), and the web renders no strip for that state or for a failed read (F8).
 
 **R39 (Low, folded here):** the tab reuses `assistantStatusQueryKey`. Until it answers, and on
 failure, the AI sentence is hidden. That matches the BFF, which answers `{enabled:false}` when it
@@ -445,38 +484,42 @@ AI use that isn't on.
     stored `href`;
   - exposes `confirmLeave(action)` for the tab switch and for "Encerrar acompanhamento".
 
-  The "Sair" button in `ProfileMenu` and back/forward are accepted gaps, documented in the spec
-  (Q4). The editor's own guard stays as it is (out of scope); the hook may later replace it.
+  The "Sair" button in `ProfileMenu` and back/forward are accepted gaps (owner decision, Q4), and
+  the spec records them. The editor's own guard stays as it is (out of scope); the hook may later replace it.
 
-**F6 (High): the conflict line needs its own signal and its own kind in the chat store**
+**F6 (High): `text` events with a `line` must each become their own chat message**
 - **What:**
   - R30 needs one extra line. R31 needs it separate from AI-R51's line when both apply (E25),
     and it may also follow AI-R30's text answer.
+  - The wire shape (BFF-F6, BFF Q4) is an optional `line?: "left_out" | "anamnese_conflict"` on
+    the `text` event. Each such line is one complete event, and R51's line comes first. Plain
+    answer text has no `line`. vertice-ai's spec owns the final shape; the BFF mirrors it.
+  - Today `parseAssistantEvent` keeps only `delta` (`contract.ts:124-127`).
   - In `chat.ts`, after a `proposal` the store resets `textId` once (`:288`). Every following
-    `text` delta goes into that one bubble (`:237-246`), so two lines arrive as one paragraph.
-  - Frame `x9k4ZI` gives the conflict line a warning-triangle icon. AI-R51's line is plain text,
-    so the web has to know which line is which.
-  - The API assessment (API-F19) proposes a second `text` event in a fixed order. Plain `text`
-    gives the web no way to tell the two lines apart, and no way to keep them separate without
-    relying on ordering alone.
+    `text` delta goes into that one bubble (`:237-246`), so the two lines would arrive as one
+    paragraph.
+  - Frame `x9k4ZI` gives the conflict line a warning-triangle icon. AI-R51's line stays plain
+    text.
 - **Where:** `src/lib/assistant/contract.ts:35-40, 105-143`; `src/lib/assistant/chat.ts:237-246,
-  286-290`; `AiChatPanel.tsx:26-101` (`Bubble`); R30, R31, E15, E25.
+  286-290`; `AiChatPanel.tsx:26-101` (`Bubble`); R30, R31, E15, E25; BFF-F6.
 - **Why it matters:**
-  - Without a marker, R31 fails (one merged bubble) and the design's icon can't be drawn.
-  - Rolling out a new event name: an old web drops it silently (`contract.ts:140-142`), so R30 is
-    lost until the web ships. A marked `text` event rendered by an old web merges into the
-    R51 bubble instead.
-- **Recommendation:** ask the BFF for a typed line, either a new event (`event: "conflict"`,
-  `{ text }`) or a `text` event with `kind: "conflict"`, emitted whole (not streamed in deltas).
-  The web then:
-  - parses it into `{ type: "conflict", text }`;
-  - pushes a new `ChatMessage` kind `conflict` that always starts its own bubble;
-  - renders it with the warning icon;
-  - also starts a new bubble for every complete R51 line, so E25 shows two lines.
+  - Without honouring `line`, R31 fails (one merged bubble) and the design's icon can't be drawn.
+  - Older builds degrade to merged text, never to lost text. During the window between the BFF
+    and the web deploys, the two lines show merged. Merge the web soon after the BFF.
+- **Recommendation:**
+  - `parseAssistantEvent` keeps `line` when it is one of the known values:
+    `{ type: "text", text, line? }`.
+  - The chat store pushes each `text` with a known `line` as a new message of its own. It never
+    appends to the open bubble and never receives later deltas.
+    - `left_out` becomes a plain text message.
+    - `anamnese_conflict` becomes a new `ChatMessage` kind `conflict`, rendered with the warning
+      icon.
+  - A `line` value this build doesn't know is treated as a plain delta: appended to the open text
+    bubble as today, never ignored, so no text is lost.
+  - A second event with the same `line` in one turn (the BFF allows one per value) is handled as
+    the spec decides. Default: treat it like any other `line` event, a message of its own.
 
-  `chat.test.ts` covers proposal + R51 + conflict, text answer + conflict, and conflict alone.
-  The web should merge soon after the BFF, because the window between them shows the line wrong
-  or not at all. Q6 covers the icon in the text-only case.
+  Q6 covers the icon in the text-only case.
 
 ### 9. Copy and localization
 
@@ -506,7 +549,8 @@ Nothing found. Checked:
   text box's size, to avoid a jump.
 - The badge adds no request: it rides on `ClientSummary`.
 - React Compiler is on: no manual memoization.
-- The editor's extra read is one small request, only while the assistant is enabled (F8).
+- The editor's extra read is the small notice route, only while the assistant is enabled (F8).
+  On the BFF it is two gRPC calls and no text read (BFF-F5).
 
 ### 12. Effort, risk, and dependencies
 
@@ -515,25 +559,39 @@ See §7.
 **F7 (High): the privacy text gates the launch (R33)**
 - **What:** there is no feature switch (PRD §6), so the first BFF deploy sends the anamnese to
   Anthropic and the first web deploy shows the tab (API-F17). `/privacidade` must change before
-  either. The current draft is contradicted in four places:
-  - §4 says health-data consent comes "antes de qualquer registro" (`page.tsx:100-104`). R41/R42
-    record the anamnese before consent, on the trainer's basis.
-  - §4's list of what goes to Anthropic (`:107-114`) doesn't include the anamnese.
-  - §4's "Não enviamos o cadastro do aluno…" (`:115-121`) needs the anamnese added as something
-    that *is* sent, plus advice like the plan-text sentence's.
-  - §7 retention (`:162-180`): the anamnese is kept, hidden, after a relationship ends, until
-    either account is deleted (API Q2).
-
-  §5 ("Os dados de um aluno são vistos pelo próprio aluno e pelo treinador dele", `:126`) is
-  now nuanced: the client doesn't see it in the app (R3), and admins never see it (R4).
-- **Where:** `src/app/privacidade/page.tsx`; `src/lib/legal/versions.ts` (`LEGAL_TEXT_DATE`);
-  R32–R34, R41, R42.
+  either. Audit of the current draft, section by section (`page.tsx:30-180`):
+  - **§1 (`:36-38`):** the client data the trainer controls is listed as "cadastro, planos,
+    registros de treino e feedback". The anamnese is client data under the trainer's control
+    (R32) and is missing from the list.
+  - **§2 (`:43-82`):** "Dados que coletamos e para quê" has no item for the anamnese. It needs
+    one: what it holds (the client's health and training background, written by the trainer),
+    and what for (guide the trainer and the AI assistant).
+  - **§3 (`:85-96`):** the bases name the client's specific consent (art. 11, I) for health
+    data. R41 puts the anamnese on the trainer's own basis as controller, not on the client's
+    consent, and R42 allows it before any consent. The legal wording of that basis is for the
+    R34 legal review. This assessment only flags the contradiction; the PR must not invent a
+    legal basis.
+  - **§4 (`:100-104`):** health-data consent comes "antes de qualquer registro". The anamnese is
+    recorded before consent (R41, R42).
+  - **§4 (`:107-114`):** the list of what goes to Anthropic doesn't include the anamnese.
+  - **§4 (`:115-121`):** "Não enviamos o cadastro do aluno…" needs the anamnese added as
+    something that *is* sent, plus advice like the plan-text sentence's.
+  - **§5 (`:126`):** "Os dados de um aluno são vistos pelo próprio aluno e pelo treinador dele".
+    The client doesn't see the anamnese in the app (R3), only in the data export (R35).
+  - **§5 (`:127-130`):** "Um número restrito de administradores da Vertice pode acessá-los para
+    suporte e segurança" contradicts R4 for the anamnese: no admin ever sees it.
+  - **§7 (`:162-180`):** retention. The anamnese is kept, hidden, after a relationship ends,
+    until either account is deleted (API Q2).
+- **Where:** `src/app/privacidade/page.tsx:30-180`; `src/lib/legal/versions.ts`
+  (`LEGAL_TEXT_DATE`); R4, R32–R35, R41, R42.
 - **Why it matters:** R33 is the PRD's only launch condition. The text is also what the pending
   legal review reads.
 - **Recommendation:**
   - A separate small web PR, merged right after the API PR and before vertice-ai/BFF.
   - Change `LEGAL_TEXT_DATE` only, no version bump, following the AI precedent
     (`page.tsx:10-14`). The lawyer may reverse that.
+  - Write the §3 basis as a placeholder marked for the R34 legal review, as the draft already
+    does for other pending items.
   - Check `/termos` for a trainer-responsibility clause that should mention the anamnese.
 
 ## 5. Options
@@ -558,16 +616,24 @@ A, and C's cost isn't worth it for a single text field.
   - "remaining to delete" for the over-limit line.
 - The draft/baseline rule (F5): dirty detection; a refetch adopted when clean, ignored when
   dirty; rebase on own save; blank save returns the E1 state.
-- `src/lib/assistant/chat.test.ts` (existing file): conflict after proposal alone,
-  R51 + conflict (two bubbles, fixed order), conflict after a text answer, and an unknown kind
-  still ignored.
+- `src/lib/assistant/contract` parsing: `line` kept for `left_out` and `anamnese_conflict`;
+  dropped for an unknown value, with the `delta` kept.
+- `src/lib/assistant/chat.test.ts` (existing file):
+  - proposal, then `left_out`, then `anamnese_conflict`: two separate bubbles, in that order
+    (E25);
+  - proposal, then `anamnese_conflict` alone;
+  - a text answer followed by `anamnese_conflict`: the conflict is its own message, not
+    appended to the answer;
+  - an unknown `line` value is appended to the open bubble as plain text, never dropped;
+  - a repeated `line` in one turn, as the spec decides (default: a message of its own).
 - `contract.test.ts`: the new schema alias and bound match the generated contract.
 - `useLeaveGuard`: if its click-filter logic (same origin, modifiers, `_blank`, same pathname)
   is a pure predicate, unit-test the predicate.
 
 **`storybook` project:**
 - `[studentId]/AnamneseTab.stories.tsx`, seeded with `withSeededQueries`, one story per frame
-  state: E1 empty (AI on, AI off for R39/E21), saved with "Atualizada em", dirty with
+  state: E1 empty (AI on, AI off for R39/E21; the side card shows the "Só você vê no app…"
+  copy), saved with "Atualizada em", dirty with
   "Alterações não salvas", over limit with "Salvar" disabled, loading, load error, save error
   keeping the text. A `play` test pastes 6,000 characters and checks nothing is cut (E2).
 - A `StudentDetailContent` story for E3: a dirty tab plus a click on "Planos de treino" opens
@@ -575,8 +641,12 @@ A, and C's cost isn't worth it for a single text field.
 - `?aba=anamnese` opens the tab (F3).
 - `AlunosContent.stories.tsx`: a row with "Sem anamnese", and a row with "Suspenso" and
   "Sem anamnese".
-- `AiChatPanel.stories.tsx`: strip present, absent (link `target="_blank"` to
-  `?aba=anamnese`), unknown (no strip), and the conflict line with the icon, including E25.
+- `AiChatPanel.stories.tsx`:
+  - `present`: the line names `client.name`, and "Ver anamnese" has `target="_blank"` to
+    `/alunos/${client.id}?aba=anamnese`;
+  - `missing`: "Preencher anamnese" with the same link;
+  - `unavailable`, pending and failed: no strip and no link;
+  - the conflict line with the icon, including E25.
 
 **Not covered by automation:** `beforeunload` (E24) and the real cross-tab flow (E13). Check
 them by hand on a running stack before merge. Pages stay without tests. Story coverage of
@@ -600,77 +670,89 @@ No engine like the workout editor's is needed. F4 and F6 are where the time goes
 **Dependencies, in merge order (from API-F17, adjusted for the web):**
 1. vertice-api (RPCs, roster flag, inventory).
 2. **This repo: the privacy text PR (F7)**, before anything exposes the feature.
-3. vertice-ai (optional field, conflict slot), then vertice-bff (routes, `hasAnamnese`, chat
-   read, conflict signal).
+3. vertice-ai (optional field, conflict slot), then vertice-bff (routes, `hasAnamnese`, the
+   notice route, chat read, `line` on `text`; BFF-F3).
 4. This repo: the tab, the badge and the panel, after `.bff-ref` points at the BFF merge.
 5. The owner's design approval (F1) gates step 4's start, not step 2.
 
 **Smaller first slice:** the tab and badge (R9–R21, R39) can ship once the BFF routes are live,
 with the panel strip and conflict line (R25–R31) in a second web PR after vertice-ai's conflict
-slot. Both slices are in the existing frames except the states in F10.
+slot. Both slices are in the existing frames, plus the states being drawn for F10.
 
 ## 8. Questions and assumptions
 
-None of these could be put to the owner during this run. Each has the assumption the spec
-should use.
+Q2, Q3, Q4 and Q10 are closed. The others have the assumption the spec should use until the
+owner answers.
 
 - **Q1.** Does the owner approve section `c1tY9` (after F10's states are added), and where does
   `design-ok` get recorded, given there is no web PRD?
   - **Assumption:** on the vertice-api PRD's `Design:` line. Implementation waits for it.
-- **Q2.** A former trainer opens the assistant on a former client's workout (API Q1). What does
-  the panel show?
-  - **Assumption:** no strip at all. The read answers 403 → `unknown`. R26's "Preencher" link
-    would lead to a page they can't open.
-- **Q3.** Can the side card's "Só você vê. <nome> não tem acesso a este texto." be reworded to
-  stay true under R35?
-  - **Assumption:** yes, scoped to the app, with a mention of the client's data request (F9).
-    Final words from the owner or lawyer.
-- **Q4.** Are browser back/forward and "Sair" from the profile menu acceptable gaps in R15?
-  - **Assumption:** yes. Links, tab switches, "Encerrar acompanhamento", reload and close are
+- **Q2 (closed, owner decision).** A former trainer opens the assistant on a former client's
+  workout (API Q1, BFF Q1). What does the panel show?
+  - **Decision:** no strip and no link. The notice route answers `unavailable` (BFF-F5), and the
+    chat works as R27 says.
+- **Q3 (closed, owner decision).** How is the side card's "Só você vê. <nome> não tem acesso a
+  este texto." reworded to stay true under R35?
+  - **Decision:** "Só você vê no app. <nome> não vê este texto no aplicativo, mas pode recebê-lo
+    se pedir uma cópia dos seus dados." (F9).
+- **Q4 (closed, owner decision).** Are browser back/forward and "Sair" from the profile menu
+  acceptable gaps in R15?
+  - **Decision:** yes. Links, tab switches, "Encerrar acompanhamento", reload and close are
     covered (Option B).
 - **Q5.** What is the URL for the tab?
   - **Assumption:** `/alunos/:id?aba=anamnese`. The other tabs get `planos`, `feedbacks` and
     `progresso`, and switching uses `router.replace`.
 - **Q6.** When the conflict line follows a text answer (no proposal), does it get the same
   warning-icon line as in `x9k4ZI`?
-  - **Assumption:** yes, whenever the stream marks it as the conflict line. If vertice-ai can
-    only fold it into the model's text in text mode, it renders as plain text there.
-- **Q7.** How do loading, load error, saving and save error look (F10)?
+  - **Assumption:** yes, whenever the event carries `line: "anamnese_conflict"`. If vertice-ai
+    can only fold it into the model's text in text mode, it renders as plain text there.
+- **Q7.** How do loading, load error, saving and save error look (F10)? The frames are being
+  drawn now.
   - **Assumption:**
     - loading: skeleton blocks;
     - load error: message plus "Tentar novamente";
     - saving: loading "Salvar";
     - save error: an inline danger line above "Salvar" that keeps the text (403: "Você não
       acompanha mais este aluno.").
-- **Q8.** Where does the editor get "has an anamnese" for the strip?
-  - **Assumption:** from `GET /api/clients/:clientId/anamnese` (non-empty `updatedAt`), fetched
-    only while the assistant is enabled. A BFF boolean on `ClientDetail` would be preferable if
-    the BFF assessment offers one.
+- **Q8.** Where does the editor get the strip's state?
+  - **Assumption:** from `GET /api/assistant/anamnese-notice?trainingPlanId=` (BFF-F5, Option C)
+    → `{ state, client }`. It is queried only while the assistant is enabled. The anamnese text
+    is never read for it (F8).
 - **Q9.** Does "Encerrar acompanhamento" with unsaved anamnese changes ask first?
   - **Assumption:** yes, through `confirmLeave` before its dialog opens. Ending the relationship
     makes the anamnese unreachable anyway (R7).
-- **Q10.** Does the BFF contract match §4.2's assumptions (paths, empty state as 200, 403 for
-  non-roster ids, `hasAnamnese`, a typed conflict line)?
-  - **Assumption:** yes. The spec re-checks against the BFF assessment once it is written.
+- **Q10 (closed).** Does the BFF contract match what this assessment needs?
+  - **Answer:** yes, checked against the BFF assessment (vertice-bff#79):
+    - the anamnese routes and their empty state and 403s (BFF-F7);
+    - `PUT` answering 200 with the saved state (BFF Q5);
+    - `hasAnamnese` (BFF-F9);
+    - the notice route (BFF-F5);
+    - `line` on `text` (BFF-F6, BFF Q4).
+
+    vertice-ai's spec still owns the final shape of `line`. The web spec re-checks it there.
 
 ## 9. Inputs to the spec
 
 - [ ] F1: design approval of section `c1tY9` and where `design-ok` is recorded; implementation
       waits for it.
-- [ ] F2: the BFF contract (paths, shapes, empty state, error codes, `hasAnamnese`, conflict
-      signal) and the `.bff-ref` merge gate.
+- [ ] F2: the BFF contract per BFF-F5/F6/F7/F9 (anamnese routes, notice route, `hasAnamnese`,
+      `line` on `text`) and the `.bff-ref` merge gate.
 - [ ] F4: the leave-guard mechanism (Option B), what it covers, and the accepted gaps.
 - [ ] F5: the draft/baseline rule: seed once, rebase only on own save, adopt refetches only
       when clean.
-- [ ] F6: the conflict line's wire shape, the chat-store kind, one bubble per line, and the
-      web/BFF merge timing.
-- [ ] F7: the privacy-text changes (§4, §5, §7, `LEGAL_TEXT_DATE`) as a separate PR merged
-      before the BFF.
+- [ ] F6: parsing `line` (`left_out`, `anamnese_conflict`; an unknown value treated as a plain
+      delta), one message per `line` event in order, the `conflict` kind with its icon, what a
+      repeated `line` does, and the web/BFF merge timing. vertice-ai's spec has the final shape.
+- [ ] F7: the privacy-text changes across `page.tsx:30-180` (§1, §2, §3 marked for the R34
+      legal review, §4, §5 including the admin bullet, §7, and `LEGAL_TEXT_DATE`), as a
+      separate PR merged before the BFF.
 - [ ] F3: `?aba=` values, `router.replace` on switch, and the panel link target.
-- [ ] F8: the panel strip's query (key, `staleTime: 0`, focus refetch, enabled only with the
-      assistant on) and its three states.
-- [ ] F9: the replacement for "Só você vê…".
-- [ ] F10: the missing states, added to the design or decided in the spec.
+- [ ] F8: the notice query (`["assistant", "anamnese-notice", planId]`, `staleTime: 0`, refetch
+      on focus and on panel open, enabled only with the assistant on), and the panel prop
+      (`present`/`missing`/`unavailable` plus `client`). `unavailable`, pending and failed show no
+      strip.
+- [ ] F9: the owner's side-card copy (Q3).
+- [ ] F10: the missing states, from the frames being drawn in `c1tY9`.
 - [ ] F11: the query key and the invalidations on save.
 - [ ] F13: inline save errors, never a redirect on the mutation; 403 copy.
 - [ ] F15: kit `TextArea` variant vs. a domain text box with a counter.
