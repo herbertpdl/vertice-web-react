@@ -103,8 +103,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Anamnese:</strong> é registrada pelo treinador com base própria dele, como
-            controlador dos dados dos seus alunos, assim como os planos que ele escreve, e não com
-            base no consentimento do aluno.
+            controlador dos dados dos seus alunos, e não com base no consentimento do aluno.
           </li>
         </ul>
       </LegalSection>
@@ -194,8 +193,8 @@ export default function PrivacyPage() {
           <li>
             Só a versão mais recente da anamnese é guardada. Quando o vínculo entre o treinador e
             o aluno termina, ela é mantida, mas o treinador deixa de vê-la; se ele voltar a treinar
-            o aluno, ela volta a aparecer. Ela é excluída, sem cópia, quando a conta do aluno ou a
-            do treinador é excluída.
+            o aluno, ela volta a aparecer. Ela é excluída quando a conta do aluno ou a do
+            treinador é excluída.
           </li>
           <li>Os registros de acesso dos servidores são mantidos por 30 dias.</li>
           <li>
