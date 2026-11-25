@@ -143,7 +143,7 @@ nothing about the client. `WorkoutEditor.tsx` already loads the plan and the stu
 `{ enabled: boolean }` only (`schema.ts:1712-1715`). The chat store appends every `text` event
 to the open text bubble. That bubble is reset only by a `stage` or a `proposal` (`chat.ts:237-246,
 270, 288`), so two lines after a proposal would merge. `parseAssistantEvent` reads only `delta`
-from a `text` event (`contract.ts:124-127`), so a `line` field would be ignored today. It drops
+from a `text` event (`contract.ts:122-125`), so a `line` field would be ignored today. It drops
 unknown event names (`contract.ts:140-142`).
 
 **Leave warnings.** Only the workout editor has them (`WorkoutEditor.tsx:296-340`):
@@ -494,7 +494,7 @@ AI use that isn't on.
   - The wire shape (BFF-F6, BFF Q4) is an optional `line?: "left_out" | "anamnese_conflict"` on
     the `text` event. Each such line is one complete event, and R51's line comes first. Plain
     answer text has no `line`. vertice-ai's spec owns the final shape; the BFF mirrors it.
-  - Today `parseAssistantEvent` keeps only `delta` (`contract.ts:124-127`).
+  - Today `parseAssistantEvent` keeps only `delta` (`contract.ts:122-125`).
   - In `chat.ts`, after a `proposal` the store resets `textId` once (`:288`). Every following
     `text` delta goes into that one bubble (`:237-246`), so the two lines would arrive as one
     paragraph.
