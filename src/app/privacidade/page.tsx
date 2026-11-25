@@ -12,6 +12,8 @@ const linkClass = "font-semibold text-[color:var(--color-primary)]";
 // LEGAL_VERSIONS.terms (the Terms of Use and this policy are accepted together). One exception:
 // the AI workout assistant's text (sections 4, 6 and 7, VRT-44) changed only LEGAL_TEXT_DATE,
 // because the AI PRD's §7 decides there is no re-consent; the lawyer's review may reverse that.
+// The client anamnese's text (sections 1 to 5 and 7, VRT-57) followed the same precedent: the
+// anamnese PRD (vertice-api docs/prds/client-anamnese, R32, R41) asks no new client consent.
 export default function PrivacyPage() {
   return (
     <LegalDocument
@@ -33,7 +35,8 @@ export default function PrivacyPage() {
             <strong>Dados da conta do treinador:</strong> a Vertice é a controladora.
           </li>
           <li>
-            <strong>Dados dos alunos</strong> (cadastro, planos, registros de treino e feedback): o
+            <strong>Dados dos alunos</strong> (cadastro, planos, anamnese, registros de treino e
+            feedback): o
             treinador do aluno é o controlador e a Vertice é a operadora, tratando os dados em nome
             dele.
           </li>
@@ -75,6 +78,12 @@ export default function PrivacyPage() {
             evolução.
           </li>
           <li>
+            <strong>Anamnese:</strong> o histórico de saúde e de treino do aluno (como objetivo,
+            histórico de saúde, lesões e dores, medicamentos, limitações, rotina e experiência com
+            treino), escrito pelo treinador, para orientar o treinador e o assistente de treino
+            com IA ao montar os treinos desse aluno.
+          </li>
+          <li>
             <strong>Registros de acesso:</strong> os servidores registram dados técnicos das
             requisições (como endereço IP e identificadores de usuário) para segurança e
             diagnóstico.
@@ -90,7 +99,11 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Consentimento específico</strong> (LGPD art. 11, I) para os dados relacionados
-            à saúde, descritos abaixo.
+            à saúde, descritos abaixo, exceto a anamnese.
+          </li>
+          <li>
+            <strong>Anamnese:</strong> é registrada pelo treinador com base própria dele, como
+            controlador dos dados dos seus alunos, e não com base no consentimento do aluno.
           </li>
         </ul>
       </LegalSection>
@@ -104,20 +117,26 @@ export default function PrivacyPage() {
           registradas. O aluno pode revogar o consentimento pelo e-mail de contato.
         </p>
         <p>
+          A anamnese também é um dado sensível, mas não depende desse consentimento: o treinador a
+          registra com base própria dele (seção 3) e pode escrevê-la antes do primeiro acesso do
+          aluno.
+        </p>
+        <p>
           <strong>Assistente de treino com IA:</strong> quando o treinador usa o assistente no
           editor de treinos, a Vertice envia à Anthropic, em nome do treinador, o que o assistente
           precisa para responder: o treino aberto na tela (exercícios, séries, cargas, descansos e
           observações), o nome, a descrição, o nível e as datas do plano, um resumo dos outros
-          treinos do plano, os nomes e grupos musculares dos exercícios do catálogo do treinador e
-          a conversa com o assistente. Esses dados são enviados apenas para gerar as respostas do
+          treinos do plano, os nomes e grupos musculares dos exercícios do catálogo do treinador,
+          a anamnese que o treinador escreveu sobre o aluno do plano (quando houver) e a conversa
+          com o assistente. Esses dados são enviados apenas para gerar as respostas do
           assistente.
         </p>
         <p>
           Não enviamos o cadastro do aluno (como nome, e-mail ou CPF), nem as cargas que ele
           registrou, os registros de treino ou o feedback dele. Os textos escritos pelo treinador
-          (o nome e a descrição do plano, as observações dos exercícios e as mensagens ao
-          assistente) são enviados como ele os escreveu; por isso, o treinador deve evitar incluir
-          neles o nome ou outros dados pessoais do aluno.
+          (o nome e a descrição do plano, as observações dos exercícios, a anamnese e as mensagens
+          ao assistente) são enviados como ele os escreveu; por isso, o treinador deve evitar
+          incluir neles o nome ou outros dados que identifiquem o aluno.
         </p>
       </LegalSection>
 
@@ -125,8 +144,13 @@ export default function PrivacyPage() {
         <ul>
           <li>Os dados de um aluno são vistos pelo próprio aluno e pelo treinador dele.</li>
           <li>
+            A anamnese é a exceção: só o treinador atual do aluno vê e edita a anamnese que ele
+            mesmo escreveu, e nenhum treinador vê a de outro. O aluno não a vê no aplicativo, mas
+            ela é incluída na cópia dos dados pessoais que ele pedir.
+          </li>
+          <li>
             Um número restrito de administradores da Vertice pode acessá-los para suporte e
-            segurança.
+            segurança, exceto a anamnese, que nenhum administrador vê.
           </li>
           <li>
             O CPF do aluno aparece mascarado para o treinador, que só o vê completo quando pede, e
@@ -165,6 +189,12 @@ export default function PrivacyPage() {
             Os dados da conta, dos planos, dos registros de treino e do feedback são mantidos
             enquanto a conta estiver ativa. Quando a conta é excluída, seus dados pessoais são
             excluídos ou anonimizados.
+          </li>
+          <li>
+            Só a versão mais recente da anamnese é guardada. Quando o vínculo entre o treinador e
+            o aluno termina, ela é mantida, mas o treinador deixa de vê-la; se ele voltar a treinar
+            o aluno, ela volta a aparecer. Ela é excluída quando a conta do aluno ou a do
+            treinador é excluída.
           </li>
           <li>Os registros de acesso dos servidores são mantidos por 30 dias.</li>
           <li>
