@@ -16,15 +16,35 @@ import { fetchFeedback } from "@/lib/api/feedback";
 import { planLevelLabels } from "@/lib/validation/trainingPlans";
 import { formatRelativeTime, daysUntil } from "@/lib/format";
 import { useRedirectOnError } from "@/lib/hooks/useRedirectOnError";
+import { useLeaveGuard } from "@/lib/hooks/useLeaveGuard";
+import { studentTabHref, type StudentTab } from "@/lib/studentTabs";
 import { PlansTab } from "./PlansTab";
 import { FeedbackTab } from "./FeedbackTab";
 import { ProgressTab } from "./ProgressTab";
+import { AnamneseTab } from "./AnamneseTab";
 
-type Tab = "plans" | "feedback" | "progress";
-
-export function StudentDetailContent({ studentId }: { studentId: number }) {
-  const [tab, setTab] = useState<Tab>("plans");
+export function StudentDetailContent({
+  studentId,
+  initialTab = "plans",
+}: {
+  studentId: number;
+  /** From `?aba=` (spec D1); the page maps unknown values to plans. */
+  initialTab?: StudentTab;
+}) {
+  const [tab, setTab] = useState<StudentTab>(initialTab);
   const router = useRouter();
+  // The Anamnese tab's unsaved changes (R15): tab switches, links and "Encerrar acompanhamento" ask.
+  const [anamneseDirty, setAnamneseDirty] = useState(false);
+  const leaveGuard = useLeaveGuard(anamneseDirty);
+
+  function switchTab(next: StudentTab) {
+    if (next === tab) return;
+    leaveGuard.confirmLeave(() => {
+      setTab(next);
+      // No history entry: a reload keeps the tab, back still leaves the page (spec D1).
+      router.replace(studentTabHref(studentId, next), { scroll: false });
+    });
+  }
   const [accessLinkOpen, setAccessLinkOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
@@ -87,7 +107,7 @@ export function StudentDetailContent({ studentId }: { studentId: number }) {
           </div>
         </div>
         <div className="flex items-center gap-[var(--space-3)]">
-          <Button type="button" variant="ghost" onClick={() => setEndOpen(true)}>
+          <Button type="button" variant="ghost" onClick={() => leaveGuard.confirmLeave(() => setEndOpen(true))}>
             Encerrar acompanhamento
           </Button>
           {/* For a client who hasn't set a password yet (or whose link expired). */}
@@ -161,12 +181,14 @@ export function StudentDetailContent({ studentId }: { studentId: number }) {
             ["plans", "Planos de treino"],
             ["feedback", `Feedbacks${feedbackCount ? ` (${feedbackCount})` : ""}`],
             ["progress", "Progresso de carga"],
-          ] as [Tab, string][]
+            ["anamnese", "Anamnese"],
+          ] as [StudentTab, string][]
         ).map(([key, label]) => (
           <button
             key={key}
             type="button"
-            onClick={() => setTab(key)}
+            aria-current={tab === key ? "page" : undefined}
+            onClick={() => switchTab(key)}
             className={`border-b-2 px-[2px] pb-[var(--space-3)] text-[length:var(--text-base)] font-semibold transition-colors ${
               tab === key
                 ? "border-[var(--color-primary)] text-[color:var(--color-primary)]"
@@ -181,6 +203,28 @@ export function StudentDetailContent({ studentId }: { studentId: number }) {
       {tab === "plans" && <PlansTab clientId={studentId} />}
       {tab === "feedback" && <FeedbackTab clientId={studentId} />}
       {tab === "progress" && <ProgressTab clientId={studentId} />}
+      {tab === "anamnese" && (
+        <AnamneseTab clientId={studentId} clientName={student.name} onDirtyChange={setAnamneseDirty} />
+      )}
+
+      {leaveGuard.asking && (
+        <Dialog title="Sair sem salvar a anamnese?" width={480} onClose={leaveGuard.stay}>
+          <div className="flex w-full flex-col gap-[var(--space-5)]">
+            <p className="text-[length:var(--text-sm)] leading-[1.5] text-[color:var(--color-text-secondary)]">
+              Você mudou a anamnese de {student.name} e ainda não salvou. Se sair agora, essas mudanças
+              serão perdidas.
+            </p>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={leaveGuard.stay}>
+                Continuar editando
+              </Button>
+              <Button type="button" variant="danger" onClick={leaveGuard.leave}>
+                Sair sem salvar
+              </Button>
+            </DialogFooter>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }

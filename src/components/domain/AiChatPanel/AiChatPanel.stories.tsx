@@ -161,3 +161,73 @@ export const OverTheLimit: Story = {
     await expect(canvas.getByRole("button", { name: "Enviar" })).toBeDisabled();
   },
 };
+
+/** R25, R28, E11 (frame `iIb3w`): the fixed line naming the client, "Ver anamnese" in a new browser tab. */
+export const AnamnesePresent: Story = {
+  args: { anamneseNotice: { state: "present", client: { id: 3, name: "Maria Silva" } } },
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByText("A IA usa a anamnese de Maria Silva como referência para montar o treino."),
+    ).toBeVisible();
+    const link = canvas.getByRole("link", { name: /Ver anamnese/ });
+    await expect(link).toHaveAttribute("href", "/alunos/3?aba=anamnese");
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    // The chat works as before.
+    await expect(canvas.getByText("Como posso ajudar com este treino?")).toBeVisible();
+  },
+};
+
+/** R26, R27, E12 (frame `k1OeP5`): the notice with the fill-in link; the chat stays usable. */
+export const AnamneseMissing: Story = {
+  args: {
+    anamneseNotice: { state: "missing", client: { id: 3, name: "Maria Silva" } },
+    state: chat([], { input: "Oi" }),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Maria Silva ainda não tem anamnese.")).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "Com a anamnese preenchida, a IA conhece a saúde e o histórico de treino do aluno e monta treinos melhores. Você pode usar o assistente mesmo sem ela.",
+      ),
+    ).toBeVisible();
+    const link = canvas.getByRole("link", { name: /Preencher anamnese/ });
+    await expect(link).toHaveAttribute("href", "/alunos/3?aba=anamnese");
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(canvas.getByRole("button", { name: "Enviar" })).toBeEnabled();
+  },
+};
+
+/** Q2: a former trainer's panel (`unavailable`) shows no strip and no link; neither does a pending or failed read. */
+export const AnamneseUnavailable: Story = {
+  args: { anamneseNotice: { state: "unavailable", client: null } },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByText(/anamnese/i)).toBeNull();
+    await expect(canvas.queryByRole("link")).toBeNull();
+  },
+};
+
+/** E25, R31 (frame `s0yr3`): the left-out line and the conflict line, separate, after the ready line. */
+export const LeftOutAndConflict: Story = {
+  args: {
+    anamneseNotice: { state: "present", client: { id: 3, name: "Maria Silva" } },
+    state: chat([
+      { id: "m1", turn: "t1", role: "user", kind: "text", text: "Adicione box jump e burpee com salto ao treino, 3 séries de 8." },
+      { id: "m2", turn: "t1", role: "assistant", kind: "ready", text: READY_MESSAGE },
+      { id: "m3", turn: "t1", role: "assistant", kind: "left_out", text: "Não encontrei “Burpee com salto” no catálogo, por isso ficou de fora." },
+      { id: "m4", turn: "t1", role: "assistant", kind: "conflict", text: "A anamnese diz “dor no joelho direito, evitar impacto”, e o box jump é um exercício de impacto." },
+    ]),
+  },
+  play: async ({ canvas }) => {
+    const leftOut = canvas.getByText("Não encontrei “Burpee com salto” no catálogo, por isso ficou de fora.");
+    const conflict = canvas.getByText(
+      "A anamnese diz “dor no joelho direito, evitar impacto”, e o box jump é um exercício de impacto.",
+    );
+    await expect(leftOut).toBeVisible();
+    await expect(conflict).toBeVisible();
+    // Two lines, in order, the conflict one marked with its warning icon.
+    await expect(leftOut.compareDocumentPosition(conflict) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await expect(leftOut.parentElement).not.toBe(conflict.parentElement);
+    await expect(canvas.getByRole("img", { name: "Conflito com a anamnese" })).toBeInTheDocument();
+  },
+};

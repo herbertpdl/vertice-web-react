@@ -1,6 +1,6 @@
 /**
  * Generated from vertice-bff's OpenAPI document. Do not edit by hand.
- * Source:    herbertpdl/vertice-bff@20444752b6c0aa79a70e4e4805adbf628361d196:docs/openapi.json
+ * Source:    herbertpdl/vertice-bff@8c9048744f86c4aa223a992b0fc666cec38ece0d:docs/openapi.json
  * Spec:      vertice-bff 0.1.0 (OpenAPI 3.1.0)
  * Generator: openapi-typescript@7.13.0
  *
@@ -282,6 +282,30 @@ export interface paths {
          */
         get: operations["getClientOverview"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/clients/{id}/anamnese": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A client’s anamnese
+         * @description Roles: TRAINER. One of your clients (a former client is 403). With none, `{ "text": "", "updatedAt": null }`, never a 404.
+         */
+        get: operations["getClientAnamnese"];
+        /**
+         * Save a client’s anamnese
+         * @description Roles: TRAINER. One of your clients. Replaces the whole text (last save wins, no history), stored as written. A blank text clears it and answers the empty state. Over 5,000 UTF-16 units is a 400.
+         */
+        put: operations["saveClientAnamnese"];
         post?: never;
         delete?: never;
         options?: never;
@@ -917,6 +941,26 @@ export interface paths {
          * @description Roles: TRAINER. Per trainer: the `AI_ASSISTANT_ENABLED` feature flag, read with one `EvaluateFeatureFlag` call with the trainer’s token (20 s deadline, no cache). Always 200: any failure to read the flag, or a BFF with no vertice-ai configured, answers `false`. May lag an admin change by up to 30 s (the API’s cache). The web hides the AI icon while `enabled` is false.
          */
         get: operations["getAssistantStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/anamnese-notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the AI uses the anamnese of this plan’s client
+         * @description Roles: TRAINER. For the plan open in the editor (yours): `present` or `missing` with the client’s id and name (the link to their anamnese tab), or `unavailable` with `client: null` when the client is no longer yours. Never returns the anamnese itself. Each chat message reads the anamnese again, so this can lag a save made since.
+         */
+        get: operations["getAnamneseNotice"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1665,6 +1709,18 @@ export interface components {
             challenge: string;
             code: string;
         };
+        AnamneseNotice: {
+            /**
+             * @description `present`: the AI uses your anamnese of this client; `missing`: you have none (offer the link); `unavailable`: the client is no longer yours (show nothing).
+             * @enum {string}
+             */
+            state: "present" | "missing" | "unavailable";
+            /** @description The plan’s client, for the notice and the link; null exactly when `unavailable`. */
+            client: {
+                id: number;
+                name: string;
+            } | null;
+        };
         AssistantDoneEvent: Record<string, never>;
         AssistantErrorEvent: {
             /** @enum {string} */
@@ -1735,8 +1791,13 @@ export interface components {
             data: components["schemas"]["AssistantErrorEvent"];
         };
         AssistantTextEvent: {
-            /** @description The next piece of the answer; append it to what came before. */
+            /** @description Without `line`: the next piece of the answer, append it to what came before. With `line`: one whole line. */
             delta: string;
+            /**
+             * @description Absent on answer text. `left_out`: what the proposal left out; `anamnese_conflict`: what the request conflicts with in the anamnese. Each is one complete event, shown as its own line, at most once per stream, `left_out` first.
+             * @enum {string}
+             */
+            line?: "left_out" | "anamnese_conflict";
         };
         AssistantWorkoutExerciseEntry: {
             exerciseId: number;
@@ -1755,6 +1816,12 @@ export interface components {
         ChangePasswordRequest: {
             currentPassword: string;
             newPassword: string;
+        };
+        ClientAnamnese: {
+            /** @description As stored, untrimmed; empty when there is none. Health data: render it only on its tab. */
+            text: string;
+            /** @description When it was last saved; null when `text` is empty. */
+            updatedAt: string | null;
         };
         ClientDetail: {
             id: number;
@@ -1805,6 +1872,8 @@ export interface components {
             }[];
             /** @description An admin suspended the client: they stay on the roster but cannot sign in until reactivated. */
             suspended: boolean;
+            /** @description Whether you wrote an anamnese for this client (the “Sem anamnese” badge when false). */
+            hasAnamnese: boolean;
         };
         ClientTrainer: {
             name: string;
@@ -2119,6 +2188,10 @@ export interface components {
         };
         /** @enum {string} */
         Role: "ADMIN" | "TRAINER" | "CLIENT";
+        SaveClientAnamneseRequest: {
+            /** @description The whole anamnese, stored as written (not trimmed). At most 5,000 UTF-16 units (a character outside the BMP counts two). A blank text clears it. */
+            text: string;
+        };
         SessionUser: {
             id: number;
             name: string;
@@ -3229,6 +3302,108 @@ export interface operations {
             };
             /** @description Not found (`NOT_FOUND`). */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getClientAnamnese: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The anamnese, or the empty state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAnamnese"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code (`ACCOUNT_SUSPENDED`, `ADMIN_LOGIN_ELSEWHERE`, `SESSION_NOT_RENEWABLE` on the routes that say so). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    saveClientAnamnese: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveClientAnamneseRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored state (the empty state after a clear). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAnamnese"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code (`ACCOUNT_SUSPENDED`, `ADMIN_LOGIN_ELSEWHERE`, `SESSION_NOT_RENEWABLE` on the routes that say so). */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5721,6 +5896,65 @@ export interface operations {
             };
             /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getAnamneseNotice: {
+        parameters: {
+            query: {
+                /** @description The plan open in the editor. */
+                trainingPlanId: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The notice state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnamneseNotice"];
+                };
+            };
+            /** @description A malformed path id, query or body (`VALIDATION_ERROR` with field `details`), or a route-specific 400 code. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing, invalid or expired token (`UNAUTHORIZED`), the account no longer exists (`UNAUTHENTICATED`), or a route-specific 401 code. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The role or the owner check refuses the caller (`FORBIDDEN`), or a route-specific 403 code (`ACCOUNT_SUSPENDED`, `ADMIN_LOGIN_ELSEWHERE`, `SESSION_NOT_RENEWABLE` on the routes that say so). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found (`NOT_FOUND`). */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

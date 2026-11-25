@@ -43,6 +43,8 @@ export interface StageItem {
 export type ChatMessage =
   | { id: string; turn: string; role: "user"; kind: "text"; text: string }
   | { id: string; turn: string; role: "assistant"; kind: "text" | "ready"; text: string }
+  /** A `text` event's own line (client-anamnese D11): what was left out (AI-R51), a conflict with the anamnese (R30). */
+  | { id: string; turn: string; role: "assistant"; kind: "left_out" | "conflict"; text: string }
   | { id: string; turn: string; role: "assistant"; kind: "stages"; stages: StageItem[] }
   | {
       id: string;
@@ -120,7 +122,9 @@ export function historyOf(state: ChatState): HistoryTurn[] {
   for (const m of state.messages) {
     if (!state.answered.has(m.turn)) continue;
     if (m.role === "user") turns.push({ role: "user", text: m.text });
-    else if (m.kind === "text" || m.kind === "ready") turns.push({ role: "assistant", text: m.text });
+    else if (m.kind === "text" || m.kind === "ready" || m.kind === "left_out" || m.kind === "conflict") {
+      turns.push({ role: "assistant", text: m.text });
+    }
   }
   return trimHistory(turns);
 }
@@ -236,7 +240,18 @@ export function createChatStore(deps: ChatDeps): ChatStore {
     switch (event.type) {
       case "text": {
         armTimer(handle);
-        if (handle.textId === null) {
+        if (event.line) {
+          // A whole line of its own (R31, E25): never merged into the answer, and text after it
+          // starts a new bubble.
+          push({
+            id: nextId("m"),
+            turn: handle.turn,
+            role: "assistant",
+            kind: event.line === "anamnese_conflict" ? "conflict" : "left_out",
+            text: event.text,
+          });
+          handle.textId = null;
+        } else if (handle.textId === null) {
           handle.textId = nextId("m");
           push({ id: handle.textId, turn: handle.turn, role: "assistant", kind: "text", text: event.text });
         } else {

@@ -1,10 +1,32 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
-import { Check, CircleAlert, CircleStop, Info, Send, Sparkles, X } from "lucide-react";
+import {
+  Check,
+  CircleAlert,
+  CircleMinus,
+  CircleStop,
+  ClipboardList,
+  ClipboardPen,
+  ExternalLink,
+  Info,
+  Send,
+  Sparkles,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { Button, Spinner } from "@/components/ui";
 import { ASSISTANT_MESSAGE_MAX } from "@/lib/assistant/contract";
-import { DISCLAIMER } from "@/lib/assistant/copy";
+import {
+  ANAMNESE_MISSING_LINK,
+  ANAMNESE_MISSING_TEXT,
+  ANAMNESE_PRESENT_LINK,
+  DISCLAIMER,
+  anamneseMissingTitle,
+  anamnesePresentLine,
+} from "@/lib/assistant/copy";
+import type { AnamneseNotice } from "@/lib/api/types";
+import { studentTabHref } from "@/lib/studentTabs";
 import { canSend, isBusy, messageLength, type ChatMessage, type ChatState } from "@/lib/assistant/chat";
 
 /** The counter is always shown; from here on it turns to the warning color (R10, frame `Cz6l0`). */
@@ -19,6 +41,53 @@ export interface AiChatPanelProps {
   onStop: () => void;
   onRetry: () => void;
   onClose: () => void;
+  /**
+   * `GET /assistant/anamnese-notice`'s answer (client-anamnese D10). Absent while pending or after a
+   * failure, and `unavailable` (a former trainer): no strip.
+   */
+  anamneseNotice?: AnamneseNotice | null;
+}
+
+/** R25–R28: whether the AI uses the client's anamnese, with a link that opens its tab in a new browser tab. */
+function AnamneseStrip({ notice }: { notice: AnamneseNotice }) {
+  if (notice.state === "unavailable" || !notice.client) return null;
+  const present = notice.state === "present";
+  const link = (
+    <a
+      href={studentTabHref(notice.client.id, "anamnese")}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex w-fit items-center gap-[6px] text-[13px] font-semibold text-[color:var(--color-primary)] hover:underline"
+    >
+      {present ? ANAMNESE_PRESENT_LINK : ANAMNESE_MISSING_LINK}
+      <ExternalLink width={13} height={13} aria-hidden />
+      <span className="sr-only">(abre em nova aba)</span>
+    </a>
+  );
+  return (
+    <div
+      className={`flex gap-[10px] border-b border-[var(--color-border)] px-[var(--space-5)] py-[12px] ${
+        present ? "bg-[#7c4dff14]" : "bg-[#ffb02014]"
+      }`}
+    >
+      {present ? (
+        <ClipboardList width={16} height={16} className="mt-[1px] shrink-0 text-[color:var(--color-secondary-hover)]" aria-hidden />
+      ) : (
+        <ClipboardPen width={16} height={16} className="mt-[1px] shrink-0 text-[color:var(--color-warning)]" aria-hidden />
+      )}
+      <div className="flex min-w-0 flex-col gap-[6px] text-[13px] leading-[1.5]">
+        {present ? (
+          <p className="text-[color:var(--color-text-secondary)]">{anamnesePresentLine(notice.client.name)}</p>
+        ) : (
+          <>
+            <p className="font-semibold text-[color:var(--color-text-primary)]">{anamneseMissingTitle(notice.client.name)}</p>
+            <p className="text-[color:var(--color-text-secondary)]">{ANAMNESE_MISSING_TEXT}</p>
+          </>
+        )}
+        {link}
+      </div>
+    </div>
+  );
 }
 
 const numberFormat = new Intl.NumberFormat("pt-BR");
@@ -91,6 +160,19 @@ function Bubble({ message, isLast, onRetry }: { message: ChatMessage; isLast: bo
           {message.text}
         </div>
       );
+    case "left_out":
+    case "conflict":
+      // A line of its own (R31, E25; frames `x9k4ZI`, `s0yr3`): never merged into the answer.
+      return (
+        <div className="flex max-w-[92%] items-start gap-[8px] text-[length:var(--text-sm)] leading-[1.55] text-[color:var(--color-text-primary)]">
+          {message.kind === "conflict" ? (
+            <TriangleAlert width={16} height={16} className="mt-[2px] shrink-0 text-[color:var(--color-warning)]" role="img" aria-label="Conflito com a anamnese" />
+          ) : (
+            <CircleMinus width={16} height={16} className="mt-[2px] shrink-0 text-[color:var(--color-text-secondary)]" aria-hidden />
+          )}
+          <span className="whitespace-pre-wrap">{message.text}</span>
+        </div>
+      );
     case "text":
       return (
         <div className="max-w-[92%] whitespace-pre-wrap text-[length:var(--text-sm)] leading-[1.55] text-[color:var(--color-text-primary)]">
@@ -110,7 +192,7 @@ function Bubble({ message, isLast, onRetry }: { message: ChatMessage; isLast: bo
  * screen, so the input stays in view however the page above and below it (header, legal footer)
  * is scrolled.
  */
-export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }: AiChatPanelProps) {
+export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose, anamneseNotice }: AiChatPanelProps) {
   const inputId = useId();
   const counterId = useId();
   const listRef = useRef<HTMLDivElement>(null);
@@ -204,6 +286,8 @@ export function AiChatPanel({ state, onInput, onSend, onStop, onRetry, onClose }
           <X width={16} height={16} />
         </button>
       </div>
+
+      {anamneseNotice && <AnamneseStrip notice={anamneseNotice} />}
 
       <div
         ref={listRef}

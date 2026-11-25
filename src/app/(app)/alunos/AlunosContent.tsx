@@ -163,6 +163,12 @@ export function AlunosContent() {
                     Suspenso
                   </Badge>
                 )}
+                {/* No anamnese written by this trainer yet (client-anamnese R21, E5; frame `iDTb7`). */}
+                {!student.hasAnamnese && (
+                  <Badge variant="warning" className="shrink-0">
+                    Sem anamnese
+                  </Badge>
+                )}
               </div>
               <div style={{ width: COLUMN_WIDTHS.plan }} className="flex flex-col gap-[1px]">
                 {student.currentPlan ? (
